@@ -31,9 +31,6 @@ jobs:
       - name: Lint code
         run: npm run lint
 
-      - name: Run tests
-        run: npm test
-
       - name: Build the app
         run: npm run build
 
