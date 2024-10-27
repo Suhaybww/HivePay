@@ -28,7 +28,7 @@ const Introduction = () => {
               asChild
             >
               <Link href="/how-it-works">
-                Discover How It Works
+                Create an Account
               </Link>
             </Button>
           </div>

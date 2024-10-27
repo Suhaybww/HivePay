@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { buttonVariants } from '../components/ui/button';
 import Introduction from '../components/Introduction';
-import KeyBenefits from '../components/KeyBenefits'; 
 import HowItWorks from '../components/HowItWorks';
 import FeaturesSpotlight from '../components/FeaturesSpotlight';
+import FinalCTA from '../components/FinalCTA';
+import Footer from '../components/Footer';
 
 // Home component
 const Home = async () => {
@@ -88,14 +89,18 @@ const Home = async () => {
         {/* Section 2: Introduction */}
         <Introduction />
 
-        {/* Section 3: Key Benefits */}
-        <KeyBenefits />
-
         {/* Section 4: How It Works */}
         <HowItWorks />
 
         {/* Section 5: Features Spotlight */}
         <FeaturesSpotlight />
+
+        {/* Section 6: Final Call-to-Action */}
+        <FinalCTA />
+
+        {/* Footer */}
+
+        <Footer />
 
       </div>
     </>
