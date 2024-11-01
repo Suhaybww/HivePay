@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Ensure you have this environment variable set
+}
+
+model User {
+  id                 String             @id @default(uuid())
+  firstName          String
+  lastName           String
+  email              String             @unique
+  phoneNumber        String
+  age                Int
+  passwordHash       String
+  stripeCustomerId   String
+  subscriptionStatus SubscriptionStatus
+  subscriptions      Subscription[]     @relation("UserSubscriptions")
+  groupMemberships   GroupMembership[]
+  payments           Payment[]
+  payouts            Payout[]
+  transactions       Transaction[]
+  groupsCreated      Group[]            @relation("UserGroupsCreated")
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  user                 User               @relation("UserSubscriptions", fields: [userId], references: [id])
+  userId               String
+  stripeSubscriptionId String
+  status               SubscriptionStatus
+  startDate            DateTime
+  endDate              DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model Group {
+  id                String            @id @default(cuid())
+  name              String
+  description       String?
+  createdBy         User              @relation("UserGroupsCreated", fields: [createdById], references: [id])
+  createdById       String
+  payoutOrderMethod PayoutOrderMethod
+  groupMemberships  GroupMembership[]
+  payouts           Payout[]
+  payments          Payment[]
+  transactions      Transaction[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model GroupMembership {
+  id          String           @id @default(cuid())
+  group       Group            @relation(fields: [groupId], references: [id])
+  groupId     String
+  user        User             @relation(fields: [userId], references: [id])
+  userId      String
+  joinDate    DateTime         @default(now())
+  payoutOrder Int
+  isAdmin     Boolean          @default(false)
+  status      MembershipStatus
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Payout {
+  id                  String        @id @default(cuid())
+  group               Group         @relation(fields: [groupId], references: [id])
+  groupId             String
+  user                User          @relation(fields: [userId], references: [id])
+  userId              String
+  scheduledPayoutDate DateTime
+  amount              Decimal       @db.Decimal(10, 2)
+  status              PayoutStatus
+  transactions        Transaction[]
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  user            User          @relation(fields: [userId], references: [id])
+  userId          String
+  group           Group         @relation(fields: [groupId], references: [id])
+  groupId         String
+  amount          Decimal       @db.Decimal(10, 2)
+  paymentDate     DateTime      @default(now())
+  stripePaymentId String
+  status          PaymentStatus
+  transactions    Transaction[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Transaction {
+  id               String          @id @default(cuid())
+  user             User            @relation(fields: [userId], references: [id])
+  userId           String
+  group            Group           @relation(fields: [groupId], references: [id])
+  groupId          String
+  amount           Decimal         @db.Decimal(10, 2)
+  transactionType  TransactionType
+  transactionDate  DateTime        @default(now())
+  description      String?
+  relatedPayment   Payment?        @relation(fields: [relatedPaymentId], references: [id])
+  relatedPaymentId String?
+  relatedPayout    Payout?         @relation(fields: [relatedPayoutId], references: [id])
+  relatedPayoutId  String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+enum SubscriptionStatus {
+  Active
+  Inactive
+  Canceled
+}
+
+enum PayoutOrderMethod {
+  Admin_Selected
+  First_Come_First_Serve
+}
+
+enum MembershipStatus {
+  Active
+  Inactive
+}
+
+enum PayoutStatus {
+  Pending
+  Completed
+}
+
+enum PaymentStatus {
+  Successful
+  Failed
+}
+
+enum TransactionType {
+  Debit
+  Credit
+}
