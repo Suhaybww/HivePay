@@ -21,6 +21,8 @@ export const appRouter = router({
         },
       });
 
+      let isNewUser = false;
+
       if (!dbUser) {
         // If user doesn't exist, create them
         const { SubscriptionStatus } = await import('@prisma/client');
@@ -41,10 +43,19 @@ export const appRouter = router({
           },
         });
 
+        isNewUser = true;
         console.log('Created new user:', dbUser);
       }
 
-      return { success: true, userId: user.id };
+      // Check if user needs onboarding (missing phone number)
+      const needsOnboarding = !dbUser.phoneNumber;
+
+      return { 
+        success: true, 
+        isNewUser: isNewUser,
+        needsOnboarding: needsOnboarding 
+      };
+
     } catch (error) {
       console.error('Error in authCallback:', error);
       throw new TRPCError({ 
@@ -53,6 +64,45 @@ export const appRouter = router({
       });
     }
   }),
+
+  updateUserDetails: publicProcedure
+    .input(
+      z.object({
+        phoneNumber: z.string(),
+        age: z.number().min(18).max(120).optional(),
+        gender: z.enum(['Male', 'Female']).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { getUser } = getKindeServerSession();
+      const user = await getUser();
+
+      if (!user?.id) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
+
+      try {
+        const updatedUser = await db.user.update({
+          where: { id: user.id },
+          data: {
+            phoneNumber: input.phoneNumber,
+            age: input.age,
+            gender: input.gender,
+          },
+        });
+
+        return {
+          success: true,
+          user: updatedUser,
+        };
+      } catch (error) {
+        console.error('Failed to update user:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to update user details',
+        });
+      }
+    }),
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,148 +1,86 @@
-'use client';
+import Link from 'next/link'
+import MaxWidthWrapper from './MaxWidthWrapper'
+import { buttonVariants } from './ui/button'
+import {
+  LoginLink,
+  RegisterLink,
+  getKindeServerSession,
+} from '@kinde-oss/kinde-auth-nextjs/server'
+import { ArrowRight } from 'lucide-react'
+import UserAccountNav from './UserAccountNav'
+import MobileNav from './MobileNav'
+import { db } from '@/src/db'
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { 
-  LoginLink, 
-  RegisterLink, 
-  LogoutLink,
-  useKindeBrowserClient 
-} from "@kinde-oss/kinde-auth-nextjs";
-import { ArrowRight } from 'lucide-react';
-import Image from 'next/image';
-import MaxWidthWrapper from './MaxWidthWrapper';
+const Navbar = async () => {
+  const { getUser } = getKindeServerSession()
+  const kindeUser = await getUser()
 
-const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const { user, isLoading } = useKindeBrowserClient();
+  // Fetch user from database if logged in
+  const user = kindeUser ? await db.user.findUnique({
+    where: { id: kindeUser.id }
+  }) : null
 
   return (
-    <nav className="sticky top-0 z-30 w-full border-b border-gray-200 bg-white/75 backdrop-blur-lg transition-all">
+    <nav className='sticky h-14 inset-x-0 top-0 z-30 w-full border-b border-gray-200 bg-white/75 backdrop-blur-lg transition-all'>
       <MaxWidthWrapper>
-        <div className="flex h-14 items-center justify-between">
-          <Link href="/" className="text-2xl font-semibold text-gray-900">
-            Roundly.
+        <div className='flex h-14 items-center justify-between border-b border-zinc-200'>
+          <Link
+            href='/'
+            className='flex z-40 font-semibold'>
+            <span>Roundly.</span>
           </Link>
 
-          {/* Mobile menu button */}
-          <div className="sm:hidden">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-500 hover:text-gray-900"
-            >
-              ☰
-            </button>
-          </div>
+          <MobileNav isAuth={!!user} />
 
-          {/* Desktop navigation */}
-          <div className={`hidden sm:flex items-center space-x-4`}>
-            <Link href="/pricing" className="text-gray-700 hover:text-gray-900">
-              Pricing
-            </Link>
-
-            {!isLoading && (
+          <div className='hidden items-center space-x-4 sm:flex'>
+            {!user ? (
               <>
-                {!user ? (
-                  <>
-                    <LoginLink className="text-gray-700 hover:text-gray-900">
-                      Sign in
-                    </LoginLink>
-                    <RegisterLink className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-all flex items-center">
-                      Get started
-                      <ArrowRight className="ml-1.5 h-5 w-5" />
-                    </RegisterLink>
-                  </>
-                ) : (
-                  <>
-                    <Link href="/dashboard" className="text-gray-700 hover:text-gray-900">
-                      Dashboard
-                    </Link>
-                    <div className="flex items-center space-x-3">
-                      {user.picture && (
-                        <Image
-                          src={user.picture}
-                          alt={user.given_name || 'User'}
-                          width={32}
-                          height={32}
-                          className="rounded-full"
-                        />
-                      )}
-                      <span className="text-gray-700">{user.given_name}</span>
-                    </div>
-                    <LogoutLink className="text-red-500 hover:text-red-700">
-                      Logout
-                    </LogoutLink>
-                  </>
-                )}
+                <Link
+                  href='/pricing'
+                  className={buttonVariants({
+                    variant: 'ghost',
+                    size: 'sm',
+                  })}>
+                  Pricing
+                </Link>
+                <LoginLink
+                  className={buttonVariants({
+                    variant: 'ghost',
+                    size: 'sm',
+                  })}>
+                  Sign in
+                </LoginLink>
+                <RegisterLink
+                  className={buttonVariants({
+                    size: 'sm',
+                  })}>
+                  Get started{' '}
+                  <ArrowRight className='ml-1.5 h-5 w-5' />
+                </RegisterLink>
+              </>
+            ) : (
+              <>
+                <Link
+                  href='/dashboard'
+                  className={buttonVariants({
+                    variant: 'ghost',
+                    size: 'sm',
+                  })}>
+                  Dashboard
+                </Link>
+
+                <UserAccountNav
+                  name={`${user.firstName} ${user.lastName}`}
+                  email={user.email}
+                  subscriptionStatus={user.subscriptionStatus}
+                />
               </>
             )}
           </div>
-
-          {/* Mobile navigation */}
-          {isOpen && (
-            <div className="sm:hidden absolute top-14 left-0 right-0 bg-white border-b border-gray-200 py-2 px-4 space-y-2">
-              <Link
-                href="/pricing"
-                className="block px-3 py-2 text-gray-700 hover:text-gray-900"
-                onClick={() => setIsOpen(false)}
-              >
-                Pricing
-              </Link>
-
-              {!isLoading && (
-                <>
-                  {!user ? (
-                    <>
-                      <LoginLink 
-                        className="block px-3 py-2 text-gray-700 hover:text-gray-900"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        Sign in
-                      </LoginLink>
-                      <RegisterLink 
-                        className="block px-3 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-700"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        Get started <ArrowRight className="inline ml-1.5 h-5 w-5" />
-                      </RegisterLink>
-                    </>
-                  ) : (
-                    <>
-                      <Link
-                        href="/dashboard"
-                        className="block px-3 py-2 text-gray-700 hover:text-gray-900"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        Dashboard
-                      </Link>
-                      <div className="px-3 py-2 flex items-center space-x-2">
-                        {user.picture && (
-                          <Image
-                            src={user.picture}
-                            alt={user.given_name || 'User'}
-                            width={32}
-                            height={32}
-                            className="rounded-full"
-                          />
-                        )}
-                        <span className="text-gray-700">{user.given_name}</span>
-                      </div>
-                      <LogoutLink 
-                        className="block px-3 py-2 text-red-600 hover:text-red-700"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        Logout
-                      </LogoutLink>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          )}
         </div>
       </MaxWidthWrapper>
     </nav>
-  );
-};
+  )
+}
 
-export default Navbar;
+export default Navbar

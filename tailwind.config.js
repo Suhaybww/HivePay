@@ -6,7 +6,7 @@ module.exports = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     "./src/**/*.{js,ts,jsx,tsx}",  
-	],
+  ],
   theme: {
     container: {
       center: true,
@@ -23,8 +23,9 @@ module.exports = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "#7C3AED", // purple-600
+          light: "#9F67FF",   // light purple for hover
+          foreground: "white",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -50,6 +51,18 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        purple: {
+          50: "#F8F5FF",
+          100: "#EDE8FF",
+          200: "#DED3FF",
+          300: "#C3B0FF",
+          400: "#A585FF",
+          500: "#8B5CF6",
+          600: "#7C3AED",
+          700: "#6D28D9",
+          800: "#5B21B6",
+          900: "#4C1D95",
+        }
       },
       borderRadius: {
         lg: "var(--radius)",

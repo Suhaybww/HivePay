@@ -6,20 +6,24 @@ import { Loader2 } from 'lucide-react'
 
 const Page = () => {
   const router = useRouter()
-
   const searchParams = useSearchParams()
   const origin = searchParams.get('origin')
 
   trpc.authCallback.useQuery(undefined, {
-    onSuccess: ({ success }) => {
+    onSuccess: ({ success, needsOnboarding }) => {
       if (success) {
-        // user is synced to db
-        router.push(origin ? `/${origin}` : '/dashboard')
+        if (needsOnboarding) {
+          // If user needs onboarding, show the modal
+          router.push('/onboarding')
+        } else {
+          // Otherwise, proceed to dashboard or origin
+          router.push(origin ? `/${origin}` : '/dashboard')
+        }
       }
     },
     onError: (err) => {
       if (err.data?.code === 'UNAUTHORIZED') {
-        router.push('/sign-in')
+        router.push('/api/auth/login')
       }
     },
     retry: true,
