@@ -2,14 +2,19 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { 
+  LoginLink, 
+  RegisterLink, 
+  LogoutLink,
+  useKindeBrowserClient 
+} from "@kinde-oss/kinde-auth-nextjs";
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import MaxWidthWrapper from './MaxWidthWrapper';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isLoading } = useUser();
+  const { user, isLoading } = useKindeBrowserClient();
 
   return (
     <nav className="sticky top-0 z-30 w-full border-b border-gray-200 bg-white/75 backdrop-blur-lg transition-all">
@@ -39,19 +44,13 @@ const Navbar = () => {
               <>
                 {!user ? (
                   <>
-                    <Link
-                      href="/api/auth/login"
-                      className="text-gray-700 hover:text-gray-900"
-                    >
+                    <LoginLink className="text-gray-700 hover:text-gray-900">
                       Sign in
-                    </Link>
-                    <Link
-                      href="/api/auth/signup"
-                      className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-all flex items-center"
-                    >
+                    </LoginLink>
+                    <RegisterLink className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-all flex items-center">
                       Get started
                       <ArrowRight className="ml-1.5 h-5 w-5" />
-                    </Link>
+                    </RegisterLink>
                   </>
                 ) : (
                   <>
@@ -62,17 +61,17 @@ const Navbar = () => {
                       {user.picture && (
                         <Image
                           src={user.picture}
-                          alt={user.name || 'User'}
+                          alt={user.given_name || 'User'}
                           width={32}
                           height={32}
                           className="rounded-full"
                         />
                       )}
-                      <span className="text-gray-700">{user.name}</span>
+                      <span className="text-gray-700">{user.given_name}</span>
                     </div>
-                    <Link href="/api/auth/logout" className="text-red-500 hover:text-red-700">
+                    <LogoutLink className="text-red-500 hover:text-red-700">
                       Logout
-                    </Link>
+                    </LogoutLink>
                   </>
                 )}
               </>
@@ -94,20 +93,18 @@ const Navbar = () => {
                 <>
                   {!user ? (
                     <>
-                      <Link
-                        href="/api/auth/login"
+                      <LoginLink 
                         className="block px-3 py-2 text-gray-700 hover:text-gray-900"
                         onClick={() => setIsOpen(false)}
                       >
                         Sign in
-                      </Link>
-                      <Link
-                        href="/api/auth/signup"
+                      </LoginLink>
+                      <RegisterLink 
                         className="block px-3 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-700"
                         onClick={() => setIsOpen(false)}
                       >
                         Get started <ArrowRight className="inline ml-1.5 h-5 w-5" />
-                      </Link>
+                      </RegisterLink>
                     </>
                   ) : (
                     <>
@@ -122,21 +119,20 @@ const Navbar = () => {
                         {user.picture && (
                           <Image
                             src={user.picture}
-                            alt={user.name || 'User'}
+                            alt={user.given_name || 'User'}
                             width={32}
                             height={32}
                             className="rounded-full"
                           />
                         )}
-                        <span className="text-gray-700">{user.name}</span>
+                        <span className="text-gray-700">{user.given_name}</span>
                       </div>
-                      <Link
-                        href="/api/auth/logout"
+                      <LogoutLink 
                         className="block px-3 py-2 text-red-600 hover:text-red-700"
                         onClick={() => setIsOpen(false)}
                       >
                         Logout
-                      </Link>
+                      </LogoutLink>
                     </>
                   )}
                 </>

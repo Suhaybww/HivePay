@@ -1,28 +1,30 @@
-'use client';
+import Dashboard from '@/src/components/Dashboard'
+import { db } from '@/src/db'
+// import { getUserSubscriptionPlan } from '@/lib/stripe'
+import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
+import { redirect } from 'next/navigation'
 
-import { useUser } from '@auth0/nextjs-auth0/client';
-import { redirect } from 'next/navigation';
+const Page = async () => {
+    const session = await getKindeServerSession();
+    const user = await session.getUser();
+  
+    // Redirect to the auth callback page if the user session is not available
+    if (!user || !user.id) redirect('/auth-callback?origin=dashboard');
+  
+    // Fetch the user from the database using the user ID
+    const dbUser = await db.user.findFirst({
+      where: {
+        id: user.id,
+      },
+    });
+  
+    // Redirect to the auth callback page if the user is not found in the database
+    if (!dbUser) redirect('/auth-callback?origin=dashboard');
+  
 
-export default function Dashboard() {
-  const { user, error, isLoading } = useUser();
-
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>{error.message}</div>;
-  if (!user) {
-    redirect('/api/auth/login');
-    return null;
-  }
-
-  return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Welcome {user.name}!</h1>
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold">Profile Information</h2>
-          <p>Email: {user.email}</p>
-          {user.email_verified && <p className="text-green-600">✓ Email verified</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
+  
+    // Render the Dashboard component with the user data from the database
+    return <Dashboard user={dbUser} />;
+  };
+  
+  export default Page;
