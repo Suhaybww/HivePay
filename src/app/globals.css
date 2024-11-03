@@ -10,19 +10,19 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 262 83% 58%; /* Changed to purple-600 */
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
+    --accent: 262 83% 96%; /* Light purple accent */
     --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 86% 97%; /* custom value */
-    --destructive-foreground: 0 74% 42%; /* custom value */
+    --destructive: 0 86% 97%;
+    --destructive-foreground: 0 74% 42%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 262 83% 58%; /* Changed to match primary */
     --radius: 0.5rem;
   }
  
@@ -33,19 +33,19 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
+    --primary: 262 83% 58%; /* Changed to purple-600 */
     --primary-foreground: 222.2 47.4% 11.2%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 262 83% 96%; /* Light purple accent */
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --ring: 262 83% 58%; /* Changed to match primary */
   }
 }
 
@@ -79,4 +79,20 @@
 
 .scrollbar-thumb-rounded::-webkit-scrollbar-thumb {
   border-radius: 7px;
+}
+
+/* Add purple hover utilities */
+.hover-purple {
+  @apply hover:bg-purple-50 transition-colors duration-200;
+}
+
+/* Add purple scrollbar variant */
+.scrollbar-thumb-purple::-webkit-scrollbar-thumb {
+  --bg-opacity: 0.5;
+  background-color: rgb(124 58 237 / 0.45); /* purple-600 with opacity */
+}
+
+.scrollbar-track-purple-lighter::-webkit-scrollbar-track {
+  --bg-opacity: 0.5;
+  background-color: rgb(124 58 237 / 0.1); /* very light purple */
 }
