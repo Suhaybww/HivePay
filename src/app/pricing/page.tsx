@@ -5,8 +5,46 @@ import Link from 'next/link';
 import MaxWidthWrapper from '@/src/components/MaxWidthWrapper';
 import { motion } from 'framer-motion';
 import { PLANS } from '@/src/config/stripe';
+import { trpc } from '../_trpc/client';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useToast } from '@/src/components/ui/use-toast';
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 
 const Page = () => {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const { user } = useKindeBrowserClient();
+
+  const { mutate: createStripeSession } = trpc.createStripeSession.useMutation({
+    onSuccess: ({ url }) => {
+      if (url) {
+        router.push(url);
+      }
+    },
+    onError: (err) => {
+      console.error(err);
+      toast({
+        title: 'Error',
+        description: 'Something went wrong. Please try again later.',
+        variant: 'destructive',
+        className: "fixed bottom-4 left-1/2 transform -translate-x-1/2 w-[360px]",
+      });
+      setLoadingPlan(null);
+    },
+  });
+
+  const handlePlanSelect = (plan: typeof PLANS[number]) => {
+    setLoadingPlan(plan.slug);
+    createStripeSession({ planSlug: plan.slug });
+  };
+
+  // Filter out the free plan if user is logged in
+  const displayPlans = PLANS.filter(plan => 
+    !user?.id || plan.name !== 'Free'
+  );
+
   return (
     <>
       <div className="grainy min-h-screen pb-20">
@@ -24,10 +62,10 @@ const Page = () => {
           </p>
 
           <div className='grid md:grid-cols-2 gap-8 max-w-4xl mx-auto'>
-            {PLANS.map((plan) => {
+            {displayPlans.map((plan) => {
               const price = plan.price.amount;
               const isPopular = plan.name === 'Pro';
-              const isFree = plan.name === 'Free';
+              const isLoading = loadingPlan === plan.slug;
 
               return (
                 <div key={plan.slug} className="relative">
@@ -65,8 +103,17 @@ const Page = () => {
                           ? 'bg-purple-600 text-white hover:bg-purple-700'
                           : 'hover:bg-purple-50 border border-gray-200'
                       }`}
+                      onClick={() => handlePlanSelect(plan)}
+                      disabled={isLoading}
                     >
-                      Get started
+                      {isLoading ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Processing...</span>
+                        </div>
+                      ) : (
+                        'Get started'
+                      )}
                     </motion.button>
 
                     <ul className='mt-8 space-y-4'>
