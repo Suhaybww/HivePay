@@ -9,8 +9,27 @@ import HowItWorks from '../components/HowItWorks';
 import FeaturesSpotlight from '../components/FeaturesSpotlight';
 import FinalCTA from '../components/FinalCTA';
 import Footer from '../components/Footer';
+import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
+import { redirect } from 'next/navigation';
+import { db } from '@/src/db';
 
 const Home = async () => {
+  const { getUser } = getKindeServerSession();
+  const user = await getUser();
+
+  // If user is logged in, check if they exist in the database
+  if (user) {
+    const dbUser = await db.user.findUnique({
+      where: { id: user.id },
+      select: { id: true }
+    });
+
+    // If user exists, redirect to dashboard
+    if (dbUser) {
+      redirect('/dashboard');
+    }
+  }
+
   return (
     <div className="grainy min-h-screen">
       {/* Hero Section */}

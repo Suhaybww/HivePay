@@ -15,6 +15,10 @@ export function absoluteUrl(path: string) {
   return `http://localhost:${process.env.PORT ?? 3000}${path}`
 }
 
+export function classNames(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(' ');
+}
+
 export function constructMetadata({
   title = "Roundly",
   description = "Roundly is a digital platform for secure and automated rotating savings. Whether saving with friends or family, our system ensures trust and transparency every step of the way.",

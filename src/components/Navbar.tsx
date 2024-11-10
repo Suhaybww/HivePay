@@ -15,7 +15,6 @@ const Navbar = async () => {
   const { getUser } = getKindeServerSession()
   const kindeUser = await getUser()
 
-  // Fetch user from database if logged in
   const user = kindeUser ? await db.user.findUnique({
     where: { id: kindeUser.id }
   }) : null
@@ -59,22 +58,11 @@ const Navbar = async () => {
                 </RegisterLink>
               </>
             ) : (
-              <>
-                <Link
-                  href='/dashboard'
-                  className={buttonVariants({
-                    variant: 'ghost',
-                    size: 'sm',
-                  })}>
-                  Dashboard
-                </Link>
-
-                <UserAccountNav
-                  name={`${user.firstName} ${user.lastName}`}
-                  email={user.email}
-                  subscriptionStatus={user.subscriptionStatus}
-                />
-              </>
+              <UserAccountNav
+                name={`${user.firstName} ${user.lastName}`}
+                email={user.email}
+                subscriptionStatus={user.subscriptionStatus}
+              />
             )}
           </div>
         </div>
