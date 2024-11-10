@@ -17,7 +17,7 @@ const Page = () => {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const { user } = useKindeBrowserClient();
 
-  const { mutate: createStripeSession } = trpc.createStripeSession.useMutation({
+  const { mutate: createStripeSession } = trpc.subscription.createStripeSession.useMutation({
     onSuccess: ({ url }) => {
       if (url) {
         router.push(url);

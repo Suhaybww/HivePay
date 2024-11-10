@@ -1,4 +1,3 @@
-// src/components/layouts/DashboardLayout.tsx
 import { ReactNode } from 'react'
 import SideNav from '../SideNav'
 import UserAccountNav from '../UserAccountNav'

@@ -16,9 +16,9 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user }) => {
-  const { data: groups, isLoading: groupsLoading } = trpc.getAllGroups.useQuery();
-  const { data: recentActivity, isLoading: activityLoading } = trpc.getRecentActivity.useQuery();
-  const { data: userStats } = trpc.getUserStats.useQuery();
+  const { data: groups, isLoading: groupsLoading } = trpc.group.getAllGroups.useQuery();
+  const { data: recentActivity, isLoading: activityLoading } = trpc.user.getRecentActivity.useQuery();
+  const { data: userStats } = trpc.user.getUserStats.useQuery();
 
   return (
     <div className="min-h-screen">
@@ -62,7 +62,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   </p>
                 </div>
               ) : (
-                groups?.map((group) => (
+                groups?.map((group: { id: string; name: string; _count?: { groupMemberships?: number } }) => (
                   <Link href={`/groups/${group.id}`} key={group.id}>
                     <div className="p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
                       <div className="flex items-center justify-between">

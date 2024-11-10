@@ -1,4 +1,3 @@
-// src/components/SideNav.tsx
 "use client";
 
 import { Sidebar, SidebarBody, SidebarLink } from "./ui/sidebar";
@@ -39,21 +38,13 @@ const SideNav = ({ user }: SideNavProps) => {
       href: "/groups",
       icon: <Users className="h-5 w-5 text-neutral-700 dark:text-neutral-200 flex-shrink-0" />,
     },
-    {
-      label: "Messages",
-      href: "/messages",
-      icon: <MessageSquare className="h-5 w-5 text-neutral-700 dark:text-neutral-200 flex-shrink-0" />,
-    },
+
     {
       label: "Payments",
       href: "/payments",
       icon: <CreditCard className="h-5 w-5 text-neutral-700 dark:text-neutral-200 flex-shrink-0" />,
     },
-    user.subscriptionStatus === 'Active' && {
-      label: "Analytics",
-      href: "/analytics",
-      icon: <BarChart3 className="h-5 w-5 text-neutral-700 dark:text-neutral-200 flex-shrink-0" />,
-    },
+
     {
       label: "Settings",
       href: "/settings",

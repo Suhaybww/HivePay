@@ -56,48 +56,57 @@ enum Frequency {
   Custom
 }
 
-enum VerificationMethod {
-  None
-  DocumentUpload
-  ThirdPartyService
+enum OnboardingStatus {
+  Pending
+  Completed
+  Failed
 }
+
 
 // Models
 
+
 model User {
-  id                 String              @id @unique //matches kinde user id
-  firstName          String
-  lastName           String
-  email              String              @unique
-  phoneNumber        String
-  emailVerified      Boolean             @default(false)
-  gender             Gender?             // Made optional by adding ?
-  age                Int?
-  passwordHash       String
-  stripeCustomerId   String?   @unique @map(name: "stripe_customer_id")
-  stripeAccountId    String?             @unique // For Stripe Connect account ID
-  subscriptionStatus SubscriptionStatus
-  idVerified         Boolean             @default(false)
-  verificationMethod VerificationMethod?
-  twoFactorEnabled   Boolean             @default(false)
-  stripeSubscriptionId   String?   @unique @map(name: "stripe_subscription_id")
-  stripePriceId          String?   @map(name: "stripe_price_id")
-  stripeCurrentPeriodEnd DateTime? @map(name: "stripe_current_period_end")
+  id                      String              @id @unique //matches kinde user id
+  firstName               String
+  lastName                String
+  email                   String              @unique
+  phoneNumber             String
+  gender                  Gender?             // Optional field
+  age                     Int?
 
-  subscriptions    Subscription[]    @relation("UserSubscriptions")
-  groupMemberships GroupMembership[]
-  payments         Payment[]
-  payouts          Payout[]
-  transactions     Transaction[]
-  groupsCreated    Group[]           @relation("UserGroupsCreated")
-  notifications    Notification[]
-  messagesSent     Message[]         @relation("MessagesSent")
-  votes            Vote[]
-  candidateVotes   Vote[]            @relation("CandidateVotes")
+  // Stripe Information
+  stripeCustomerId        String?             @unique @map(name: "stripe_customer_id")
+  stripeAccountId         String?             @unique
+  stripeSubscriptionId    String?             @unique @map(name: "stripe_subscription_id")
+  stripePriceId           String?             @map(name: "stripe_price_id")
+  stripeCurrentPeriodEnd  DateTime?           @map(name: "stripe_current_period_end")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // BECS Direct Debit Information
+  stripeSetupIntentId     String?             // Setup Intent ID for BECS setup
+  stripeBecsPaymentMethodId String?           // Payment Method ID for BECS direct debit
+  becsSetupStatus         String              @default("pending") // Setup status: pending, completed, or failed
+  stripeMandateId         String?             // Mandate ID for recurring authorization (optional)
+
+  subscriptionStatus      SubscriptionStatus
+  onboardingStatus        OnboardingStatus    @default(Pending) 
+  onboardingDate          DateTime?           
+
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  // Relations
+  subscriptions           Subscription[]      @relation("UserSubscriptions")
+  groupMemberships        GroupMembership[]
+  payments                Payment[]
+  payouts                 Payout[]
+  transactions            Transaction[]
+  groupsCreated           Group[]             @relation("UserGroupsCreated")
+  notifications           Notification[]
+  messagesSent            Message[]           @relation("MessagesSent")
 }
+
+
 
 model Plan {
   id            String         @id @default(cuid())
@@ -145,7 +154,6 @@ model Group {
   payments         Payment[]
   transactions     Transaction[]
   messages         Message[]
-  votes            Vote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -235,15 +243,4 @@ model Message {
   senderId  String
   content   String
   createdAt DateTime @default(now())
-}
-
-model Vote {
-  id          String   @id @default(cuid())
-  group       Group    @relation(fields: [groupId], references: [id])
-  groupId     String
-  user        User     @relation(fields: [userId], references: [id])
-  userId      String
-  candidate   User     @relation("CandidateVotes", fields: [candidateId], references: [id])
-  candidateId String
-  createdAt   DateTime @default(now())
 }

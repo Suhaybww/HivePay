@@ -12,10 +12,11 @@ const AuthCallbackComponent = () => {
   console.log('Rendering auth-callback component');
 
   // Fetch authentication callback data with retry logic
-  const { data, error, isLoading } = trpc.authCallback.useQuery(undefined, {
+  const { data, error, isLoading } = trpc.auth.authCallback.useQuery(undefined, {
     retry: true,
     retryDelay: 500,
   });
+  
 
   console.log('Authentication callback data:', data);
   console.log('Authentication callback error:', error);
