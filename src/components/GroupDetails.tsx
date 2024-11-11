@@ -28,6 +28,7 @@ import {
   XCircle,
   AlertTriangle,
   InfoIcon,
+  Loader2,
 } from "lucide-react"
 import { useToast } from "@/src/components/ui/use-toast"
 import { trpc } from "@/src/app/_trpc/client"
@@ -40,8 +41,9 @@ import { Label } from "@/src/components/ui/label"
 import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { DatePicker } from "@/src/components/ui/date-picker" // Adjust the path accordingly
+import { DatePicker } from "@/src/components/ui/date-picker" 
 import { cn } from "../lib/utils"
+import { Avatar, AvatarFallback } from "@/src/components/ui/avatar"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "")
 
@@ -65,51 +67,14 @@ const StartCycleSchema = z.object({
   }),
 });
 
-const FemaleIcon = () => (
-  <div className="relative w-5 h-5 text-red-500">
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-full"
-    >
-      <circle cx="12" cy="8" r="5" stroke="currentColor" strokeWidth="2" />
-      <path d="M12 13v8M9 18h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  </div>
-)
+const InitialsAvatar = ({ firstName, lastName }: { firstName: string; lastName: string }) => (
+  <Avatar className="h-8 w-8 bg-purple-900 text-black font-bold">
+    <AvatarFallback>
+      {`${firstName[0] || ''}${lastName[0] || ''}`}
+    </AvatarFallback>
+  </Avatar>
+);
 
-const MaleIcon = () => (
-  <div className="relative w-5 h-5 text-blue-500">
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-full"
-    >
-      <circle cx="10" cy="14" r="5" stroke="currentColor" strokeWidth="2" />
-      <path
-        d="M13.5 10.5l5-5M15 5h3.5V8.5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  </div>
-)
-
-const GenderIcon = ({ gender }: { gender: string | null }) => {
-  if (!gender) return <User2 className="w-5 h-5 text-gray-500" />
-
-  switch (gender.toUpperCase()) {
-    case "FEMALE":
-      return <FemaleIcon />
-    case "MALE":
-      return <MaleIcon />
-    default:
-      return <User2 className="w-5 h-5 text-gray-500" />
-  }
-}
 
 export function GroupDetails({ group }: GroupDetailsProps) {
   const [isStartCycleDialogOpen, setIsStartCycleDialogOpen] = useState(false)
@@ -119,6 +84,8 @@ export function GroupDetails({ group }: GroupDetailsProps) {
   const { toast } = useToast()
   const router = useRouter()
   const utils = trpc.useContext()
+  const [isConnectingBank, setIsConnectingBank] = useState(false);
+  const [isAddingPayment, setIsAddingPayment] = useState(false);
 
   // Fetch current user's setup status
   const { data: userSetupStatus } = trpc.user.getUserSetupStatus.useQuery()
@@ -201,25 +168,26 @@ export function GroupDetails({ group }: GroupDetailsProps) {
       })
     },
   })
-
-    // Form for date updates
-    const dateUpdateForm = useForm({
-      defaultValues: {
-        scheduleDate: group.nextContributionDate ? new Date(group.nextContributionDate) : undefined,
-        payoutDate: group.nextPayoutDate ? new Date(group.nextPayoutDate) : undefined,
-      },
-    })
   
 
   // Handle Stripe Onboarding
   const handleStripeOnboarding = async () => {
-    await createStripeAccount.mutateAsync()
-  }
-
-  // Handle BECS Setup
+    setIsConnectingBank(true);
+    try {
+      await createStripeAccount.mutateAsync();
+    } finally {
+      setIsConnectingBank(false);
+    }
+  };
+  
   const handleBECSSetup = async () => {
-    await setupBECSMutation.mutateAsync()
-  }
+    setIsAddingPayment(true);
+    try {
+      await setupBECSMutation.mutateAsync();
+    } finally {
+      setIsAddingPayment(false);
+    }
+  };
 
   // Form setup using react-hook-form
   const {
@@ -241,15 +209,6 @@ const onSubmit = (data: StartCycleFormData) => {
     groupId: group.id,
     scheduleDate: data.scheduleDate,
     payoutDate: data.payoutDate,
-  });
-};
-
-// Also update the handleDateUpdate function
-const handleDateUpdate = (data: any) => {
-  updateGroupDatesMutation.mutate({
-    groupId: group.id,
-    scheduleDate: data.scheduleDate instanceof Date ? data.scheduleDate.toISOString() : data.scheduleDate,
-    payoutDate: data.payoutDate instanceof Date ? data.payoutDate.toISOString() : data.payoutDate,
   });
 };
 
@@ -313,49 +272,119 @@ const handleDateUpdate = (data: any) => {
           </Button>
         )}
       </div>
+{/* Payment Setup Status Section */}
+<Card className="mb-6">
+  <CardHeader>
+    <div className="flex items-center justify-between">
+      <CardTitle>Payment Setup Status</CardTitle>
+      <Badge variant="outline" className="font-medium">
+        2 of 2 required
+      </Badge>
+    </div>
+  </CardHeader>
+  <CardContent className="grid gap-4">
 
-      {/* User Setup Status Section */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Your Setup Status</h3>
-        <div className="flex items-center space-x-8">
-          <div className="flex items-center space-x-2">
-            {userSetupStatus?.stripeOnboardingStatus === "Completed" ? (
-              <CheckCircle className="text-green-500 w-6 h-6" />
-            ) : (
-              <XCircle className="text-red-500 w-6 h-6" />
-            )}
-            <span>Receive Payment Setup</span>
-            {userSetupStatus?.stripeOnboardingStatus !== "Completed" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleStripeOnboarding}
-                className="ml-2"
-              >
-                Complete Setup
-              </Button>
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            {userSetupStatus?.becsSetupStatus === "Completed" ? (
-              <CheckCircle className="text-green-500 w-6 h-6" />
-            ) : (
-              <XCircle className="text-red-500 w-6 h-6" />
-            )}
-            <span>Direct Debit Setup</span>
-            {userSetupStatus?.becsSetupStatus !== "Completed" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBECSSetup}
-                className="ml-2"
-              >
-                Complete Setup
-              </Button>
-            )}
-          </div>
-        </div>
+    {/* Receive Payment Setup */}
+    <div className="flex items-start space-x-4 rounded-lg bg-card/50 border p-4">
+      <div className="rounded-full p-2 bg-background">
+        {userSetupStatus?.stripeOnboardingStatus === "Completed" ? (
+          <CheckCircle className="text-green-500 w-5 h-5" />
+        ) : (
+          <CircleDollarSign className="text-muted-foreground w-5 h-5" />
+        )}
       </div>
+      
+      <div className="flex-1 space-y-1">
+        <div className="flex items-center justify-between">
+          <p className="font-medium">Receive Payment Setup</p>
+          {userSetupStatus?.stripeOnboardingStatus === "Completed" ? (
+            <Badge variant="success" className="bg-green-100 text-green-700 hover:bg-green-100">
+              Completed
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-muted-foreground">
+              Required
+            </Badge>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Connect your bank account to receive your payout when it's your turn
+        </p>
+        {userSetupStatus?.stripeOnboardingStatus !== "Completed" && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleStripeOnboarding}
+          disabled={isConnectingBank}
+          className="mt-2.5"
+        >
+          {isConnectingBank ? (
+            <>
+        <Loader2 className="mr-2 h-4 w-4 animate-spin text-purple-900" />
+        Connecting...
+            </>
+          ) : (
+            <>
+              <CircleDollarSign className="mr-2 h-4 w-4" />
+              Connect Bank Account
+            </>
+          )}
+        </Button>
+      )}
+      </div>
+    </div>
+
+    {/* Payment Method Setup */}
+    <div className="flex items-start space-x-4 rounded-lg bg-card/50 border p-4">
+      <div className="rounded-full p-2 bg-background">
+        {userSetupStatus?.becsSetupStatus === "Completed" ? (
+          <CheckCircle className="text-green-500 w-5 h-5" />
+        ) : (
+          <CreditCard className="text-muted-foreground w-5 h-5" />
+        )}
+      </div>
+      
+      <div className="flex-1 space-y-1">
+        <div className="flex items-center justify-between">
+          <p className="font-medium">Payment Method Setup</p>
+          {userSetupStatus?.becsSetupStatus === "Completed" ? (
+            <Badge variant="success" className="bg-green-100 text-green-700 hover:bg-green-100">
+              Completed
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-muted-foreground">
+              Required
+            </Badge>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Add a payment method for your recurring contributions to the group
+        </p>
+        {userSetupStatus?.becsSetupStatus !== "Completed" && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleBECSSetup}
+          disabled={isAddingPayment}
+          className="mt-2.5"
+        >
+          {isAddingPayment ? (
+            <>
+        <Loader2 className="mr-2 h-4 w-4 animate-spin text-purple-900" />
+        Adding...
+            </>
+          ) : (
+            <>
+              <CreditCard className="mr-2 h-4 w-4" />
+              Add Payment Method
+            </>
+          )}
+        </Button>
+      )}
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
       {/* Financial Overview Cards */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -385,31 +414,32 @@ const handleDateUpdate = (data: any) => {
           </CardContent>
         </Card>
 
-        {/* Next Payout Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Next Payout</CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            {nextInLine ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <GenderIcon gender={nextInLine.gender} />
-                  <div className="text-xl font-bold truncate">
-                    {nextInLine.firstName} {nextInLine.lastName}
-                  </div>
+      {/* Next Payout Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Next Payout</CardTitle>
+          <ArrowUpRight className="h-4 w-4 text-purple-600" />
+        </CardHeader>
+        <CardContent>
+          {nextInLine ? (
+            <>
+              <div className="flex items-center gap-2">
+                <InitialsAvatar firstName={nextInLine.firstName} lastName={nextInLine.lastName} />
+                <div className="text-xl font-bold truncate">
+                  {nextInLine.firstName} {nextInLine.lastName}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Next in line for payout</p>
-              </>
-            ) : (
-              <>
-                <div className="text-xl font-bold">Not Set</div>
-                <p className="text-xs text-muted-foreground">No members in queue</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Next in line for payout</p>
+            </>
+          ) : (
+            <>
+              <div className="text-xl font-bold">Not Set</div>
+              <p className="text-xs text-muted-foreground">No members in queue</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       </div>
 
 {/* Schedule Details Section */}
@@ -491,8 +521,8 @@ const handleDateUpdate = (data: any) => {
   </Card>
 </div>
 
-      {/* Members List Section */}
-      <Card>
+    {/* Members List Section */}
+    <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -510,7 +540,7 @@ const handleDateUpdate = (data: any) => {
               {groupMembersSetupStatus.map((member) => (
                 <div key={member.id} className="flex items-center p-4">
                   <div className="flex items-center flex-1 min-w-0 gap-3">
-                    <GenderIcon gender={member.gender} />
+                    <InitialsAvatar firstName={member.firstName} lastName={member.lastName} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium truncate">
@@ -541,7 +571,7 @@ const handleDateUpdate = (data: any) => {
                           ) : (
                             <XCircle className="text-red-500 w-4 h-4" />
                           )}
-                          <span className="text-xs">Stripe Onboarding</span>
+                          <span className="text-xs">Receive Payment Setup</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           {member.becsSetupStatus === "Completed" ? (
@@ -549,7 +579,7 @@ const handleDateUpdate = (data: any) => {
                           ) : (
                             <XCircle className="text-red-500 w-4 h-4" />
                           )}
-                          <span className="text-xs">BECS Setup</span>
+                          <span className="text-xs">Direct Debit Setup</span>
                         </div>
                       </div>
                     </div>
@@ -565,6 +595,7 @@ const handleDateUpdate = (data: any) => {
           )}
         </CardContent>
       </Card>
+
 
       {/* BECS Setup Dialog */}
       {setupIntentClientSecret && (

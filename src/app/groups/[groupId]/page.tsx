@@ -3,14 +3,12 @@
 import React, { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { trpc } from '@/src/app/_trpc/client';
-import { Button } from '@/src/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { useToast } from '@/src/components/ui/use-toast';
-import { Pencil, LogOut } from 'lucide-react';
 import { GroupDetails } from '@/src/components/GroupDetails';
 import { GroupAnalytics } from '@/src/components/GroupAnalytics';
 import { GroupMessaging } from '@/src/components/GroupMessaging';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 
 const defaultAnalyticsData = {
   contributions: [],
@@ -101,21 +99,34 @@ export default function GroupPage() {
   return (
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="flex justify-between items-start mb-8">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-semibold text-purple-700">{group.name}</h1>
-          <p className="text-gray-500 text-lg">{group.description}</p>
+        <div className="space-y-2">
+          <h1 className="text-5xl font-bold text-purple-700 leading-tight">
+            {group.name}
+          </h1>
+          <p className="text-lg text-gray-600 max-w-2xl">
+            {group.description}
+          </p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="border-b border-gray-200 mb-6 flex space-x-4">
-          <TabsTrigger value="details" className="text-gray-700 hover:text-purple-600 transition-colors">
+        <TabsList className="border-b border-gray-300 mb-6 flex space-x-4">
+          <TabsTrigger
+            value="details"
+            className="px-6 py-3 text-gray-700 hover:text-purple-700 transition-colors font-medium"
+          >
             Details
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="text-gray-700 hover:text-purple-600 transition-colors">
+          <TabsTrigger
+            value="analytics"
+            className="px-6 py-3 text-gray-700 hover:text-purple-700 transition-colors font-medium"
+          >
             Analytics
           </TabsTrigger>
-          <TabsTrigger value="messaging" className="text-gray-700 hover:text-purple-600 transition-colors">
+          <TabsTrigger
+            value="messaging"
+            className="px-6 py-3 text-gray-700 hover:text-purple-700 transition-colors font-medium"
+          >
             Messaging
           </TabsTrigger>
         </TabsList>
