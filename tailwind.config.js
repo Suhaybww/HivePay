@@ -23,8 +23,8 @@ module.exports = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#7C3AED", // purple-600
-          light: "#9F67FF",   // light purple for hover
+          DEFAULT: "#7C3AED",
+          light: "#9F67FF",
           foreground: "white",
         },
         secondary: {
@@ -62,6 +62,16 @@ module.exports = {
           700: "#6D28D9",
           800: "#5B21B6",
           900: "#4C1D95",
+        },
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar-background))',
+          foreground: 'hsl(var(--sidebar-foreground))',
+          primary: 'hsl(var(--sidebar-primary))',
+          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
+          accent: 'hsl(var(--sidebar-accent))',
+          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+          border: 'hsl(var(--sidebar-border))',
+          ring: 'hsl(var(--sidebar-ring))',
         }
       },
       borderRadius: {
