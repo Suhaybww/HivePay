@@ -117,6 +117,36 @@ export const userRouter = router({
       });
     }
   }),
+
+  getUserSetupStatus: privateProcedure.query(async ({ ctx }) => {
+    const { userId } = ctx;
+
+    try {
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: {
+          onboardingStatus: true,
+          becsSetupStatus: true,
+        },
+      });
+
+      if (!user) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+      }
+
+      return {
+        stripeOnboardingStatus: user.onboardingStatus,
+        becsSetupStatus: user.becsSetupStatus,
+      };
+    } catch (error) {
+      console.error('Failed to fetch user setup status:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch user setup status',
+      });
+    }
+  }),
+
 });
 
 export type UserRouter = typeof userRouter;

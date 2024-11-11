@@ -140,97 +140,90 @@ export const authRouter = router({
   }),
 
   createStripeConnectAccount: privateProcedure
-    .input(
-      z.object({
-        phoneNumber: z.string(),
-        age: z.number().min(18).max(120),
-        gender: z.enum(['Male', 'Female']),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx;
-      const { phoneNumber, age, gender } = input;
+  .mutation(async ({ ctx }) => {
+    const { userId } = ctx;
 
-      await db.user.update({
-        where: { id: userId },
-        data: {
-          phoneNumber,
-          age,
-          gender,
-        },
+    if (!userId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not authenticated' });
+    }
+
+    // Fetch user data from the database
+    const dbUser = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        firstName: true,
+        lastName: true,
+        stripeAccountId: true,
+      },
+    });
+
+    if (!dbUser) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'User not found',
       });
+    }
 
-      const dbUser = await db.user.findUnique({
-        where: { id: userId },
-        select: {
-          email: true,
-          firstName: true,
-          lastName: true,
-          stripeAccountId: true,
-        },
-      });
+    try {
+      let accountId = dbUser.stripeAccountId;
 
-      if (!dbUser) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'User not found',
+      if (!accountId) {
+        const account = await stripe.accounts.create({
+          type: 'express',
+          country: 'AU',
+          email: dbUser.email,
+          business_type: 'individual',
+          individual: {
+            first_name: dbUser.firstName,
+            last_name: dbUser.lastName,
+          },
+          capabilities: {
+            transfers: { requested: true },
+            card_payments: { requested: true },
+          },
+        });
+
+        accountId = account.id;
+
+        await db.user.update({
+          where: { id: userId },
+          data: {
+            stripeAccountId: accountId,
+            onboardingStatus: 'Pending', // Set to 'Pending' here
+            onboardingDate: null,        // Set to null initially
+          },
         });
       }
 
-      try {
-        let accountId = dbUser.stripeAccountId;
+      const accountLink = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=failed`,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=completed`,
+        type: 'account_onboarding',
+      });
 
-        if (!accountId) {
-          const account = await stripe.accounts.create({
-            type: 'express',
-            country: 'AU',
-            email: dbUser.email,
-            business_type: 'individual',
-            individual: {
-              first_name: dbUser.firstName,
-              last_name: dbUser.lastName,
-              phone: phoneNumber,
-            },
-            capabilities: {
-              transfers: { requested: true },
-              card_payments: { requested: true },
-            },
-          });
+      return { url: accountLink.url };
+    } catch (error) {
+      console.error('Stripe Connect account creation error:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to create Stripe Connect account',
+      });
+    }
+  }),
 
-          accountId = account.id;
 
-          await db.user.update({
-            where: { id: userId },
-            data: {
-              stripeAccountId: accountId,
-              onboardingStatus: "Completed",
-              onboardingDate: new Date(),
-            },
-          });
-        }
-
-        const accountLink = await stripe.accountLinks.create({
-          account: accountId,
-          refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=failed`,
-          return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=completed`,
-          type: 'account_onboarding',
-        });
-
-        return { url: accountLink.url };
-      } catch (error) {
-        console.error('Stripe Connect account creation error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create Stripe Connect account',
-        });
-      }
-    }),
 
  // Step 1: Method to allow each user to set up BECS Direct Debit
  setupBECSDirectDebit: privateProcedure
- .input(z.object({ userId: z.string() }))
- .mutation(async ({ input }) => {
-   const { userId } = input;
+ // Removed the .input() method since no input is needed
+ .mutation(async ({ ctx }) => {
+   const { userId } = ctx;
+
+   if (!userId) {
+     throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not authenticated' });
+   }
 
    // Fetch the user's Stripe Customer ID or create one if it doesn't exist
    const dbUser = await db.user.findUnique({
@@ -283,7 +276,7 @@ export const authRouter = router({
        where: { id: userId },
        data: {
          stripeSetupIntentId: setupIntent.id,
-         becsSetupStatus: 'pending', // Initial status
+         becsSetupStatus: 'Pending', // Corrected to match your OnboardingStatus enum
        },
      });
 
@@ -301,16 +294,17 @@ export const authRouter = router({
  }),
 
 
-
 // Step 2: Method to start the contribution cycle for a group
 startContributionCycle: privateProcedure
   .input(
     z.object({
       groupId: z.string(),
+      scheduleDate: z.string().or(z.date()).transform((val) => new Date(val)),
+      payoutDate: z.string().or(z.date()).transform((val) => new Date(val)),
     })
   )
   .mutation(async ({ input }) => {
-    const { groupId } = input;
+    const { groupId, scheduleDate, payoutDate } = input;
 
     const group = await db.group.findUnique({
       where: { id: groupId },
@@ -382,6 +376,8 @@ startContributionCycle: privateProcedure
           metadata: {
             groupId: groupId,
             userId: member.user.id,
+            scheduleDate: scheduleDate.toISOString(), // Include scheduleDate in metadata
+            payoutDate: payoutDate.toISOString(),     // Include payoutDate in metadata
           },
         });
 
@@ -419,23 +415,24 @@ startContributionCycle: privateProcedure
   }),
 });
 
-
+// Helper function to calculate the next contribution date
 function calculateNextDate(currentDate: Date, frequency: Frequency): Date {
-const nextDate = new Date(currentDate);
-switch (frequency) {
- case 'Weekly':
-   nextDate.setDate(nextDate.getDate() + 7);
-   break;
- case 'BiWeekly':
-   nextDate.setDate(nextDate.getDate() + 14);
-   break;
- case 'Monthly':
-   nextDate.setMonth(nextDate.getMonth() + 1);
-   break;
- default:
-   throw new Error(`Unsupported frequency: ${frequency}`);
+  const nextDate = new Date(currentDate);
+  switch (frequency) {
+    case 'Weekly':
+      nextDate.setDate(nextDate.getDate() + 7);
+      break;
+    case 'BiWeekly':
+      nextDate.setDate(nextDate.getDate() + 14);
+      break;
+    case 'Monthly':
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      break;
+    default:
+      throw new Error(`Unsupported frequency: ${frequency}`);
+  }
+  return nextDate;
 }
-return nextDate;
-}
+
 
 export type AuthRouter = typeof authRouter;

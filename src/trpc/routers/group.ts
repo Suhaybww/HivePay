@@ -727,6 +727,232 @@ sendMessage: privateProcedure
     return message;
   }),
 
+  getGroupMembersSetupStatus: privateProcedure
+  .input(z.object({ groupId: z.string() }))
+  .query(async ({ input, ctx }) => {
+    const { userId } = ctx;
+
+    // Verify that the user is a member of the group
+    const isMember = await db.groupMembership.findFirst({
+      where: {
+        groupId: input.groupId,
+        userId,
+        status: MembershipStatus.Active,
+      },
+    });
+
+    if (!isMember) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'You are not a member of this group',
+      });
+    }
+
+    try {
+      // Fetch group members with their setup statuses
+      const groupMembers = await db.groupMembership.findMany({
+        where: { groupId: input.groupId, status: MembershipStatus.Active },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              gender: true,
+              onboardingStatus: true,
+              becsSetupStatus: true,
+            },
+          },
+  
+        },
+        orderBy: {
+          payoutOrder: 'asc',
+        },
+      });
+
+      // Map the members to include necessary data
+      const members = groupMembers.map((membership) => ({
+        id: membership.user.id,
+        firstName: membership.user.firstName,
+        lastName: membership.user.lastName,
+        email: membership.user.email,
+        gender: membership.user.gender,
+        isAdmin: membership.isAdmin,
+        payoutOrder: membership.payoutOrder,
+        onboardingStatus: membership.user.onboardingStatus,
+        becsSetupStatus: membership.user.becsSetupStatus,
+      }));
+
+      return members;
+    } catch (error) {
+      console.error('Failed to fetch group members setup status:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch group members setup status',
+      });
+    }
+  }),
+
+// Get Group Details by ID
+getGroupDetails: privateProcedure
+  .input(z.object({ groupId: z.string() }))
+  .query(async ({ input, ctx }) => {
+    const { groupId } = input;
+    const { userId } = ctx;
+
+    try {
+      const group = await db.group.findUnique({
+        where: { id: groupId },
+        include: {
+          _count: { select: { groupMemberships: true } },
+          payments: { select: { amount: true } },
+          payouts: { select: { amount: true } },
+          createdBy: { select: { id: true } },
+          groupMemberships: {
+            where: { status: 'Active' },
+            include: {
+              user: { select: { id: true, firstName: true, lastName: true, email: true, gender: true, stripeAccountId: true } },
+            },
+            orderBy: { payoutOrder: 'asc' },
+          },
+        },
+      });
+
+      if (!group) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Group not found',
+        });
+      }
+
+      const isMember = group.groupMemberships.some((membership) => membership.user.id === userId);
+      if (!isMember && group.createdBy.id !== userId) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You do not have access to this group',
+        });
+      }
+
+      const totalContributions = group.payments.reduce(
+        (sum: Decimal, payment) => sum.plus(payment.amount),
+        new Decimal(0)
+      );
+
+      const totalPayouts = group.payouts.reduce(
+        (sum: Decimal, payout) => sum.plus(payout.amount),
+        new Decimal(0)
+      );
+
+      const currentBalance = totalContributions.minus(totalPayouts);
+
+      const members = group.groupMemberships.map((membership) => ({
+        id: membership.user.id,
+        firstName: membership.user.firstName,
+        lastName: membership.user.lastName,
+        email: membership.user.email,
+        gender: membership.user.gender,
+        isAdmin: membership.isAdmin,
+        payoutOrder: membership.payoutOrder,
+        stripeAccountId: membership.user.stripeAccountId,
+      }));
+
+      const groupDetails: GroupWithStats = {
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        createdById: group.createdBy.id,
+        payoutOrderMethod: group.payoutOrderMethod,
+        contributionAmount: group.contributionAmount?.toFixed(2) ?? null,
+        contributionFrequency: group.contributionFrequency,
+        payoutFrequency: group.payoutFrequency,
+        nextContributionDate: group.nextContributionDate?.toISOString() ?? null,
+        nextPayoutDate: group.nextPayoutDate?.toISOString() ?? null,
+        _count: group._count,
+        totalContributions: totalContributions.toFixed(2),
+        currentBalance: currentBalance.toFixed(2),
+        isAdmin: group.createdBy.id === userId,
+        members,
+      };
+
+      return groupDetails;
+    } catch (error) {
+      console.error('Failed to fetch group details:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch group details',
+      });
+    }
+  }),
+// Update Group Dates
+updateGroupDates: privateProcedure
+  .input(
+    z.object({
+      groupId: z.string(),
+      scheduleDate: z.union([z.date(), z.string()]).transform((val) => 
+        typeof val === 'string' ? new Date(val) : val
+      ).optional(),
+      payoutDate: z.union([z.date(), z.string()]).transform((val) => 
+        typeof val === 'string' ? new Date(val) : val
+      ).optional(),
+    })
+  )
+  .mutation(async ({ input, ctx }) => {
+    const { groupId, scheduleDate, payoutDate } = input;
+    const { userId } = ctx;
+
+    try {
+      const group = await db.group.findUnique({
+        where: { id: groupId },
+        include: {
+          createdBy: { select: { id: true } },
+        },
+      });
+
+      if (!group) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Group not found',
+        });
+      }
+
+      const isAdmin = group.createdBy.id === userId;
+      if (!isAdmin) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You do not have permission to update this group',
+        });
+      }
+
+      const dataToUpdate: any = {};
+      if (scheduleDate) dataToUpdate.nextContributionDate = scheduleDate;
+      if (payoutDate) dataToUpdate.nextPayoutDate = payoutDate;
+
+      if (Object.keys(dataToUpdate).length === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No dates provided to update',
+        });
+      }
+
+      const updatedGroup = await db.group.update({
+        where: { id: groupId },
+        data: dataToUpdate,
+      });
+
+      return {
+        success: true,
+        message: 'Group dates updated successfully',
+        group: updatedGroup,
+      };
+    } catch (error) {
+      console.error('Failed to update group dates:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to update group dates',
+      });
+    }
+  })
 
 });
 

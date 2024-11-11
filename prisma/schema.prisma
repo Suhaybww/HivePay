@@ -62,6 +62,12 @@ enum OnboardingStatus {
   Failed
 }
 
+enum BECSSetupStatus {
+  Pending
+  Completed
+  Failed
+}
+
 
 // Models
 
@@ -85,7 +91,7 @@ model User {
   // BECS Direct Debit Information
   stripeSetupIntentId     String?             // Setup Intent ID for BECS setup
   stripeBecsPaymentMethodId String?           // Payment Method ID for BECS direct debit
-  becsSetupStatus         String              @default("pending") // Setup status: pending, completed, or failed
+  becsSetupStatus           BECSSetupStatus     @default(Pending) // Setup status: Pending, Completed, or Failed
   stripeMandateId         String?             // Mandate ID for recurring authorization (optional)
 
   subscriptionStatus      SubscriptionStatus
