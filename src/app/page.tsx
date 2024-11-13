@@ -31,7 +31,7 @@ const Home = async () => {
   }
 
   return (
-    <div className="grainy min-h-screen">
+    <div className="white min-h-screen">
       {/* Hero Section */}
       <Hero />
 

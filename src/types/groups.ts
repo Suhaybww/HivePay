@@ -1,17 +1,15 @@
 
 import { PayoutOrderMethod, Frequency, Gender } from '@prisma/client';
 
-
 export type GroupMember = {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  gender: Gender | null;  // Use Prisma's Gender enum
+  gender: Gender | null;
   isAdmin: boolean;
-  payoutOrder: number;  
-  stripeAccountId: string | null;  // Changed from stripeCustomerId
-
+  payoutOrder: number;
+  stripeAccountId: string | null;
 };
 
 export type GroupWithStats = {
@@ -20,17 +18,17 @@ export type GroupWithStats = {
   description?: string | null;
   createdById: string;
   payoutOrderMethod: PayoutOrderMethod;
-  contributionAmount?: string | null; // Converted to string in backend
+  contributionAmount?: string | null;
   contributionFrequency?: Frequency | null;
   payoutFrequency?: Frequency | null;
-  nextContributionDate?: string | null; // Converted to ISO string in backend
-  nextPayoutDate?: string | null; // Converted to ISO string in backend
+  nextContributionDate?: string | null;
+  nextPayoutDate?: string | null;
+  cycleStarted: boolean; 
   _count: {
     groupMemberships: number;
   };
   totalContributions: string;
   currentBalance: string;
   isAdmin: boolean;
-  members: GroupMember[]; 
-
+  members: GroupMember[];
 };

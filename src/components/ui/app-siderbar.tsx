@@ -18,7 +18,7 @@ import {
 import { NavMain } from "./nav-main"
 import { NavProjects } from "./nav-projects"
 import { NavSecondary } from "./nav-secondary"
-import { NavUser } from "./nav-user"
+import  NavUser  from "./nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -30,80 +30,84 @@ import {
 } from "@/src/components/ui/sidebar"
 
 interface UserProps {
-  firstName: string | null
-  lastName: string | null
-  email: string
-  avatarUrl?: string
-}
+    firstName: string | null
+    lastName: string | null
+    email: string
+    avatarUrl?: string
+    subscriptionStatus: 'Active' | 'Inactive' | 'Canceled' // Added
+  }
+  
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: UserProps
 }
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
-  const data = {
-    user: {
-      name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
-      email: user.email,
-      avatar: user.avatarUrl ?? "/avatars/default.jpg",
-    },
-    navMain: [
-      {
-        title: "Dashboard",
-        url: "/dashboard",
-        icon: SquareTerminal,
-        isActive: true,
-        items: [],
-      },
-      {
-        title: "Groups",
-        url: "/groups",
-        icon: Bot,
-        items: [],
-      },
-      {
-        title: "Payments",
-        url: "/payments",
-        icon: CreditCard,
-        items: [],
-      },
-      {
-        title: "Settings",
-        url: "/settings",
-        icon: Settings2,
-        items: [],
-      },
-    ],
-    navSecondary: [
-      {
-        title: "Support",
-        url: "#",
-        icon: LifeBuoy,
-      },
-      {
-        title: "Feedback",
-        url: "#",
-        icon: Send,
-      },
-    ],
-    projects: [
-      {
-        name: "Project One",
-        url: "#",
-        icon: Frame,
-      },
-      {
-        name: "Project Two",
-        url: "#",
-        icon: PieChart,
-      },
-      {
-        name: "Project Three",
-        url: "#",
-        icon: Map,
-      },
-    ],
-  }
+    const data = {
+        user: {
+          name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
+          email: user.email,
+          avatar: user.avatarUrl ?? "/avatars/default.jpg",
+          subscriptionStatus: user.subscriptionStatus, // Ensure this exists
+        },
+        navMain: [
+          {
+            title: "Dashboard",
+            url: "/dashboard",
+            icon: SquareTerminal,
+            isActive: true,
+            items: [],
+          },
+          {
+            title: "Groups",
+            url: "/groups",
+            icon: Bot,
+            items: [],
+          },
+          {
+            title: "Payments",
+            url: "/payments",
+            icon: CreditCard,
+            items: [],
+          },
+          {
+            title: "Settings",
+            url: "/settings",
+            icon: Settings2,
+            items: [],
+          },
+        ],
+        navSecondary: [
+          {
+            title: "Support",
+            url: "#",
+            icon: LifeBuoy,
+          },
+          {
+            title: "Feedback",
+            url: "#",
+            icon: Send,
+          },
+        ],
+        projects: [
+          {
+            name: "Project One",
+            url: "#",
+            icon: Frame,
+          },
+          {
+            name: "Project Two",
+            url: "#",
+            icon: PieChart,
+          },
+          {
+            name: "Project Three",
+            url: "#",
+            icon: Map,
+          },
+        ],
+      }
+      
 
   return (
     <Sidebar variant="inset" collapsible="icon" {...props}>
@@ -130,8 +134,13 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
-      </SidebarFooter>
+  <NavUser
+    name={data.user.name}
+    email={data.user.email}
+    picture={data.user.avatar}
+    subscriptionStatus={data.user.subscriptionStatus} // Pass this prop
+  />
+</SidebarFooter>
     </Sidebar>
   )
 }

@@ -14,7 +14,7 @@ import { subscriptionCheck } from '../middlewares';
 export const groupRouter = router({
   getAllGroups: privateProcedure.query(async ({ ctx }) => {
     const { userId } = ctx;
-
+  
     try {
       const groups = await db.group.findMany({
         where: {
@@ -56,7 +56,7 @@ export const groupRouter = router({
                   lastName: true,
                   email: true,
                   gender: true,
-                  stripeAccountId: true,  
+                  stripeAccountId: true,
                 },
               },
             },
@@ -66,20 +66,20 @@ export const groupRouter = router({
           },
         },
       });
-
+  
       const groupsWithStats = groups.map((group) => {
         const totalContributions = group.payments.reduce(
           (sum: Decimal, payment) => sum.plus(payment.amount),
           new Decimal(0)
         );
-
+  
         const totalPayouts = group.payouts.reduce(
           (sum: Decimal, payout) => sum.plus(payout.amount),
           new Decimal(0)
         );
-
+  
         const currentBalance = totalContributions.minus(totalPayouts);
-
+  
         // Transform the members data
         const members = group.groupMemberships.map(membership => ({
           id: membership.user.id,
@@ -89,9 +89,9 @@ export const groupRouter = router({
           gender: membership.user.gender,
           isAdmin: membership.isAdmin,
           payoutOrder: membership.payoutOrder,
-          stripeAccountId: membership.user.stripeAccountId, 
+          stripeAccountId: membership.user.stripeAccountId,
         }));
-
+  
         return {
           id: group.id,
           name: group.name,
@@ -104,6 +104,7 @@ export const groupRouter = router({
           nextContributionDate:
             group.nextContributionDate?.toISOString() ?? null,
           nextPayoutDate: group.nextPayoutDate?.toISOString() ?? null,
+          cycleStarted: group.cycleStarted, 
           _count: group._count,
           totalContributions: totalContributions.toFixed(2),
           currentBalance: currentBalance.toFixed(2),
@@ -111,7 +112,7 @@ export const groupRouter = router({
           members, // Add the members array to the response
         };
       });
-
+  
       return groupsWithStats;
     } catch (error) {
       console.error('Failed to fetch groups:', error);
@@ -121,6 +122,7 @@ export const groupRouter = router({
       });
     }
   }),
+  
   getGroupById: privateProcedure
   .input(z.object({ groupId: z.string() }))
   .query(async ({ ctx, input }) => {
@@ -146,7 +148,7 @@ export const groupRouter = router({
                 lastName: true,
                 email: true,
                 gender: true,
-                stripeAccountId: true,  
+                stripeAccountId: true,
               },
             },
           },
@@ -173,12 +175,12 @@ export const groupRouter = router({
     }
 
     const totalContributions = group.payments.reduce(
-      (sum, payment) => sum.plus(payment.amount),
+      (sum: Decimal, payment) => sum.plus(payment.amount),
       new Decimal(0)
     );
 
     const totalPayouts = group.payouts.reduce(
-      (sum, payout) => sum.plus(payout.amount),
+      (sum: Decimal, payout) => sum.plus(payout.amount),
       new Decimal(0)
     );
 
@@ -208,6 +210,7 @@ export const groupRouter = router({
       payoutFrequency: group.payoutFrequency,
       nextContributionDate: group.nextContributionDate?.toISOString() || null,
       nextPayoutDate: group.nextPayoutDate?.toISOString() || null,
+      cycleStarted: group.cycleStarted, // **Added Property**
       _count: {
         groupMemberships: group._count.groupMemberships,
       },
@@ -219,7 +222,8 @@ export const groupRouter = router({
     };
 
     return groupWithStats;
-  }),
+}),
+
 
   createGroup: privateProcedure
     .input(
@@ -868,6 +872,7 @@ getGroupDetails: privateProcedure
         payoutFrequency: group.payoutFrequency,
         nextContributionDate: group.nextContributionDate?.toISOString() ?? null,
         nextPayoutDate: group.nextPayoutDate?.toISOString() ?? null,
+        cycleStarted: group.cycleStarted, // **Added Property**
         _count: group._count,
         totalContributions: totalContributions.toFixed(2),
         currentBalance: currentBalance.toFixed(2),
@@ -883,7 +888,8 @@ getGroupDetails: privateProcedure
         message: 'Failed to fetch group details',
       });
     }
-  }),
+}),
+
 // Update Group Dates
 updateGroupDates: privateProcedure
   .input(

@@ -1,14 +1,20 @@
 "use client"
 
+import React from 'react'
+import Link from 'next/link'
 import {
   BadgeCheck,
   Bell,
   ChevronsUpDown,
   CreditCard,
   LogOut,
-  Sparkles,
+  Gem,
+  Settings,
+  LayoutDashboard,
+  WalletCards,
 } from "lucide-react"
-import { LogoutLink } from '@kinde-oss/kinde-auth-nextjs/components'
+import { LogoutLink } from '@kinde-oss/kinde-auth-nextjs'
+
 import {
   Avatar,
   AvatarFallback,
@@ -30,15 +36,19 @@ import {
   useSidebar,
 } from "@/src/components/ui/sidebar"
 
-export function NavUser({
-  user,
-}: {
-  user: {
-    name: string
-    email: string
-    avatar: string
-  }
-}) {
+interface NavUserProps {
+  name: string
+  email: string
+  picture?: string | null
+  subscriptionStatus: 'Active' | 'Inactive' | 'Canceled'
+}
+
+const NavUser: React.FC<NavUserProps> = ({
+  name,
+  email,
+  picture,
+  subscriptionStatus,
+}) => {
   const { isMobile } = useSidebar()
 
   return (
@@ -48,63 +58,95 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground flex items-center"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarImage src={picture || undefined} alt={name} />
+                <AvatarFallback className="rounded-lg">
+                  {name.charAt(0).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
+              <div className="ml-2 flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold">{name}</span>
+                {/* Email is removed from here to display only name */}
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="w-56 rounded-lg bg-white shadow-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+            <DropdownMenuLabel className="p-4">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={picture || undefined} alt={name} />
+                  <AvatarFallback>
+                    {name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
+                <div className="flex flex-col">
+                  <span className="font-semibold">{name}</span>
+                  <span className="text-xs text-muted-foreground">{email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                Upgrade to Pro
+              <DropdownMenuItem asChild>
+                <Link
+                  href={
+                    subscriptionStatus === 'Active' ? '/billing' : '/pricing'
+                  }
+                  className="flex items-center gap-2 p-2"
+                >
+                  {subscriptionStatus === 'Active' ? (
+                    <>
+                      <WalletCards className="h-4 w-4" />
+                      Manage Subscription
+                    </>
+                  ) : (
+                    <>
+                      <Gem className="h-4 w-4 text-violet-600" />
+                      Upgrade to Pro
+                    </>
+                  )}
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Account
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard" className="flex items-center gap-2 p-2">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard />
-                Billing
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="flex items-center gap-2 p-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell />
-                Notifications
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="flex items-center gap-2 p-2">
+                  <CreditCard className="h-4 w-4" />
+                  Billing
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="flex items-center gap-2 p-2">
+                  <Bell className="h-4 w-4" />
+                  Notifications
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <LogoutLink className="flex w-full items-center gap-2 cursor-pointer">
-                <LogOut className="size-4" />
+              <LogoutLink className="flex items-center gap-2 p-2 w-full">
+                <LogOut className="h-4 w-4" />
                 Log out
               </LogoutLink>
             </DropdownMenuItem>
@@ -114,3 +156,5 @@ export function NavUser({
     </SidebarMenu>
   )
 }
+
+export default NavUser

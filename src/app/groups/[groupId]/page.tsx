@@ -9,6 +9,7 @@ import { GroupDetails } from '@/src/components/GroupDetails';
 import { GroupAnalytics } from '@/src/components/GroupAnalytics';
 import { GroupMessaging } from '@/src/components/GroupMessaging';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
+import GroupSettings from '@/src/components/GroupSettings';
 
 const defaultAnalyticsData = {
   contributions: [],
@@ -129,6 +130,12 @@ export default function GroupPage() {
           >
             Messaging
           </TabsTrigger>
+          <TabsTrigger
+            value="settings"
+            className="px-6 py-3 text-gray-700 hover:text-purple-700 transition-colors font-medium"
+          >
+            Settings
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="details">
@@ -159,6 +166,10 @@ export default function GroupPage() {
               onSendMessage={handleSendMessage}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <GroupSettings group={group} />
         </TabsContent>
       </Tabs>
     </div>

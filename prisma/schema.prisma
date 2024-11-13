@@ -154,6 +154,8 @@ model Group {
   payoutFrequency       Frequency?
   nextContributionDate  DateTime?
   nextPayoutDate        DateTime?
+  cycleStarted          Boolean           @default(false) 
+
 
   groupMemberships GroupMembership[]
   payouts          Payout[]
