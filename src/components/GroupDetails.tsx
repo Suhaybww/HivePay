@@ -30,6 +30,11 @@ import {
   InfoIcon,
   Loader2,
 } from "lucide-react"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/src/components/ui/hover-card"
 import { useToast } from "@/src/components/ui/use-toast"
 import { trpc } from "@/src/app/_trpc/client"
 import type { GroupWithStats } from "../types/groups"
@@ -249,29 +254,34 @@ const onSubmit = (data: StartCycleFormData) => {
 
   return (
     <div className="space-y-6">
-      {/* Header with Start Cycle button for admins */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Group Details</h2>
-        {group.isAdmin && (
-          <Button
-            onClick={() => setIsStartCycleDialogOpen(true)}
-            className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-6 py-3 rounded-full text-lg font-semibold flex items-center shadow-lg transform transition-transform duration-200 hover:scale-105"
-            disabled={isStarting}
-          >
-            {isStarting ? (
-              <>
-                <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
-                Starting...
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-5 w-5" />
-                Start Contribution Cycle
-              </>
-            )}
-          </Button>
-        )}
-      </div>
+{/* Header with Start Cycle button for admins */}
+<div className="flex justify-between items-center mb-6">
+  <h2 className="text-2xl font-bold tracking-tight">Group Details</h2>
+  {group.isAdmin && (
+    <Button
+      onClick={() => setIsStartCycleDialogOpen(true)}
+      size="lg"
+      className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+      disabled={isStarting}
+    >
+      {isStarting ? (
+        <>
+          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+          <span>Starting cycle...</span>
+        </>
+      ) : (
+        <>
+          <Play className="mr-2 h-4 w-4" />
+          <span>Start contribution cycle</span>
+        </>
+      )}
+      {!isStarting && (
+        <span className="sr-only">Start contribution cycle</span>
+      )}
+    </Button>
+  )}
+</div>
+
 {/* Payment Setup Status Section */}
 <Card className="mb-6">
   <CardHeader>

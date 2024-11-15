@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { ScrollArea } from '@/src/components/ui/scroll-area';
 import { Separator } from '@/src/components/ui/separator';
+import { trpc } from '../app/_trpc/client';
 import { 
   Trash2, 
   Edit, 
@@ -24,10 +25,16 @@ import {
 
 interface GroupSettingsProps {
   group: GroupWithStats;
+  onLeaveGroup: () => void;  // Add this
+  onGroupUpdate: () => void;
+
 }
 
-const GroupSettings: React.FC<GroupSettingsProps> = ({ group }) => {
+
+const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGroupUpdate }) => {
   const { toast } = useToast();
+  const utils = trpc.useContext();
+  
   const isAdmin = group.isAdmin;
   const cycleStarted = group.cycleStarted;
   
@@ -37,24 +44,111 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group }) => {
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [newAdminId, setNewAdminId] = useState<string>('');
   
-  const handleSave = () => {
-    toast({
-      title: 'Settings Saved',
-      description: 'Your group settings have been updated successfully.',
-      variant: 'default',
+  // TRPC Mutations
+  const updateGroupMutation = trpc.group.updateGroupSettings.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Settings Saved',
+        description: 'Your group settings have been updated successfully.',
+      });
+      utils.group.getGroupById.invalidate({ groupId: group.id });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const transferAdminMutation = trpc.group.transferAdminRole.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Admin Role Transferred',
+        description: 'The admin role has been successfully transferred.',
+      });
+      utils.group.getGroupById.invalidate({ groupId: group.id });
+      setNewAdminId('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const removeMemberMutation = trpc.group.removeMember.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Member Removed',
+        description: 'The member has been removed from the group.',
+      });
+      utils.group.getGroupById.invalidate({ groupId: group.id });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const leaveGroupMutation = trpc.group.leaveGroup.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Left Group',
+        description: 'You have successfully left the group.',
+      });
+      onLeaveGroup(); // Use the passed function instead of direct router usage
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+
+  const updatePayoutOrderMutation = trpc.group.updatePayoutOrder.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Order Updated',
+        description: 'Member order has been updated successfully.',
+      });
+      utils.group.getGroupById.invalidate({ groupId: group.id });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Handlers
+  const handleSave = async () => {
+    await updateGroupMutation.mutateAsync({
+      groupId: group.id,
+      name,
+      description,
     });
   };
 
-  const handleRemoveMember = (memberId: string) => {
-    setMembers(prev => prev.filter(member => member.id !== memberId));
-    toast({
-      title: 'Member Removed',
-      description: 'The member has been removed from the group.',
-      variant: 'default',
+  const handleRemoveMember = async (memberId: string) => {
+    await removeMemberMutation.mutateAsync({
+      groupId: group.id,
+      memberId,
     });
   };
 
-  const handleLeaveGroup = () => {
+  const handleLeaveGroup = async () => {
     if (isAdmin && !newAdminId) {
       toast({
         title: 'Error',
@@ -64,26 +158,48 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group }) => {
       return;
     }
     
-    toast({
-      title: 'Left Group',
-      description: 'You have successfully left the group.',
-      variant: 'default',
+    await leaveGroupMutation.mutateAsync({
+      groupId: group.id,
+      newAdminId: isAdmin ? newAdminId : undefined,
     });
-    setShowLeaveDialog(false);
   };
 
-  const onDragEnd = (result: DropResult) => {
+  const handleTransferAdmin = async () => {
+    if (!newAdminId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a member to transfer admin role to.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    await transferAdminMutation.mutateAsync({
+      groupId: group.id,
+      newAdminId,
+    });
+  };
+
+  const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
     const reorderedMembers = Array.from(members);
     const [moved] = reorderedMembers.splice(result.source.index, 1);
     reorderedMembers.splice(result.destination.index, 0, moved);
 
+    // Update local state immediately for better UX
     setMembers(reorderedMembers);
-    toast({
-      title: 'Order Updated',
-      description: 'Member order has been updated successfully.',
-      variant: 'default',
+
+    // Prepare the new order for the backend
+    const memberOrders = reorderedMembers.map((member, index) => ({
+      memberId: member.id,
+      newOrder: index + 1,
+    }));
+
+    // Update the backend
+    await updatePayoutOrderMutation.mutateAsync({
+      groupId: group.id,
+      memberOrders,
     });
   };
 
@@ -91,7 +207,7 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group }) => {
     <div className="max-w-6xl mx-auto p-4 space-y-6">
       <Card className="w-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-3xl">
+          <CardTitle className="flex items-center gap-2 text-xl">
             <Edit className="h-8 w-8 text-primary" />
             Group Settings
           </CardTitle>
@@ -248,35 +364,12 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group }) => {
                   </div>
                   
                   <Button 
-                    onClick={() => {
-                      if (!newAdminId) {
-                        toast({
-                          title: "Error",
-                          description: "Please select a member to transfer admin role to.",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      
-                      setMembers(prev => prev.map(member => ({
-                        ...member,
-                        isAdmin: member.id === newAdminId ? true : 
-                                member.isAdmin ? false : false
-                      })));
-                      
-                      setNewAdminId('');
-                      
-                      toast({
-                        title: "Admin Role Transferred",
-                        description: "The admin role has been successfully transferred.",
-                        variant: "default",
-                      });
-                    }}
-                    size="lg"
-                    className="px-8"
-                  >
-                    Transfer Role
-                  </Button>
+                onClick={handleTransferAdmin}
+                size="lg"
+                className="px-8"
+              >
+                Transfer Role
+              </Button>
                 </div>
   
                 <Alert>

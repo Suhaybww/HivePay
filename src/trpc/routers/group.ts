@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { db } from '../../db';
 import { z } from 'zod';
 import {
+  Prisma,
   MembershipStatus,
   Frequency,
   PayoutOrderMethod,
@@ -10,6 +11,16 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import type { GroupWithStats } from '../../types/groups';
 import { subscriptionCheck } from '../middlewares';
+
+import Pusher from 'pusher';
+
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID!,
+  key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
+  secret: process.env.PUSHER_SECRET!,
+  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+  useTLS: true
+});
 
 export const groupRouter = router({
   getAllGroups: privateProcedure.query(async ({ ctx }) => {
@@ -637,6 +648,73 @@ getGroupAnalytics: privateProcedure
   }),
 
 
+// Update the sendMessage mutation:
+sendMessage: privateProcedure
+  .input(z.object({
+    groupId: z.string(),
+    content: z.string().min(1).max(1000)
+  }))
+  .mutation(async ({ ctx, input }) => {
+    const { userId } = ctx;
+
+    // First check membership
+    const membership = await db.groupMembership.findFirst({
+      where: {
+        groupId: input.groupId,
+        userId,
+        status: MembershipStatus.Active
+      },
+      include: {
+        user: {
+          select: {
+            firstName: true,
+            lastName: true
+          }
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Must be a member to send messages'
+      });
+    }
+
+    // Create message
+    const message = await db.message.create({
+      data: {
+        content: input.content,
+        groupId: input.groupId,
+        senderId: userId
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      }
+    });
+
+    // Trigger Pusher event with the new message
+    await pusher.trigger(`group-${input.groupId}`, 'new-message', {
+      id: message.id,
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
+      sender: {
+        id: message.sender.id,
+        firstName: message.sender.firstName,
+        lastName: message.sender.lastName
+      }
+    });
+
+    return message;
+  }),
+
+// Update getGroupMessages to include sender id
 getGroupMessages: privateProcedure
   .input(z.object({ 
     groupId: z.string(),
@@ -670,6 +748,7 @@ getGroupMessages: privateProcedure
       include: {
         sender: {
           select: {
+            id: true, // Added this
             firstName: true,
             lastName: true
           }
@@ -684,51 +763,18 @@ getGroupMessages: privateProcedure
     }
 
     return {
-      messages,
+      messages: messages.map(message => ({
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt.toISOString(),
+        sender: {
+          id: message.sender.id,
+          firstName: message.sender.firstName,
+          lastName: message.sender.lastName
+        }
+      })),
       nextCursor
     };
-  }),
-
-sendMessage: privateProcedure
-  .input(z.object({
-    groupId: z.string(),
-    content: z.string().min(1).max(1000)
-  }))
-  .mutation(async ({ ctx, input }) => {
-    const { userId } = ctx;
-
-    const membership = await db.groupMembership.findFirst({
-      where: {
-        groupId: input.groupId,
-        userId,
-        status: MembershipStatus.Active
-      }
-    });
-
-    if (!membership) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Must be a member to send messages'
-      });
-    }
-
-    const message = await db.message.create({
-      data: {
-        content: input.content,
-        groupId: input.groupId,
-        senderId: userId
-      },
-      include: {
-        sender: {
-          select: {
-            firstName: true,
-            lastName: true
-          }
-        }
-      }
-    });
-
-    return message;
   }),
 
   getGroupMembersSetupStatus: privateProcedure
@@ -958,8 +1004,332 @@ updateGroupDates: privateProcedure
         message: 'Failed to update group dates',
       });
     }
-  })
+  }),
 
+
+
+
+
+
+
+
+  updateGroupSettings: privateProcedure
+    .input(z.object({
+      groupId: z.string(),
+      name: z.string().min(3).optional(),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx;
+
+      // Check if user is admin
+      const membership = await db.groupMembership.findFirst({
+        where: {
+          groupId: input.groupId,
+          userId,
+          isAdmin: true,
+        },
+      });
+
+      if (!membership) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only admins can update group settings',
+        });
+      }
+
+      // Update group
+      const updatedGroup = await db.group.update({
+        where: { id: input.groupId },
+        data: {
+          name: input.name,
+          description: input.description,
+        },
+      });
+
+      return updatedGroup;
+    }),
+
+    transferAdminRole: privateProcedure
+    .input(z.object({
+      groupId: z.string(),
+      newAdminId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx;
+
+      try {
+        // First find the current user's membership
+        const currentUserMembership = await db.groupMembership.findFirst({
+          where: {
+            groupId: input.groupId,
+            userId,
+            isAdmin: true,
+          },
+        });
+
+        if (!currentUserMembership) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Only admins can transfer admin role',
+          });
+        }
+
+        // Find the new admin's membership
+        const newAdminMembership = await db.groupMembership.findFirst({
+          where: {
+            groupId: input.groupId,
+            userId: input.newAdminId,
+          },
+        });
+
+        if (!newAdminMembership) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'New admin not found in group',
+          });
+        }
+
+        // Start a transaction to update both memberships
+        await db.$transaction([
+          db.groupMembership.update({
+            where: {
+              id: currentUserMembership.id
+            },
+            data: {
+              isAdmin: false,
+            },
+          }),
+          db.groupMembership.update({
+            where: {
+              id: newAdminMembership.id
+            },
+            data: {
+              isAdmin: true,
+            },
+          }),
+        ]);
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to transfer admin role',
+          });
+        }
+        throw error;
+      }
+    }),
+  
+  removeMember: privateProcedure
+    .input(z.object({
+      groupId: z.string(),
+      memberId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx;
+  
+      // Get group and check permissions
+      const membership = await db.groupMembership.findFirst({
+        where: {
+          groupId: input.groupId,
+          userId,
+          isAdmin: true,
+        },
+        include: {
+          group: true,
+        },
+      });
+  
+      if (!membership) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only admins can remove members',
+        });
+      }
+  
+      if (membership.group.cycleStarted) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot remove members after cycle has started',
+        });
+      }
+  
+      // Find the membership to remove
+      const membershipToRemove = await db.groupMembership.findFirst({
+        where: {
+          groupId: input.groupId,
+          userId: input.memberId,
+        },
+      });
+  
+      if (!membershipToRemove) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Member not found',
+        });
+      }
+  
+      // Remove member
+      await db.groupMembership.delete({
+        where: {
+          id: membershipToRemove.id
+        },
+      });
+  
+      return { success: true };
+    }),
+  
+  leaveGroup: privateProcedure
+    .input(z.object({
+      groupId: z.string(),
+      newAdminId: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx;
+  
+      // Get user's membership and group details
+      const membership = await db.groupMembership.findFirst({
+        where: {
+          groupId: input.groupId,
+          userId,
+        },
+        include: {
+          group: true,
+        },
+      });
+  
+      if (!membership) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Membership not found',
+        });
+      }
+  
+      if (membership.group.cycleStarted) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot leave group after cycle has started',
+        });
+      }
+  
+      // If user is admin, handle admin transfer
+      if (membership.isAdmin) {
+        if (!input.newAdminId) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Must specify new admin when leaving as admin',
+          });
+        }
+  
+        const newAdminMembership = await db.groupMembership.findFirst({
+          where: {
+            groupId: input.groupId,
+            userId: input.newAdminId,
+          },
+        });
+  
+        if (!newAdminMembership) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'New admin not found in group',
+          });
+        }
+  
+        // Transfer admin role
+        await db.groupMembership.update({
+          where: {
+            id: newAdminMembership.id
+          },
+          data: {
+            isAdmin: true,
+          },
+        });
+      }
+  
+      // Remove user's membership
+      await db.groupMembership.delete({
+        where: {
+          id: membership.id
+        },
+      });
+  
+      return { success: true };
+    }),
+
+    updatePayoutOrder: privateProcedure
+    .input(z.object({
+      groupId: z.string(),
+      memberOrders: z.array(z.object({
+        memberId: z.string(),
+        newOrder: z.number(),
+      })),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx;
+
+      // Verify user is admin
+      const membership = await db.groupMembership.findFirst({
+        where: {
+          groupId: input.groupId,
+          userId,
+          isAdmin: true,
+        },
+      });
+
+      if (!membership) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only admins can update payout order',
+        });
+      }
+
+      // Get group to check if cycle started
+      const group = await db.group.findUnique({
+        where: { id: input.groupId },
+      });
+
+      if (group?.cycleStarted) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot update payout order after cycle has started',
+        });
+      }
+
+      // First get all memberships to update
+      const membershipsToUpdate = await db.groupMembership.findMany({
+        where: {
+          groupId: input.groupId,
+          userId: {
+            in: input.memberOrders.map(m => m.memberId)
+          }
+        }
+      });
+
+      // Update all member orders in a transaction
+      await db.$transaction(
+        input.memberOrders.map(({ memberId, newOrder }) => {
+          const membership = membershipsToUpdate.find(m => m.userId === memberId);
+          if (!membership) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: `Member ${memberId} not found in group`,
+            });
+          }
+          return db.groupMembership.update({
+            where: {
+              id: membership.id
+            },
+            data: {
+              payoutOrder: newOrder,
+            },
+          });
+        })
+      );
+
+      return { success: true };
+    }),
 });
 
 export type GroupRouter = typeof groupRouter;

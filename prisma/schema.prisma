@@ -180,6 +180,9 @@ model GroupMembership {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([groupId, userId], name: "membershipIdentifier")
+
 }
 
 model Payment {

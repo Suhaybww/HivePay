@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { trpc } from '@/src/app/_trpc/client';
 import { Skeleton } from '@/src/components/ui/skeleton';
@@ -37,6 +37,7 @@ export default function GroupPage() {
   const params = useParams();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('details');
+  const utils = trpc.useContext();
 
   const groupId = params?.groupId as string;
 
@@ -81,6 +82,15 @@ export default function GroupPage() {
   const handleSendMessage = async (content: string) => {
     await sendMessageMutation.mutateAsync({ groupId, content });
   };
+
+  // Fix the callback functions
+  const handleLeaveGroup = useCallback(() => {
+    router.push('/dashboard');
+  }, [router]);
+  
+  const handleGroupUpdate = useCallback(() => {
+    utils.group.getGroupById.invalidate({ groupId });
+  }, [utils, groupId]);
 
   if (isLoadingGroup) {
     return (
@@ -169,9 +179,16 @@ export default function GroupPage() {
         </TabsContent>
 
         <TabsContent value="settings">
-          <GroupSettings group={group} />
-        </TabsContent>
+      {group && (
+        <GroupSettings 
+          group={group} 
+          onLeaveGroup={handleLeaveGroup}
+          onGroupUpdate={handleGroupUpdate}
+        />
+      )}
+    </TabsContent>
       </Tabs>
     </div>
   );
 }
+
