@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Globe } from 'lucide-react';
+import Image from 'next/image';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -26,8 +26,13 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center">
-              <Globe className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">Roundly</span>
+              <Image 
+                src="/images/HivePay.svg" 
+                alt="HivePay Logo" 
+                width={96}  // Increased from 32 to 96
+                height={96} // Increased from 32 to 96
+                />
+              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">HivePay</span>
             </Link>
             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">
               Transforming traditional group savings into a seamless digital experience. Save and grow wealth together.
@@ -44,7 +49,7 @@ const Footer = () => {
                   <li key={link.name}>
                     <Link
                       href={link.href}
-                      className="text-sm text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+                      className="text-sm text-gray-600 hover:text-yellow-400 dark:text-gray-400 dark:hover:text-yellow-500 transition-colors"
                     >
                       {link.name}
                     </Link>
@@ -61,7 +66,7 @@ const Footer = () => {
                   <li key={link.name}>
                     <Link
                       href={link.href}
-                      className="text-sm text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+                      className="text-sm text-gray-600 hover:text-yellow-400 dark:text-gray-400 dark:hover:text-yellow-500 transition-colors"
                     >
                       {link.name}
                     </Link>
@@ -75,7 +80,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
           <p className="text-xs text-center md:text-left text-gray-600 dark:text-gray-400">
-            © {currentYear} Roundly. All rights reserved.
+            © {currentYear} HivePay. All rights reserved.
           </p>
         </div>
       </div>

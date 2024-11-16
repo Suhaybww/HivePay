@@ -16,7 +16,6 @@ import {
   AlertDialogTitle,
 } from "@/src/components/ui/alert-dialog"
 import {
-  User2,
   Users,
   Calendar as CalendarIcon,
   RefreshCw,
@@ -30,11 +29,6 @@ import {
   InfoIcon,
   Loader2,
 } from "lucide-react"
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/src/components/ui/hover-card"
 import { useToast } from "@/src/components/ui/use-toast"
 import { trpc } from "@/src/app/_trpc/client"
 import type { GroupWithStats } from "../types/groups"
@@ -60,7 +54,6 @@ interface StartCycleFormData {
   scheduleDate: Date;
   payoutDate: Date;
 }
-
 
 // Define form schema using zod
 const StartCycleSchema = z.object({

@@ -10,6 +10,7 @@ import { ArrowRight } from 'lucide-react'
 import UserAccountNav from './UserAccountNav'
 import MobileNav from './MobileNav'
 import { db } from '@/src/db'
+import Image from 'next/image'
 
 const Navbar = async () => {
   const { getUser } = getKindeServerSession()
@@ -22,11 +23,20 @@ const Navbar = async () => {
   return (
     <nav className='sticky h-14 inset-x-0 top-0 z-30 w-full border-b border-gray-200 bg-white/75 backdrop-blur-lg transition-all'>
       <MaxWidthWrapper>
-        <div className='flex h-14 items-center justify-between border-b border-zinc-200'>
-          <Link
-            href='/'
-            className='flex z-40 font-semibold'>
-            <span>Roundly.</span>
+        <div className='flex h-14 items-center justify-between'>
+          <Link href='/' className='flex items-center z-40 space-x-2'>
+            {/* HivePay Logo */}
+            <div className="relative w-20 h-20">
+              <Image
+                src='/images/HivePay.svg'
+                alt='HivePay Logo'
+                fill
+                className='object-contain'
+                priority
+              />
+            </div>
+            {/* Text */}
+            <span className='text-2xl font-semibold text-gray-900'>HivePay</span>
           </Link>
 
           <MobileNav isAuth={!!user} />
