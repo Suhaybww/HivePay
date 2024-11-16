@@ -7,15 +7,15 @@ const Footer = () => {
 
   const footerLinks = {
     product: [
-      { name: 'About', href: '/about' },
+      { name: 'About', href: '/company/about' },
       { name: 'Pricing', href: '/pricing' },
-      { name: 'FAQs', href: '/faqs' },
-      { name: 'Contact', href: '/contact' },
+      { name: 'FAQs', href: '/company/faqs' },
+      { name: 'Contact', href: '/company/contact' },
     ],
     legal: [
-      { name: 'Privacy Policy', href: '/privacy' },
-      { name: 'Terms of Service', href: '/terms' },
-      { name: 'Code of Conduct', href: '/code-of-conduct' },
+      { name: 'Privacy Policy', href: '/legal/privacy' },
+      { name: 'Terms of Service', href: '/legal/terms' },
+      { name: 'Code of Conduct', href: '/legal/code-of-conduct' },
     ],
   };
 
@@ -29,9 +29,9 @@ const Footer = () => {
               <Image 
                 src="/images/HivePay.svg" 
                 alt="HivePay Logo" 
-                width={96}  // Increased from 32 to 96
-                height={96} // Increased from 32 to 96
-                />
+                width={96} 
+                height={96}
+              />
               <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">HivePay</span>
             </Link>
             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">

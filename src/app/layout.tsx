@@ -1,4 +1,5 @@
 import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import Providers from '../components/Providers'
 import { cn, constructMetadata } from '../lib/utils'
 import { Inter } from 'next/font/google'
@@ -51,7 +52,7 @@ export default async function RootLayout({
   )
   const isPricingPage = pathname.startsWith('/pricing')
   const shouldShowDashboardLayout = user && (isProtectedRoute || isPricingPage)
-  const shouldShowNavbar = !user && !isProtectedRoute
+  const shouldShowNavbarAndFooter = !user && !isProtectedRoute
 
   return (
     <html lang="en" className="light">
@@ -77,12 +78,13 @@ export default async function RootLayout({
             </SidebarProvider>
           ) : (
             <>
-              {shouldShowNavbar && <Navbar />}
+              {shouldShowNavbarAndFooter && <Navbar />}
               <main className="flex-1">
                 <div className="container max-w-7xl mx-auto p-8">
                   {children}
                 </div>
               </main>
+              {shouldShowNavbarAndFooter && <Footer />}
             </>
           )}
         </Providers>
