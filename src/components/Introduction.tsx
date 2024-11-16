@@ -1,15 +1,13 @@
-import React from 'react';
-import MaxWidthWrapper from './MaxWidthWrapper';
-import Link from 'next/link';
-import { Button } from './ui/button';
-import Image from 'next/image';
+import React from "react";
+import MaxWidthWrapper from "./MaxWidthWrapper";
+import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import Image from "next/image";
 
 const Introduction = () => {
   return (
     <section className="py-48">
       <MaxWidthWrapper>
-        
-        <div className="flex flex-col lg:flex-row items-center gap-12">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-12">
           {/* Content */}
           <div className="flex-1 space-y-6">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
@@ -18,31 +16,30 @@ const Introduction = () => {
             </h2>
 
             <p className="text-gray-600 text-lg leading-relaxed">
-              HivePay reinvents the traditional ROSCA (Rotating Savings and Credit Association) 
-              with a seamless, digital platform. Enjoy an internet-free, peer-to-peer loan system, 
-              allowing you to save and lend with your trusted circle, 
-              without banks or intermediaries. Perfect for achieving financial goals together.
+              HivePay reinvents the traditional ROSCA (Rotating Savings and Credit Association)
+              with a seamless, digital platform. Enjoy an internet-free, peer-to-peer loan system,
+              allowing you to save and lend with your trusted circle, without banks or intermediaries.
+              Perfect for achieving financial goals together.
             </p>
 
-            <Button
-              size="lg"
-              className="mt-2 bg-yellow-400 text-white hover:bg-yellow-500 transition-all"
-              asChild
-            >
-              <Link href="/how-it-works">
+            <div className="pt-4">
+              <RegisterLink
+                className="px-6 py-3 text-lg font-medium text-white bg-yellow-400 hover:bg-yellow-500 rounded-md transition-all"
+              >
                 Create an Account
-              </Link>
-            </Button>
+              </RegisterLink>
+            </div>
           </div>
 
-          {/* Image */}
-          <div className="flex-1">
-            <div className="relative w-full h-0 pb-[52.63%] overflow-hidden rounded-2xl">
+          {/* Responsive Image */}
+          <div className="flex-1 w-full">
+            <div className="relative aspect-[4/3] w-full max-h-[500px] rounded-2xl overflow-hidden">
               <Image
                 src="/images/intro.png"
                 alt="People managing their group savings"
                 fill
-                className="object-cover rounded-2xl"
+                className="object-contain md:object-cover rounded-2xl"
+                sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
               />
             </div>

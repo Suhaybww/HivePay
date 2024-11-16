@@ -1,57 +1,56 @@
-'use client';
+"use client";
 
-import React from 'react';
-import MaxWidthWrapper from './MaxWidthWrapper';
-import Image from 'next/image';
-import { Button } from './ui/button';
-import Link from 'next/link';
+import React from "react";
+import MaxWidthWrapper from "./MaxWidthWrapper";
+import Image from "next/image";
+import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 
 const steps = [
   {
     number: 1,
-    title: 'Create or Join a Group',
+    title: "Create or Join a Group",
     description:
-      'Sign up and either start a new group or join an existing one with your friends and family.',
-    imageSrc: '/images/step1.png',
+      "Sign up and either start a new group or join an existing one with your friends and family.",
+    imageSrc: "/images/step1.png",
     altText: 'Person tapping "Create Group" on a smartphone',
-    width: 800,  // Added width
-    height: 800  // Added height
+    width: 800,
+    height: 800,
   },
   {
     number: 2,
-    title: 'Customize Your Group',
+    title: "Customize Your Group",
     description:
       "Set the payout amounts, contribution frequency, and event duration to fit your group's preferences.",
-    imageSrc: '/images/step2.png',
-    altText: 'Settings dashboard with adjustable sliders',
+    imageSrc: "/images/step2.png",
+    altText: "Settings dashboard with adjustable sliders",
   },
   {
     number: 3,
-    title: 'Authenticate Members',
+    title: "Authenticate Members",
     description:
-      'Invite members to join and complete secure authentication for trust and transparency.',
-    imageSrc: '/images/step3.png',
-    altText: 'Members accepting invites with ID verification icons',
+      "Invite members to join and complete secure authentication for trust and transparency.",
+    imageSrc: "/images/step3.png",
+    altText: "Members accepting invites with ID verification icons",
   },
   {
     number: 4,
-    title: 'Automated Transactions',
+    title: "Automated Transactions",
     description:
       "Roundly handles all billing and payouts through direct debit, so you don't have to worry about manual processes.",
-    imageSrc: '/images/step4.png',
-    altText: 'Money transferring between accounts automatically',
+    imageSrc: "/images/step4.png",
+    altText: "Money transferring between accounts automatically",
   },
   {
     number: 5,
-    title: 'Track Progress',
+    title: "Track Progress",
     description:
-      'Monitor contributions, payouts, and group activity with real-time graphs and reports.',
-    imageSrc: '/images/step5.png',
-    altText: 'Dashboard displaying charts and statistics',
+      "Monitor contributions, payouts, and group activity with real-time graphs and reports.",
+    imageSrc: "/images/step5.png",
+    altText: "Dashboard displaying charts and statistics",
   },
 ];
 
-const HowItWorks = () => {
+const GettingStarted = () => {
   return (
     <section className="py-24">
       <MaxWidthWrapper>
@@ -69,14 +68,13 @@ const HowItWorks = () => {
             <div
               key={step.number}
               className={`flex flex-col lg:flex-row items-center gap-8 ${
-                step.number % 2 === 0 ? 'lg:flex-row-reverse' : ''
+                step.number % 2 === 0 ? "lg:flex-row-reverse" : ""
               }`}
             >
               {/* Image Container */}
               <div className="flex-1 w-full">
                 <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden">
                   {step.number === 1 ? (
-                    // Special handling for step 1 image
                     <Image
                       src={step.imageSrc}
                       alt={step.altText}
@@ -86,7 +84,6 @@ const HowItWorks = () => {
                       priority
                     />
                   ) : (
-                    // Original handling for other images
                     <Image
                       src={step.imageSrc}
                       alt={step.altText}
@@ -121,17 +118,15 @@ const HowItWorks = () => {
 
         {/* CTA Button */}
         <div className="text-center mt-16">
-          <Button
-            size="lg"
-            className="bg-yellow-400 text-white hover:bg-yellow-500 transition-all"
-            asChild
+          <RegisterLink
+            className="px-6 py-3 text-lg font-medium text-white bg-yellow-400 hover:bg-yellow-500 rounded-md transition-all"
           >
-            <Link href="/signup">Get Started with Roundly</Link>
-          </Button>
+            Get Started with Roundly
+          </RegisterLink>
         </div>
       </MaxWidthWrapper>
     </section>
   );
 };
 
-export default HowItWorks;
+export default GettingStarted;

@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unescaped-entities */
 import Hero from '../components/Hero';
 import Introduction from '../components/Introduction';
-import HowItWorks from '../components/HowItWorks';
+import GettingStarted from '../components/GettingStarted';
 import FeaturesSpotlight from '../components/FeaturesSpotlight';
 import FinalCTA from '../components/FinalCTA';
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
@@ -35,7 +35,7 @@ const Home = async () => {
       <Introduction />
 
       {/* Section 4: How It Works */}
-      <HowItWorks />
+      <GettingStarted />
 
       {/* Section 5: Features Spotlight */}
       <FeaturesSpotlight />
