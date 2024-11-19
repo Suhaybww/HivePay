@@ -154,7 +154,7 @@ export const GroupModals = () => {
             <span className="text-sm text-muted-foreground">
               You need an active subscription to create groups.
             </span>
-            <Link href="/pricing" className="text-sm text-purple-600 hover:text-purple-700 font-medium mt-1">
+            <Link href="/pricing" className="text-sm text-yellow-400 hover:text-yellow-500 font-medium mt-1">
               View Plans →
             </Link>
           </div>
@@ -177,7 +177,7 @@ export const GroupModals = () => {
             <span className="text-sm text-muted-foreground">
               You need an active subscription to join groups.
             </span>
-            <Link href="/pricing" className="text-sm text-purple-600 hover:text-purple-700 font-medium mt-1">
+            <Link href="/pricing" className="text-sm text-yellow-400 hover:text-yellow-500 font-medium mt-1">
               View Plans →
             </Link>
           </div>
@@ -201,12 +201,12 @@ export const GroupModals = () => {
 
   return (
     <div className="flex gap-3">
-      <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={handleCreateClick}>
+      <Button className="bg-yellow-400 hover:bg-yellow-500 text-white" onClick={handleCreateClick}>
         <Plus className="w-4 h-4 mr-2" />
         New Group
       </Button>
 
-      <Button variant="outline" className="border-purple-600 text-purple-600" onClick={handleJoinClick}>
+      <Button variant="outline" className="border-yellow-400 text-yellow-500" onClick={handleJoinClick}>
         <Users className="w-4 h-4 mr-2" />
         Join Group
       </Button>
@@ -327,7 +327,7 @@ export const GroupModals = () => {
                   <p className="text-sm text-red-500 mt-1">{newGroupErrors.payoutOrderMethod.message}</p>
                 )}
               </div>
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+              <Button type="submit" className="w-full bg-yellow-400 hover:bg-yellow-500 text-white">
                 Create Group
               </Button>
             </form>
@@ -355,7 +355,7 @@ export const GroupModals = () => {
                   <p className="text-sm text-red-500 mt-1">{joinGroupErrors.groupId.message}</p>
                 )}
               </div>
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+              <Button type="submit" className="w-full bg-yellow-400 hover:bg-yellow-500 text-white">
                 Join Group
               </Button>
             </form>

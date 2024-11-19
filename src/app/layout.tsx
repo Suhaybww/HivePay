@@ -46,12 +46,17 @@ export default async function RootLayout({
     '/analytics',
     '/settings',
     '/onboarding',
+    '/company/contact', // Added contact route
+    '/company/about',   // Added about route
+    '/company/faqs'     // Added FAQs route
   ]
+  
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   )
   const isPricingPage = pathname.startsWith('/pricing')
-  const shouldShowDashboardLayout = user && (isProtectedRoute || isPricingPage)
+  // Modified to show dashboard layout for logged-in users on company pages
+  const shouldShowDashboardLayout = user && (isProtectedRoute || isPricingPage || pathname.startsWith('/company'))
   const shouldShowNavbarAndFooter = !user && !isProtectedRoute
 
   return (

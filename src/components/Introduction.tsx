@@ -35,7 +35,7 @@ const Introduction = () => {
           <div className="flex-1 w-full">
             <div className="relative aspect-[4/3] w-full max-h-[500px] rounded-2xl overflow-hidden">
               <Image
-                src="/images/intro.png"
+                src="/images/1.png"
                 alt="People managing their group savings"
                 fill
                 className="object-contain md:object-cover rounded-2xl"

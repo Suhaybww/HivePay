@@ -68,7 +68,6 @@ const NavUser: React.FC<NavUserProps> = ({
               </Avatar>
               <div className="ml-2 flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{name}</span>
-                {/* Email is removed from here to display only name */}
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -109,7 +108,7 @@ const NavUser: React.FC<NavUserProps> = ({
                     </>
                   ) : (
                     <>
-                      <Gem className="h-4 w-4 text-violet-600" />
+                      <Gem className="h-4 w-4 text-yellow-400" />
                       Upgrade to Pro
                     </>
                   )}
@@ -118,12 +117,6 @@ const NavUser: React.FC<NavUserProps> = ({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard" className="flex items-center gap-2 p-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Link>
-              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/settings" className="flex items-center gap-2 p-2">
                   <Settings className="h-4 w-4" />

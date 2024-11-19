@@ -12,8 +12,9 @@ const Page = () => {
   trpc.auth.authCallback.useQuery(undefined, {
     onSuccess: ({ success }) => {
       if (success) {
-        // Redirect to origin or dashboard
-        router.push(origin ? `/${origin}` : '/dashboard');
+        // Force a full page refresh when redirecting after signup
+        const redirectPath = origin ? `/${origin}` : '/dashboard';
+        window.location.href = redirectPath;  // Use window.location.href instead of router.push
       }
     },
     onError: (err) => {

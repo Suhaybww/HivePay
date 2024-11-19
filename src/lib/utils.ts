@@ -20,10 +20,10 @@ export function classNames(...classes: (string | boolean | undefined)[]) {
 }
 
 export function constructMetadata({
-  title = "Roundly",
-  description = "Roundly is a digital platform for secure and automated rotating savings. Whether saving with friends or family, our system ensures trust and transparency every step of the way.",
-  image = "/logo.jpg",
-  icons = "/logo.jpg",
+  title = "HivePay",
+  description = "HivePay is a digital platform for secure and automated rotating savings. Whether saving with friends or family, our system ensures trust and transparency every step of the way.",
+  image = "/HivePay.svg",
+  icons = "/HivePay.svg",
   noIndex = false
 }: {
   title?: string
