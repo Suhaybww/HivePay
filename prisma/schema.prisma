@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -82,9 +83,7 @@ enum TicketPriority {
   Urgent
 }
 
-
 // Models
-
 
 model User {
   id                      String              @id @unique //matches kinde user id
@@ -109,8 +108,8 @@ model User {
   stripeMandateId         String?             // Mandate ID for recurring authorization (optional)
 
   subscriptionStatus      SubscriptionStatus
-  onboardingStatus        OnboardingStatus    @default(Pending) 
-  onboardingDate          DateTime?           
+  onboardingStatus        OnboardingStatus    @default(Pending)
+  onboardingDate          DateTime?
 
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
@@ -126,9 +125,7 @@ model User {
   messagesSent            Message[]           @relation("MessagesSent")
   supportTickets          SupportTicket[]
   ticketResponses         TicketResponse[]
-  feedback                 Feedback[]
-
-
+  feedback                Feedback[]
 }
 
 model Plan {
@@ -171,8 +168,7 @@ model Group {
   payoutFrequency       Frequency?
   nextContributionDate  DateTime?
   nextPayoutDate        DateTime?
-  cycleStarted          Boolean           @default(false) 
-
+  cycleStarted          Boolean           @default(false)
 
   groupMemberships GroupMembership[]
   payouts          Payout[]
@@ -199,7 +195,6 @@ model GroupMembership {
   updatedAt DateTime @updatedAt
 
   @@unique([groupId, userId], name: "membershipIdentifier")
-
 }
 
 model Payment {
@@ -212,7 +207,7 @@ model Payment {
   paymentDate           DateTime      @default(now())
   status                PaymentStatus @default(Pending)
   stripePaymentIntentId String?       @unique
-  mandateId             String? // BECS Direct Debit Mandate ID
+  mandateId             String?       // BECS Direct Debit Mandate ID
   transactions          Transaction[]
 
   createdAt DateTime @default(now())
@@ -229,6 +224,7 @@ model Payout {
   amount              Decimal       @db.Decimal(10, 2)
   status              PayoutStatus  @default(Pending)
   stripeTransferId    String?       @unique
+  payoutOrder         Int
   transactions        Transaction[]
 
   createdAt DateTime @default(now())
@@ -274,29 +270,29 @@ model Message {
 }
 
 model SupportTicket {
-  id          String        @id @default(cuid())
+  id          String         @id @default(cuid())
   subject     String
-  message     String        @db.Text
-  status      TicketStatus  @default(Open)
+  message     String         @db.Text
+  status      TicketStatus   @default(Open)
   priority    TicketPriority @default(Medium)
-  user        User          @relation(fields: [userId], references: [id])
+  user        User           @relation(fields: [userId], references: [id])
   userId      String
   responses   TicketResponse[]
-  
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 }
 
 model TicketResponse {
   id          String        @id @default(cuid())
   message     String        @db.Text
-  staffEmail  String?       
+  staffEmail  String?
   isStaff     Boolean       @default(false)
   ticket      SupportTicket @relation(fields: [ticketId], references: [id])
   ticketId    String
-  user        User?         @relation(fields: [userId], references: [id])  // Make optional
-  userId      String?       
-  
+  user        User?         @relation(fields: [userId], references: [id]) // Make optional
+  userId      String?
+
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 }

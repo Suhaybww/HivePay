@@ -2,6 +2,7 @@ import { privateProcedure, router } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../db';
 import { MembershipStatus, PaymentStatus } from '@prisma/client';
+import { z } from "zod";
 
 export const userRouter = router({
   getRecentActivity: privateProcedure.query(async ({ ctx }) => {
@@ -258,6 +259,46 @@ export const userRouter = router({
       });
     }
   }),
+
+  // src/trpc/routers/user.ts
+
+updateProfile: privateProcedure
+.input(
+  z.object({
+    firstName: z.string().min(2, "First name must be at least 2 characters.").optional(),
+    lastName: z.string().min(2, "Last name must be at least 2 characters.").optional(),
+    phoneNumber: z.string().min(10, "Phone number must be at least 10 characters.").optional(),
+    age: z.number().optional(),
+    gender: z.enum(["Male", "Female"]).optional(),
+  })
+)
+.mutation(async ({ ctx, input }) => {
+  const { userId } = ctx;
+
+  try {
+    // Only include fields that were actually provided in the input
+    const updateData = {
+      ...(input.firstName && { firstName: input.firstName }),
+      ...(input.lastName && { lastName: input.lastName }),
+      ...(input.phoneNumber && { phoneNumber: input.phoneNumber }),
+      ...(input.age && { age: input.age }),
+      ...(input.gender && { gender: input.gender }),
+    };
+
+    const updatedUser = await db.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    return updatedUser;
+  } catch (error) {
+    console.error('Failed to update user profile:', error);
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Failed to update profile',
+    });
+  }
+})
 
 });
 

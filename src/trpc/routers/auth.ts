@@ -3,7 +3,7 @@ import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../db';
 import { z } from 'zod';
-import { SubscriptionStatus, Frequency } from '@prisma/client';
+import { SubscriptionStatus, Frequency, PayoutStatus, TransactionType, Prisma, PaymentStatus } from '@prisma/client'; // Updated import
 import { stripe } from '../../lib/stripe';
 
 
@@ -413,6 +413,166 @@ startContributionCycle: privateProcedure
 
     return { success: true };
   }),
+
+  processPayout: privateProcedure
+    .input(
+      z.object({
+        groupId: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { groupId } = input;
+
+      // Fetch the group and its payments
+      const group = await db.group.findUnique({
+        where: { id: groupId },
+        include: {
+          groupMemberships: {
+            orderBy: { payoutOrder: 'asc' },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  stripeAccountId: true,
+                },
+              },
+            },
+          },
+          payments: {
+            where: { status: PaymentStatus.Successful },
+          },
+          payouts: true,
+        },
+      });
+
+      if (!group) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Group not found',
+        });
+      }
+
+      // Check if all payments have been successful
+      const totalMembers = group.groupMemberships.length;
+      const successfulPayments = group.payments.length;
+
+      if (successfulPayments < totalMembers) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Not all payments have been completed',
+        });
+      }
+
+      // Identify the next user to receive the payout
+      const lastPayout = await db.payout.findFirst({
+        where: { groupId },
+        orderBy: { payoutOrder: 'desc' },
+      });
+
+      let nextPayoutOrder = 1;
+      if (lastPayout) {
+        nextPayoutOrder = lastPayout.payoutOrder + 1;
+      }
+
+      const nextMember = group.groupMemberships.find(
+        (member) => member.payoutOrder === nextPayoutOrder
+      );
+
+      if (!nextMember) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No eligible member found for payout',
+        });
+      }
+
+      const { stripeAccountId } = nextMember.user;
+
+      if (!stripeAccountId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `User ${nextMember.user.email} has not completed Stripe Connect onboarding`,
+        });
+      }
+
+      // Calculate the total amount collected
+      const totalAmount = group.payments.reduce((acc, payment) => {
+        return acc + payment.amount.toNumber();
+      }, 0);
+
+      // Initiate the transfer via Stripe Connect
+      try {
+        const transfer = await stripe.transfers.create({
+          amount: Math.round(totalAmount * 100), // Convert to cents and round to nearest cent
+          currency: 'aud',
+          destination: stripeAccountId,
+          metadata: {
+            groupId,
+            userId: nextMember.user.id,
+          },
+        });
+
+        // Check the connected account's balance
+        const connectedAccountBalance = await stripe.balance.retrieve({
+          stripeAccount: stripeAccountId,
+        });
+
+        const pendingBalance = connectedAccountBalance.pending.find(
+          (balance) => balance.currency === 'aud'
+        );
+
+        if (
+          pendingBalance &&
+          pendingBalance.amount >= Math.round(totalAmount * 100)
+        ) {
+          // Funds are pending in the connected account
+          // Create a payout record with status 'Completed'
+          const payout = await db.payout.create({
+            data: {
+              groupId,
+              userId: nextMember.user.id,
+              scheduledPayoutDate: new Date(),
+              amount: new Prisma.Decimal(totalAmount),
+              status: PayoutStatus.Completed,
+              stripeTransferId: transfer.id,
+              payoutOrder: nextPayoutOrder,
+            },
+          });
+
+          // Create a transaction record
+          await db.transaction.create({
+            data: {
+              userId: nextMember.user.id,
+              groupId,
+              amount: new Prisma.Decimal(totalAmount),
+              transactionType: TransactionType.Credit,
+              description: `Payout for group ${group.name}`,
+              transactionDate: new Date(),
+              relatedPayoutId: payout.id,
+            },
+          });
+
+          return { success: true };
+        } else {
+          // Funds are not yet in the connected account's pending balance
+          // Handle this case as needed
+          console.error('Funds not yet available in connected account');
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Funds not yet available in connected account',
+          });
+        }
+      } catch (error) {
+        console.error(
+          `Failed to transfer funds to user ${nextMember.user.email}:`,
+          error
+        );
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to transfer funds',
+        });
+      }
+    }),
 });
 
 // Helper function to calculate the next contribution date

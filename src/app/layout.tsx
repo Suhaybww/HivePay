@@ -18,12 +18,12 @@ export const metadata = constructMetadata()
 export default async function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const { getUser } = getKindeServerSession()
-  const kindeUser = await getUser()
-  const headersList = headers()
-  const pathname = headersList.get('x-invoke-path') || ''
+  const { getUser } = getKindeServerSession();
+  const kindeUser = await getUser();
+  const headersList = headers();
+  const pathname = headersList.get('x-invoke-path') || '';
 
   const user = kindeUser
     ? await db.user.findUnique({
@@ -36,7 +36,7 @@ export default async function RootLayout({
           subscriptionStatus: true,
         },
       })
-    : null
+    : null;
 
   const protectedRoutes = [
     '/dashboard',
@@ -46,26 +46,27 @@ export default async function RootLayout({
     '/analytics',
     '/settings',
     '/onboarding',
-    '/company/contact', // Added contact route
-    '/company/about',   // Added about route
-    '/company/faqs'     // Added FAQs route
-  ]
-  
+    '/company/contact',
+    '/company/about', // Added about route
+    '/company/faqs',  // Added FAQs route
+  ];
+
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
-  )
-  const isPricingPage = pathname.startsWith('/pricing')
-  // Modified to show dashboard layout for logged-in users on company pages
-  const shouldShowDashboardLayout = user && (isProtectedRoute || isPricingPage || pathname.startsWith('/company'))
-  const shouldShowNavbarAndFooter = !user && !isProtectedRoute
+  );
+  const isPublicCompanyRoute =
+    ['/company/contact', '/company/about', '/company/faqs'].includes(pathname);
+
+  // Modify logic for navbar/footer rendering
+  const shouldShowNavbarAndFooter =
+    !user && (!isProtectedRoute || isPublicCompanyRoute);
 
   return (
     <html lang="en" className="light">
       <body className={cn('min-h-screen bg-background', inter.className)}>
         <Providers>
           <Toaster />
-          
-          {shouldShowDashboardLayout ? (
+          {user && isProtectedRoute ? (
             <SidebarProvider>
               <AppSidebar user={user} />
               <SidebarInset>
@@ -75,9 +76,7 @@ export default async function RootLayout({
                   </div>
                 </header>
                 <main className="flex-1">
-                  <div className="px-8 py-6">
-                    {children}
-                  </div>
+                  <div className="px-8 py-6">{children}</div>
                 </main>
               </SidebarInset>
             </SidebarProvider>
@@ -85,9 +84,7 @@ export default async function RootLayout({
             <>
               {shouldShowNavbarAndFooter && <Navbar />}
               <main className="flex-1">
-                <div className="container max-w-7xl mx-auto p-8">
-                  {children}
-                </div>
+                <div className="container max-w-7xl mx-auto p-8">{children}</div>
               </main>
               {shouldShowNavbarAndFooter && <Footer />}
             </>
@@ -95,5 +92,5 @@ export default async function RootLayout({
         </Providers>
       </body>
     </html>
-  )
+  );
 }

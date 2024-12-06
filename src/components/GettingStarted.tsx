@@ -36,7 +36,7 @@ const steps = [
     number: 4,
     title: "Automated Transactions",
     description:
-      "Roundly handles all billing and payouts through direct debit, so you don't have to worry about manual processes.",
+      "HivePay handles all billing and payouts through direct debit, so you don't have to worry about manual processes.",
     imageSrc: "/images/step4.png",
     altText: "Money transferring between accounts automatically",
   },
@@ -121,7 +121,7 @@ const GettingStarted = () => {
           <RegisterLink
             className="px-6 py-3 text-lg font-medium text-white bg-yellow-400 hover:bg-yellow-500 rounded-md transition-all"
           >
-            Get Started with Roundly
+            Get Started with HivePay
           </RegisterLink>
         </div>
       </MaxWidthWrapper>

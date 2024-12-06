@@ -7,7 +7,7 @@ import FinalCTA from '../components/FinalCTA';
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 import { redirect } from 'next/navigation';
 import { db } from '@/src/db';
-
+import PaymentFlow from '../components/PaymentFlow';
 const Home = async () => {
   const { getUser } = getKindeServerSession();
   const user = await getUser();
@@ -34,11 +34,16 @@ const Home = async () => {
       {/* Section 2: Introduction */}
       <Introduction />
 
+
+
       {/* Section 4: How It Works */}
       <GettingStarted />
 
       {/* Section 5: Features Spotlight */}
       <FeaturesSpotlight />
+
+      <PaymentFlow />
+
 
       {/* Section 6: Final Call-to-Action */}
       <FinalCTA />

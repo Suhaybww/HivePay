@@ -30,7 +30,7 @@ const CTASection: React.FC<CTAProps> = ({ className }) => {
           
           <p className="text-base md:text-lg text-neutral-600 dark:text-neutral-300 max-w-2xl mb-8">
             Discover the easiest way to save together. Whether you're looking to create
-            your first savings circle or explore our pricing plans, HivePay is
+            your first savings group or explore our pricing plans, HivePay is
             here to help.
           </p>
           

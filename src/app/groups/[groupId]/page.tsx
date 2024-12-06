@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -10,6 +10,7 @@ import { GroupAnalytics } from '@/src/components/GroupAnalytics';
 import { GroupMessaging } from '@/src/components/GroupMessaging';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import GroupSettings from '@/src/components/GroupSettings';
+import GroupAdmin from '@/src/components/GroupAdmin';
 
 const defaultAnalyticsData = {
   contributions: [],
@@ -83,11 +84,10 @@ export default function GroupPage() {
     await sendMessageMutation.mutateAsync({ groupId, content });
   };
 
-  // Fix the callback functions
   const handleLeaveGroup = useCallback(() => {
     router.push('/dashboard');
   }, [router]);
-  
+
   const handleGroupUpdate = useCallback(() => {
     utils.group.getGroupById.invalidate({ groupId });
   }, [utils, groupId]);
@@ -111,7 +111,7 @@ export default function GroupPage() {
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="flex justify-between items-start mb-8">
         <div className="space-y-2">
-          <h1 className="text-5xl font-bold text-purple-700 leading-tight">
+          <h1 className="text-5xl font-bold text-yellow-400 leading-tight">
             {group.name}
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl">
@@ -124,28 +124,36 @@ export default function GroupPage() {
         <TabsList className="border-b border-gray-300 mb-6 flex space-x-4">
           <TabsTrigger
             value="details"
-            className="px-6 py-3 text-gray-700 hover:text-purple-700 transition-colors font-medium"
+            className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
           >
             Details
           </TabsTrigger>
           <TabsTrigger
             value="analytics"
-            className="px-6 py-3 text-gray-700 hover:text-purple-700 transition-colors font-medium"
+            className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
           >
             Analytics
           </TabsTrigger>
           <TabsTrigger
             value="messaging"
-            className="px-6 py-3 text-gray-700 hover:text-purple-700 transition-colors font-medium"
+            className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
           >
             Messaging
           </TabsTrigger>
           <TabsTrigger
             value="settings"
-            className="px-6 py-3 text-gray-700 hover:text-purple-700 transition-colors font-medium"
+            className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
           >
             Settings
           </TabsTrigger>
+          {group.isAdmin && ( // Show Admin tab only if user is admin
+            <TabsTrigger
+              value="admin"
+              className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
+            >
+              Admin
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="details">
@@ -159,9 +167,9 @@ export default function GroupPage() {
               <Skeleton className="h-80 w-full" />
             </div>
           ) : (
-            <GroupAnalytics 
-              group={group} 
-              analyticsData={analyticsData || defaultAnalyticsData} 
+            <GroupAnalytics
+              group={group}
+              analyticsData={analyticsData || defaultAnalyticsData}
             />
           )}
         </TabsContent>
@@ -179,16 +187,24 @@ export default function GroupPage() {
         </TabsContent>
 
         <TabsContent value="settings">
-      {group && (
-        <GroupSettings 
-          group={group} 
-          onLeaveGroup={handleLeaveGroup}
-          onGroupUpdate={handleGroupUpdate}
-        />
-      )}
-    </TabsContent>
+          {group && (
+            <GroupSettings
+              group={group}
+              onLeaveGroup={handleLeaveGroup}
+              onGroupUpdate={handleGroupUpdate}
+            />
+          )}
+        </TabsContent>
+
+        {group.isAdmin && (
+          <TabsContent value="admin">
+            <GroupAdmin
+              group={group}
+              onGroupUpdate={handleGroupUpdate}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
 }
-

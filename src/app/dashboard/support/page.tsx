@@ -29,23 +29,10 @@ import {
   Mail,
   ArrowRight,
   Clock,
-  MessageCircle,
-  Shield,
-  User,
-  Search,
-  Filter,
-  Loader2,
 } from "lucide-react";
 import { trpc } from "../../_trpc/client";
 import { format } from "date-fns";
 import { TicketStatus, TicketPriority } from "@prisma/client";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/src/components/ui/select";
 
 interface TicketData {
   subject: string;
@@ -56,12 +43,7 @@ interface Response {
   id: string;
   message: string;
   createdAt: string;
-  updatedAt: string;
-  ticketId: string;
-  userId: string | null;
-  isStaff: boolean;
-  staffEmail: string | null;
-  user?: {
+  user: {
     firstName: string;
     lastName: string;
   };
@@ -72,10 +54,10 @@ interface Ticket {
   subject: string;
   message: string;
   status: TicketStatus;
-  priority: TicketPriority;
   userId: string;
   createdAt: string;
   updatedAt: string;
+  priority: TicketPriority;
   responses: Response[];
 }
 
@@ -91,20 +73,10 @@ const statusColors: Record<TicketStatus, string> = {
   Closed: "bg-red-100 text-red-800",
 };
 
-const priorityColors: Record<TicketPriority, string> = {
-  Low: "bg-gray-100 text-gray-800",
-  Medium: "bg-yellow-100 text-yellow-800",
-  High: "bg-orange-100 text-orange-800",
-  Urgent: "bg-red-100 text-red-800",
-};
-
 export default function SupportPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
-  const [responseInputs, setResponseInputs] = useState<Record<string, string>>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all");
   const [formData, setFormData] = useState<TicketData>({
     subject: "",
     message: "",
@@ -114,18 +86,17 @@ export default function SupportPage() {
     message: "",
   });
 
-  // TRPC Queries
+  // Get initial tickets
   const {
     data: userTickets,
     isLoading: isLoadingTickets,
     refetch: refetchUserTickets,
   } = trpc.support.getUserTickets.useQuery(
     {
-      status: statusFilter === "all" ? undefined : statusFilter,
       limit: 10,
     },
     {
-      select: (data) => data as UserTicketsData,
+      select: (data) => data as UserTicketsData, // Type assertion
     }
   );
 
@@ -146,21 +117,6 @@ export default function SupportPage() {
     }
   );
 
-  // Get ticket stats
-  const { data: ticketStats } = trpc.support.getTicketStats.useQuery();
-
-  // Search tickets
-  const { data: searchResults, isLoading: isSearching } = trpc.support.searchTickets.useQuery(
-    {
-      query: searchQuery,
-      status: statusFilter === "all" ? undefined : statusFilter,
-      limit: 10,
-    },
-    {
-      enabled: searchQuery.length > 0,
-    }
-  );
-
   // Mutations
   const createTicket = trpc.support.createTicket.useMutation({
     onSuccess: () => {
@@ -170,13 +126,14 @@ export default function SupportPage() {
       });
       setFormData({ subject: "", message: "" });
       setIsSubmitting(false);
-      refetchUserTickets();
+      refetchUserTickets(); // Refresh ticket list
     },
     onError: (error) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to submit ticket. Please try again.",
+        description:
+          error.message || "Failed to submit ticket. Please try again.",
       });
       setIsSubmitting(false);
     },
@@ -188,48 +145,20 @@ export default function SupportPage() {
         title: "Status Updated",
         description: "Ticket status has been updated successfully.",
       });
-      refetchUserTickets();
+      refetchUserTickets(); // Refresh ticket list
     },
     onError: (error) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to update status. Please try again.",
+        description:
+          error.message || "Failed to update status. Please try again.",
       });
     },
   });
 
-  const addResponse = trpc.support.addResponse.useMutation({
-    onSuccess: () => {
-      toast({
-        title: "Response Added",
-        description: "Your response has been submitted successfully.",
-      });
-      setResponseInputs({});
-      refetchUserTickets();
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to add response. Please try again.",
-      });
-    },
-  });
-
-  // Handlers
   const handleStatusUpdate = async (ticketId: string, status: TicketStatus) => {
     updateStatus.mutate({ ticketId, status });
-  };
-
-  const handleResponse = async (ticketId: string) => {
-    const message = responseInputs[ticketId];
-    if (!message?.trim()) return;
-
-    addResponse.mutate({
-      ticketId,
-      message,
-    });
   };
 
   const handleChange = (
@@ -262,25 +191,18 @@ export default function SupportPage() {
     });
   };
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
-  const displayedTickets = searchQuery ? searchResults?.tickets : userTickets?.tickets;
-
-
-return (
+  return (
     <div className="max-w-5xl mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
       {/* Header Section */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Support Center</h1>
         <p className="text-muted-foreground mt-1">
-          Get help with your HivePay account and savings circles
+          Get help with your HivePay account and groups
         </p>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="tickets" className="space-y-6">
+      <Tabs defaultValue="resources" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="tickets">My Tickets</TabsTrigger>
@@ -303,7 +225,7 @@ return (
               <CardContent className="mt-2">
                 <p className="text-sm text-muted-foreground mb-4">
                   Browse our comprehensive FAQ section for instant answers to
-                  your questions about savings circles, contributions, and more.
+                  your questions about savings groups, contributions, and more.
                 </p>
               </CardContent>
               <CardFooter>
@@ -348,218 +270,75 @@ return (
           </div>
         </TabsContent>
 
-        {/* Tickets Tab */}
-        <TabsContent value="tickets">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Support Tickets</CardTitle>
-                  <CardDescription>Track your support requests</CardDescription>
-                </div>
-                {ticketStats && (
-                  <div className="flex gap-2">
-                    <Badge variant="outline" className="bg-yellow-50">
-                      {ticketStats.open} Open
-                    </Badge>
-                    <Badge variant="outline" className="bg-blue-50">
-                      {ticketStats.inProgress} In Progress
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Search and Filter */}
-              <div className="flex gap-4 mb-6">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search tickets..."
-                    value={searchQuery}
-                    onChange={handleSearch}
-                    className="pl-10"
-                  />
-                </div>
-                <Select
-                  value={statusFilter}
-                  onValueChange={(value) => setStatusFilter(value as TicketStatus | "all")}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Open">Open</SelectItem>
-                    <SelectItem value="InProgress">In Progress</SelectItem>
-                    <SelectItem value="Resolved">Resolved</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
+      {/* Tickets Tab */}
+      <TabsContent value="tickets">
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Support Tickets</CardTitle>
+            <CardDescription>
+              View and track the status of your support requests
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
               {/* Tickets List */}
-              <div className="space-y-4">
-                {isLoadingTickets ? (
-                  <div className="space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-lg" />
-                    ))}
-                  </div>
-                ) : !displayedTickets?.length ? (
-                  <div className="text-center py-12">
-                    <FileQuestion className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-4 text-lg font-semibold">No tickets found</h3>
-                    <p className="text-gray-500 mt-2">
-                      {searchQuery
-                        ? "Try adjusting your search terms"
-                        : "Create a new ticket to get help"}
-                    </p>
-                  </div>
-                ) : (
-                  displayedTickets.map((ticket: Ticket) => (
+              {isLoadingTickets ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+                </div>
+              ) : userTickets?.tickets.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileQuestion className="mx-auto h-12 w-12 opacity-50 mb-2" />
+                  <p>No tickets found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {userTickets?.tickets.map((ticket: Ticket) => (
                     <div
                       key={ticket.id}
-                      className="border rounded-lg overflow-hidden hover:border-yellow-200 transition-colors"
+                      className="flex flex-col gap-2 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      {/* Ticket Header */}
-                      <div className="bg-gray-50 border-b p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <span className="font-medium">
-                              #{ticket.id.slice(0, 8)}
-                            </span>
-                            <h3 className="font-medium">{ticket.subject}</h3>
-                            <div className="flex gap-2">
-                              <Badge
-                                variant="secondary"
-                                className={cn(statusColors[ticket.status])}
-                              >
-                                {ticket.status}
-                              </Badge>
-                              <Badge
-                                variant="secondary"
-                                className={cn(priorityColors[ticket.priority])}
-                              >
-                                {ticket.priority}
-                              </Badge>
-                            </div>
-                          </div>
-                          <time className="text-sm text-gray-500">
-                            {format(new Date(ticket.createdAt), "PPp")}
-                          </time>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium">
+                            Ticket #{ticket.id.slice(0, 8)}: {ticket.subject}
+                          </h3>
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "ml-2",
+                              statusColors[ticket.status]
+                            )}
+                          >
+                            {ticket.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedTicketId(ticket.id)}
+                          >
+                            View Responses
+                          </Button>
                         </div>
                       </div>
-
-                      {/* Ticket Content */}
-                      <div className="p-4">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {ticket.message}
-                        </p>
-
-                        {/* Responses */}
-                        {ticket.responses.length > 0 && (
-                          <div className="mt-6 space-y-4">
-                            {ticket.responses.map((response) => (
-                              <div
-                                key={response.id}
-                                className={cn(
-                                  "p-4 rounded-lg",
-                                  response.isStaff
-                                    ? "bg-yellow-50 ml-8 border border-yellow-100"
-                                    : "bg-gray-50 mr-8"
-                                )}
-                              >
-                                <div className="flex items-center gap-2 mb-2">
-                                  {response.isStaff ? (
-                                    <Shield className="h-4 w-4 text-yellow-600" />
-                                  ) : (
-                                    <User className="h-4 w-4 text-gray-600" />
-                                  )}
-                                  <span className="font-medium">
-                                    {response.isStaff
-                                      ? "Support Team"
-                                      : response.user
-                                      ? `${response.user.firstName} ${response.user.lastName}`
-                                      : "User"}
-                                  </span>
-                                  <span className="text-sm text-gray-500">
-                                    {format(new Date(response.createdAt), "PPp")}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                  {response.message}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Response Input */}
-                        {ticket.status !== "Closed" && (
-                          <div className="mt-6">
-                            <div className="space-y-4">
-                              <Textarea
-                                placeholder="Add a response..."
-                                value={responseInputs[ticket.id] || ""}
-                                onChange={(e) =>
-                                  setResponseInputs((prev) => ({
-                                    ...prev,
-                                    [ticket.id]: e.target.value,
-                                  }))
-                                }
-                                className="min-h-[100px]"
-                              />
-                              <div className="flex justify-end gap-2">
-                                {ticket.status !== "Resolved" && (
-                                  <Button
-                                    variant="outline"
-                                    onClick={() =>
-                                      handleStatusUpdate(ticket.id, "Resolved")
-                                    }
-                                  >
-                                    Mark as Resolved
-                                  </Button>
-                                )}
-                                <Button
-                                  className="bg-yellow-400 hover:bg-yellow-500"
-                                  onClick={() => handleResponse(ticket.id)}
-                                  disabled={!responseInputs[ticket.id]?.trim()}
-                                >
-                                  <MessageCircle className="h-4 w-4 mr-2" />
-                                  Send Response
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Ticket Footer */}
-                      <div className="bg-gray-50 border-t p-4">
-                        <div className="flex justify-between items-center">
-                          <div className="text-sm text-gray-500">
-                            Last updated:{" "}
-                            {format(new Date(ticket.updatedAt), "PPp")}
-                          </div>
-                          {ticket.status !== "Closed" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                handleStatusUpdate(ticket.id, "Closed")
-                              }
-                            >
-                              Close Ticket
-                            </Button>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          {format(new Date(ticket.createdAt), "PPp")}
+                        </span>
+                        <span>
+                          {ticket.responses.length} response
+                          {ticket.responses.length !== 1 ? "s" : ""}
+                        </span>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
           </Card>
         </TabsContent>
 
@@ -569,7 +348,8 @@ return (
             <CardHeader>
               <CardTitle>Submit a Support Ticket</CardTitle>
               <CardDescription>
-                Need help? Submit a ticket and our team will assist you.
+                Can't find what you're looking for? Submit a ticket and we'll get
+                back to you within 24 hours.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -580,7 +360,7 @@ return (
                   </label>
                   <Input
                     id="subject"
-                    placeholder="Brief summary of your issue"
+                    placeholder="What do you need help with?"
                     value={formData.subject}
                     onChange={handleChange}
                     disabled={isSubmitting}
@@ -604,7 +384,7 @@ return (
                     onChange={handleChange}
                     disabled={isSubmitting}
                     className={cn(
-                      "min-h-[200px] resize-none",
+                      "resize-none min-h-[150px]",
                       errors.message && "border-red-500 focus-visible:ring-red-500"
                     )}
                   />
@@ -615,21 +395,14 @@ return (
 
                 <Button
                   type="submit"
-                  className="w-full bg-yellow-400 hover:bg-yellow-500"
+                  className="w-full"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Submitting...</span>
-                    </div>
-                  ) : (
-                    "Submit Ticket"
-                  )}
+                  {isSubmitting ? "Submitting..." : "Submit Ticket"}
                 </Button>
               </form>
             </CardContent>
-            <CardFooter className="bg-muted/50">
+            <CardFooter className="bg-muted/50 mt-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Mail className="h-4 w-4" />
                 <p>
@@ -646,6 +419,76 @@ return (
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Ticket Responses Modal */}
+      {selectedTicketId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Ticket Responses</CardTitle>
+                <CardDescription>
+                  View all responses for this ticket
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedTicketId(null)}
+              >
+                ×
+              </Button>
+            </CardHeader>
+            <CardContent className="overflow-y-auto max-h-[60vh]">
+              {isLoadingResponses ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+                </div>
+              ) : !ticketResponses?.pages[0].responses.length ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Mail className="mx-auto h-12 w-12 opacity-50 mb-2" />
+                  <p>No responses yet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {ticketResponses?.pages.map((page) =>
+                    page.responses.map((response: Response) => (
+                      <div
+                        key={response.id}
+                        className="p-4 border rounded-lg space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="font-medium">
+                              {response.user.firstName} {response.user.lastName}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {format(new Date(response.createdAt), "PPp")}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {response.message}
+                        </p>
+                      </div>
+                    ))
+                  )}
+
+                  {hasMoreResponses && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => fetchMoreResponses()}
+                    >
+                      Load More Responses
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
