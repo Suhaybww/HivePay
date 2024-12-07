@@ -46,7 +46,7 @@ const PaymentFlow: React.FC = () => {
         <div className="text-center mb-16">
         <h2 className="text-4xl md:text-5xl font-medium tracking-tight text-black dark:text-white mb-4">
         How Payments Work on{" "}
-            <span className="text-yellow-500">HivePay</span>
+            <span className="text-yellow-400">HivePay</span>
           </h2>
           <p className="text-xl text-gray-600">
             Transparent and secure payment processing for your group contributions.
@@ -88,14 +88,14 @@ const PaymentFlow: React.FC = () => {
                   key={index}
                   className={`w-3 h-3 rounded-full ${
                     index === currentStep
-                      ? "bg-yellow-500"
+                      ? "bg-yellow-400"
                       : "bg-gray-300"
                   }`}
                 ></div>
               ))}
             </div>
             <button
-              className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-full transition"
+              className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-white rounded-full transition"
               onClick={nextStep}
             >
               Next

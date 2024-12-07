@@ -15,7 +15,6 @@ const Footer = () => {
     legal: [
       { name: 'Privacy Policy', href: '/legal/privacy' },
       { name: 'Terms of Service', href: '/legal/terms' },
-      { name: 'Code of Conduct', href: '/legal/code-of-conduct' },
     ],
   };
 

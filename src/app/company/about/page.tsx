@@ -56,9 +56,9 @@ const AboutPage: React.FC = () => {
             </div>
             <div className="flex justify-center lg:justify-end">
               <img
-                src="/images/hero.png"
+                src="/images/about.png"
                 alt="HivePay Community"
-                className="rounded-xl shadow-lg w-full max-w-sm"
+                className="w-full max-w-md"
               />
             </div>
           </div>
@@ -76,7 +76,7 @@ const AboutPage: React.FC = () => {
               Join a movement that’s reshaping the future of finance. Come together, build trust, and achieve your financial dreams—together.
             </p>
             <RegisterLink
-              className="inline-block bg-yellow-500 hover:bg-yellow-600 text-white text-lg font-medium px-8 py-3 rounded-md shadow transition-colors"
+              className="inline-block bg-yellow-400 hover:bg-yellow-500 text-white text-lg font-medium px-8 py-3 rounded-md shadow transition-colors"
             >
               Get Started
             </RegisterLink>
