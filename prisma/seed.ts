@@ -1,130 +1,146 @@
-import { PrismaClient, Prisma, SubscriptionStatus, MembershipStatus, PaymentStatus, PayoutStatus, PayoutOrderMethod, Frequency } from '@prisma/client';
+// prisma/seed.ts
+import { PrismaClient, TransactionType, PaymentStatus, PayoutStatus, MembershipStatus } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
 
+const groupId = 'cm4f1zw4x0005rca8suyu8i8j';
+const userIds = [
+  'kp_2674114f61cc45cb89545c4dcca3b85c',
+  'kp_0f8b647c47a04f0d9f9eac22d71ecba7',
+  'kp_6408a8bd0e394203afa47dfd7c75278d',
+  'kp_24119b5f20a8487fa54abd29a4b76491'  // Added original user
+];
+
 async function main() {
-  // Create 11 users
-  const userPromises = [];
-  for (let i = 1; i <= 11; i++) {
-    const user = prisma.user.create({
-      data: {
-        id: `user${i}`, // Use unique IDs or consider using `cuid()` for unique IDs
-        firstName: `User`,
-        lastName: `Number${i}`,
-        email: `user${i}@example.com`,
-        phoneNumber: `123456789${i}`,
-        emailVerified: true,
-        gender: i % 2 === 0 ? 'Male' : 'Female',
-        age: 20 + i,
-        passwordHash: '',
-        stripeCustomerId: `cus_dummy_${i}`,
-        stripeAccountId: `acct_dummy_${i}`,
-        subscriptionStatus: SubscriptionStatus.Active,
-        idVerified: true,
-        verificationMethod: 'None',
-        twoFactorEnabled: false,
-        stripeSubscriptionId: `sub_dummy_${i}`,
-        stripePriceId: `price_dummy`,
-        stripeCurrentPeriodEnd: new Date(),
-      },
-    });
-    userPromises.push(user);
-  }
-
-  const users = await Promise.all(userPromises);
-
-  // Create or find the group
-  const group = await prisma.group.upsert({
-    where: { id: 'cm372stp40001e6za36md7rdh' },
-    update: {},
-    create: {
-      id: 'cm372stp40001e6za36md7rdh',
-      name: 'Dummy ROSCA Group',
-      description: 'A dummy group for testing',
-      createdById: users[0].id, // Set the first user as the creator
-      payoutOrderMethod: PayoutOrderMethod.First_Come_First_Serve,
-      contributionAmount: new Prisma.Decimal(1000),
-      contributionFrequency: Frequency.BiWeekly,
-      payoutFrequency: Frequency.BiWeekly,
-      nextContributionDate: new Date(),
-      nextPayoutDate: new Date(),
-    },
+  // First clean up existing data for clean test
+  await prisma.transaction.deleteMany({
+    where: { groupId }
+  });
+  await prisma.payment.deleteMany({
+    where: { groupId }
+  });
+  await prisma.payout.deleteMany({
+    where: { groupId }
   });
 
-  // Create group memberships
-  const membershipPromises = [];
-  for (let i = 0; i < users.length; i++) {
-    const membership = prisma.groupMembership.create({
-      data: {
-        groupId: group.id,
-        userId: users[i].id,
-        joinDate: new Date(),
+  // Ensure all users are members
+  for (let i = 0; i < userIds.length; i++) {
+    await prisma.groupMembership.upsert({
+      where: {
+        membershipIdentifier: {
+          groupId,
+          userId: userIds[i]
+        }
+      },
+      update: {},
+      create: {
+        groupId,
+        userId: userIds[i],
+        isAdmin: i === 3, // Last user (original) is admin
         payoutOrder: i + 1,
-        isAdmin: users[i].id === group.createdById,
         status: MembershipStatus.Active,
+        acceptedTOSAt: new Date(),
       },
     });
-    membershipPromises.push(membership);
   }
-  await Promise.all(membershipPromises);
 
-  // Create payments and payouts over 6 months
-  const today = new Date();
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - 6);
+  const group = await prisma.group.findUnique({
+    where: { id: groupId }
+  });
 
-  const fortnightInMs = 14 * 24 * 60 * 60 * 1000; // milliseconds in a fortnight
+  if (!group || !group.contributionAmount) {
+    throw new Error('Group not found or contribution amount not set');
+  }
 
-  const contributionsPromises = [];
-  const payoutsPromises = [];
+  // Create 6 months of payment data for each user
+  const numberOfMonths = 6;
+  const paymentDates = Array.from({ length: numberOfMonths }, (_, i) => 
+    new Date(Date.now() - (5 - i) * 30 * 24 * 60 * 60 * 1000)
+  );
 
-  for (let cycle = 0; cycle < 11; cycle++) {
-    const contributionDate = new Date(startDate.getTime() + cycle * fortnightInMs);
-    const payoutDate = new Date(contributionDate.getTime() + 1 * 24 * 60 * 60 * 1000); // Payout happens 1 day after contributions
+  for (const userId of userIds) {
+    // Create varying payment patterns for each month
+    for (let i = 0; i < paymentDates.length; i++) {
+      // Random payment behavior
+      const willPay = Math.random() < 0.85; // 85% chance of payment
+      const delayDays = Math.floor(Math.random() * 14); // 0-14 days delay
+      const paymentStatus = Math.random() < 0.9 ? PaymentStatus.Successful : PaymentStatus.Failed;
 
-    // Create payments from each user
-    for (const user of users) {
-      const payment = prisma.payment.create({
-        data: {
-          userId: user.id,
-          groupId: group.id,
-          amount: new Prisma.Decimal(1000),
-          paymentDate: contributionDate,
-          status: PaymentStatus.Successful,
-          stripePaymentIntentId: `pi_dummy_${user.id}_${cycle}`,
-          createdAt: contributionDate,
-          updatedAt: contributionDate,
-        },
-      });
-      contributionsPromises.push(payment);
+      if (willPay) {
+        const paymentDate = new Date(paymentDates[i].getTime() + delayDays * 24 * 60 * 60 * 1000);
+
+        const payment = await prisma.payment.create({
+          data: {
+            userId,
+            groupId,
+            amount: group.contributionAmount,
+            status: paymentStatus,
+            paymentDate,
+            stripePaymentIntentId: `pi_${Math.random().toString(36).substr(2, 9)}`,
+          },
+        });
+
+        if (paymentStatus === PaymentStatus.Successful) {
+          await prisma.transaction.create({
+            data: {
+              userId,
+              groupId,
+              amount: group.contributionAmount,
+              transactionType: TransactionType.Debit,
+              description: delayDays > 0 
+                ? `Contribution to group (${delayDays} days late)`
+                : 'Contribution to group',
+              relatedPaymentId: payment.id,
+            },
+          });
+        }
+      }
     }
 
-    // Create payout to one user
-    const payoutUser = users[cycle % users.length]; // Rotate through users
-    const payout = prisma.payout.create({
-      data: {
-        groupId: group.id,
-        userId: payoutUser.id,
-        scheduledPayoutDate: payoutDate,
-        amount: new Prisma.Decimal(1000 * users.length),
-        status: PayoutStatus.Completed,
-        stripeTransferId: `tr_dummy_${payoutUser.id}_${cycle}`,
-        createdAt: payoutDate,
-        updatedAt: payoutDate,
-      },
-    });
-    payoutsPromises.push(payout);
+    // Create payouts for each user (2-3 payouts per user)
+    const numberOfPayouts = 2 + Math.floor(Math.random() * 2);
+    const payoutAmount = new Decimal(group.contributionAmount.toNumber() * 4);
+
+    for (let i = 0; i < numberOfPayouts; i++) {
+      const payoutDelay = Math.floor(Math.random() * 7); // 0-7 days delay
+      const scheduledDate = new Date(Date.now() - (i + 1) * 60 * 24 * 60 * 60 * 1000);
+      const actualPayoutDate = new Date(scheduledDate.getTime() + payoutDelay * 24 * 60 * 60 * 1000);
+
+      const payout = await prisma.payout.create({
+        data: {
+          userId,
+          groupId,
+          amount: payoutAmount,
+          status: PayoutStatus.Completed,
+          scheduledPayoutDate: scheduledDate,
+          stripeTransferId: `tr_${Math.random().toString(36).substr(2, 9)}`,
+          payoutOrder: i + 1,
+        },
+      });
+
+      await prisma.transaction.create({
+        data: {
+          userId,
+          groupId,
+          amount: payoutAmount,
+          transactionType: TransactionType.Credit,
+          transactionDate: actualPayoutDate,
+          description: payoutDelay > 0 
+            ? `Payout from group (${payoutDelay} days delayed)`
+            : 'Payout from group',
+          relatedPayoutId: payout.id,
+        },
+      });
+    }
   }
 
-  await Promise.all(contributionsPromises);
-  await Promise.all(payoutsPromises);
-
-  console.log('Database has been seeded. 🌱');
+  console.log('Seed data created successfully with varying patterns for all users!');
 }
 
 main()
   .catch((e) => {
-    console.error('Error while seeding database:', e);
+    console.error('Error seeding data:', e);
     process.exit(1);
   })
   .finally(async () => {

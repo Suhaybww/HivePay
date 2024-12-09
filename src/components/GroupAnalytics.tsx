@@ -46,7 +46,7 @@ interface GroupAnalyticsProps {
   };
 }
 
-const COLORS = ['#7C3AED', '#9F7AEA', '#B794F4', '#D6BCFA'];
+const COLORS = ['#EAB308', '#FCD34D', '#FDE68A', '#FEF3C7'];  
 
 export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
   const formatter = new Intl.NumberFormat('en-US', {
@@ -65,7 +65,7 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
                 <p className="text-sm font-medium text-muted-foreground">Total Members</p>
                 <h2 className="text-2xl font-bold">{analyticsData.metrics.totalMembers}</h2>
               </div>
-              <Users className="h-8 w-8 text-purple-600" />
+              <Users className="h-8 w-8 text-yellow-500" />
             </div>
             <div className="mt-4 flex items-center text-sm">
               {analyticsData.metrics.memberGrowth > 0 ? (
@@ -87,7 +87,7 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
                 <p className="text-sm font-medium text-muted-foreground">Average Contribution</p>
                 <h2 className="text-2xl font-bold">{formatter.format(analyticsData.metrics.averageContribution)}</h2>
               </div>
-              <DollarSign className="h-8 w-8 text-purple-600" />
+              <DollarSign className="h-8 w-8 text-yellow-500" />
             </div>
             <div className="mt-4 flex items-center text-sm">
               <Badge variant={analyticsData.metrics.onTimePaymentRate >= 90 ? 'default' : 'destructive'}>
@@ -104,7 +104,7 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
                 <p className="text-sm font-medium text-muted-foreground">Total Paid Out</p>
                 <h2 className="text-2xl font-bold">{formatter.format(analyticsData.metrics.totalPaidOut)}</h2>
               </div>
-              <TrendingUp className="h-8 w-8 text-purple-600" />
+              <TrendingUp className="h-8 w-8 text-yellow-500" />
             </div>
             <div className="mt-4 flex items-center text-sm">
               <span className="text-muted-foreground">
@@ -121,7 +121,7 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
                 <p className="text-sm font-medium text-muted-foreground">Retention Rate</p>
                 <h2 className="text-2xl font-bold">{analyticsData.metrics.retentionRate}%</h2>
               </div>
-              <CalendarDays className="h-8 w-8 text-purple-600" />
+              <CalendarDays className="h-8 w-8 text-yellow-500" />
             </div>
             <div className="mt-4 flex items-center text-sm">
               <Badge variant={analyticsData.metrics.retentionRate >= 80 ? 'default' : 'destructive'}>
@@ -141,41 +141,66 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
 
         <TabsContent value="contributions">
           <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contribution Trends</CardTitle>
-                <CardDescription>Monthly contribution amounts over time</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analyticsData.contributions}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="date"
-                      tickFormatter={(date) => new Date(date).toLocaleDateString(undefined, { month: 'short' })}
-                    />
-                    <YAxis 
-                      yAxisId="left"
-                      tickFormatter={(value) => formatter.format(value)}
-                    />
-                    <YAxis 
-                      yAxisId="right" 
-                      orientation="right"
-                      tickFormatter={(value) => `${value} payments`}
-                    />
-                    <Tooltip 
-                      formatter={(value, name) => {
-                        if (name === 'amount') return formatter.format(value as number);
-                        return `${value} payments`;
-                      }}
-                    />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="amount" name="Amount" fill="#7C3AED" />
-                    <Line yAxisId="right" type="monotone" dataKey="count" name="Number of Payments" stroke="#14B8A6" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+          <Card>
+  <CardHeader>
+    <CardTitle>Contribution Trends</CardTitle>
+    <CardDescription>Monthly contribution amounts over time</CardDescription>
+  </CardHeader>
+  <CardContent className="h-80">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart 
+        data={analyticsData.contributions}
+        margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis 
+          dataKey="date"
+          tickFormatter={(date) => new Date(date).toLocaleDateString(undefined, { month: 'short' })}
+          tick={{ fill: '#666', fontSize: 12 }}
+        />
+        <YAxis 
+          yAxisId="left"
+          tickFormatter={(value) => formatter.format(value)}
+          tick={{ fill: '#666', fontSize: 12 }}
+          width={80}
+        />
+        <YAxis 
+          yAxisId="right" 
+          orientation="right"
+          tickFormatter={(value) => `${value} payments`}
+          tick={{ fill: '#666', fontSize: 12 }}
+          width={80}
+        />
+        <Tooltip 
+          formatter={(value, name) => {
+            if (name === 'amount') return formatter.format(value as number);
+            return `${value} payments`;
+          }}
+          contentStyle={{
+            backgroundColor: 'white',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            padding: '8px'
+          }}
+        />
+        <Legend />
+        <Bar 
+          yAxisId="left" 
+          dataKey="amount" 
+          name="Amount" 
+          fill="#EAB308"
+        />                    
+        <Line 
+          yAxisId="right" 
+          type="monotone" 
+          dataKey="count" 
+          name="Number of Payments" 
+          stroke="#FCD34D" 
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  </CardContent>
+</Card>
 
             <Card>
               <CardHeader>
@@ -228,60 +253,111 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
                     <Tooltip />
                     <Legend />
                     <Line 
-                      type="monotone" 
-                      dataKey="activeMembers" 
-                      name="Active Members" 
-                      stroke="#7C3AED" 
-                      strokeWidth={2}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="newMembers" 
-                      name="New Members" 
-                      stroke="#14B8A6" 
-                      strokeWidth={2}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="leftMembers" 
-                      name="Left Members" 
-                      stroke="#EF4444" 
-                      strokeWidth={2}
-                    />
+                    type="monotone" 
+                    dataKey="activeMembers" 
+                    name="Active Members" 
+                    stroke="#EAB308" 
+                    strokeWidth={2}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="newMembers" 
+                    name="New Members" 
+                    stroke="#FCD34D"
+                    strokeWidth={2}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="leftMembers" 
+                    name="Left Members" 
+                    stroke="#FDE68A" 
+                    strokeWidth={2}
+                  />
+
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Payout Distribution</CardTitle>
-                <CardDescription>Member payout allocation</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={analyticsData.payoutDistribution}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#7C3AED"
-                      dataKey="amount"
-                      nameKey="member"
-                      label={(entry) => `${entry.member} (${entry.percentage}%)`}
-                    >
-                      {analyticsData.payoutDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value) => formatter.format(value as number)} 
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+  <CardHeader>
+    <CardTitle>Payout Distribution</CardTitle>
+    <CardDescription>Member payout allocation</CardDescription>
+  </CardHeader>
+  <CardContent className="h-80">
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+        <Pie
+          data={analyticsData.payoutDistribution}
+          cx="50%"
+          cy="50%"
+          outerRadius={100} // Increased for better visibility
+          innerRadius={60}  // Added inner radius for donut style
+          fill="#EAB308"
+          dataKey="amount"
+          nameKey="member"
+          labelLine={true}  // Enable label lines
+          label={({ 
+            name, 
+            percent, 
+            x, 
+            y 
+          }) => {
+            return (
+              <text 
+                x={x} 
+                y={y} 
+                fill="#000000" 
+                textAnchor="middle" 
+                dominantBaseline="middle"
+                fontSize="12"
+                fontWeight="500"
+              >
+                {`${name} (${(percent * 100).toFixed(0)}%)`}
+              </text>
+            );
+          }}
+        >
+          {analyticsData.payoutDistribution.map((entry, index) => (
+            <Cell 
+              key={`cell-${index}`} 
+              fill={[
+                '#EAB308', // Darker yellow
+                '#F59E0B', // Amber
+                '#D97706', // Darker amber
+                '#B45309'  // Brown
+              ][index % 4]} 
+            />
+          ))}
+        </Pie>
+        <Tooltip 
+          formatter={(value) => formatter.format(value as number)}
+          contentStyle={{
+            backgroundColor: 'white',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            padding: '8px'
+          }}
+        />
+        <Legend 
+          verticalAlign="bottom"
+          height={36}
+          wrapperStyle={{
+            paddingTop: '20px'
+          }}
+          formatter={(value) => {
+            // Ensure full name is visible
+            return (
+              <span style={{ color: '#000000', fontSize: '12px', fontWeight: '500' }}>
+                {value}
+              </span>
+            );
+          }}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  </CardContent>
+</Card>
           </div>
         </TabsContent>
 
@@ -317,7 +393,7 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
                     />
                     <Bar 
                       dataKey="amount" 
-                      fill="#7C3AED"
+                      fill="#EAB308"
                       radius={[4, 4, 0, 0]}
                     >
                       {analyticsData.payoutDistribution.map((entry, index) => (
@@ -349,10 +425,10 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-purple-600">{formatter.format(payout.amount)}</p>
+                        <p className="font-bold text-yellow-500">{formatter.format(payout.amount)}</p>
                         <Badge 
                           variant="outline" 
-                          className="mt-1 bg-purple-50"
+                          className="mt-1 bg-yellow-50"
                         >
                           {payout.percentage}% of total
                         </Badge>
@@ -360,14 +436,14 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
                     </div>
                   ))}
 
-                  <Card className="mt-6 border-purple-100">
+                  <Card className="mt-6 border-yellow-100">
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">
                             Total Scheduled Payouts
                           </p>
-                          <h2 className="text-2xl font-bold text-purple-600">
+                          <h2 className="text-2xl font-bold text-yellow-500">
                             {formatter.format(
                               analyticsData.payoutDistribution.reduce(
                                 (sum, item) => sum + item.amount, 

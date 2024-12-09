@@ -1,18 +1,18 @@
-"use client"
+'use client';
 
-import * as React from "react"
+import * as React from "react";
 import {
-  Bot,
+  Users,
   CreditCard,
   LifeBuoy,
   Send,
   Settings2,
   SquareTerminal,
-} from "lucide-react"
+} from "lucide-react";
 
-import { NavMain } from "./nav-main"
-import { NavSecondary } from "./nav-secondary"
-import NavUser from "./nav-user"
+import { NavMain } from "./nav-main";
+import { NavSecondary } from "./nav-secondary";
+import NavUser from "./nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -21,18 +21,18 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/src/components/ui/sidebar"
+} from "@/src/components/ui/sidebar";
 
 interface UserProps {
-  firstName: string | null
-  lastName: string | null
-  email: string
-  avatarUrl?: string
-  subscriptionStatus: 'Active' | 'Inactive' | 'Canceled'
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  avatarUrl?: string;
+  subscriptionStatus: "Active" | "Inactive" | "Canceled";
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  user: UserProps
+  user: UserProps;
 }
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
@@ -54,7 +54,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       {
         title: "Groups",
         url: "/groups",
-        icon: Bot,
+        icon: Users,
         items: [],
       },
       {
@@ -82,7 +82,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         icon: Send,
       },
     ],
-  }
+  };
 
   return (
     <Sidebar variant="inset" collapsible="icon" {...props}>
@@ -92,12 +92,12 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard" className="flex items-center gap-3 px-2">
                 <div className="flex aspect-square size-10 items-center justify-center">
-                  <img 
-                    src="/images/HivePay.svg" 
-                    alt="HivePay Logo" 
+                  <img
+                    src="/images/HivePay.svg"
+                    alt="HivePay Logo"
                     className="w-10 h-10 transform scale-150"
                     style={{
-                      filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.1))"
+                      filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.1))",
                     }}
                   />
                 </div>
@@ -122,5 +122,5 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

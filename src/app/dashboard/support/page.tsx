@@ -38,17 +38,20 @@ interface TicketData {
   subject: string;
   message: string;
 }
-
 interface Response {
   id: string;
   message: string;
   createdAt: string;
+  updatedAt: string;
+  userId: string | null;
+  ticketId: string;
+  staffEmail: string | null;
+  isStaff: boolean;
   user: {
     firstName: string;
     lastName: string;
-  };
+  } | null;
 }
-
 interface Ticket {
   id: string;
   subject: string;
@@ -408,10 +411,10 @@ export default function SupportPage() {
                 <p>
                   For urgent inquiries, email us at{" "}
                   <a
-                    href="mailto:hivepay.team@gmail.com"
+                    href="mailto:support@hivepayapp.com"
                     className="text-yellow-600 hover:text-yellow-700 hover:underline"
                   >
-                    hivepay.team@gmail.com
+                    support@hivepayapp.com
                   </a>
                 </p>
               </div>
@@ -451,28 +454,30 @@ export default function SupportPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {ticketResponses?.pages.map((page) =>
-                    page.responses.map((response: Response) => (
-                      <div
-                        key={response.id}
-                        className="p-4 border rounded-lg space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="font-medium">
-                              {response.user.firstName} {response.user.lastName}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {format(new Date(response.createdAt), "PPp")}
-                            </div>
+                {ticketResponses?.pages.map((page) =>
+                  page.responses.map((response: Response) => (
+                    <div
+                      key={response.id}
+                      className="p-4 border rounded-lg space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium">
+                            {response.user ? 
+                              `${response.user.firstName} ${response.user.lastName}` : 
+                              response.staffEmail || 'Support Staff'}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {format(new Date(response.createdAt), "PPp")}
                           </div>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">
-                          {response.message}
-                        </p>
                       </div>
-                    ))
-                  )}
+                      <p className="text-sm whitespace-pre-wrap">
+                        {response.message}
+                      </p>
+                    </div>
+                  ))
+                )}
 
                   {hasMoreResponses && (
                     <Button

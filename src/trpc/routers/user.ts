@@ -260,7 +260,6 @@ export const userRouter = router({
     }
   }),
 
-  // src/trpc/routers/user.ts
 
 updateProfile: privateProcedure
 .input(

@@ -1,4 +1,4 @@
-import { privateProcedure, router } from '../trpc';
+import { privateProcedure, router, t } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../db';
 import { z } from 'zod';
@@ -11,7 +11,6 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import type { GroupWithStats } from '../../types/groups';
 import { subscriptionCheck } from '../middlewares';
-
 import Pusher from 'pusher';
 
 const pusher = new Pusher({
@@ -20,6 +19,39 @@ const pusher = new Pusher({
   secret: process.env.PUSHER_SECRET!,
   cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
   useTLS: true
+});
+
+// Wrap your subscriptionCheck function in a TRPC middleware
+const subscriptionCheckMiddleware = t.middleware(async ({ ctx, next }: { ctx: any; next: any }) => {
+  const { userId } = ctx;
+  if (!userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+  await subscriptionCheck(userId);
+  return next();
+});
+
+
+// Schemas for group creation/join input
+const newGroupSchema = z.object({
+  name: z.string().min(3, "Group name must be at least 3 characters"),
+  description: z.string().optional(),
+  contributionAmount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+    message: "Please enter a valid amount",
+  }),
+  contributionFrequency: z.nativeEnum(Frequency),
+  payoutFrequency: z.nativeEnum(Frequency),
+  payoutOrderMethod: z.nativeEnum(PayoutOrderMethod),
+  acceptedTOS: z.boolean().refine((val) => val === true, {
+    message: "You must accept the Terms and Conditions to proceed.",
+  }),
+});
+
+const joinGroupSchema = z.object({
+  groupId: z.string().min(1, "Please enter a group ID"),
+  acceptedTOS: z.boolean().refine((val) => val === true, {
+    message: "You must accept the Terms and Conditions to proceed.",
+  }),
 });
 
 export const groupRouter = router({
@@ -37,24 +69,10 @@ export const groupRouter = router({
           },
         },
         include: {
-          _count: {
-            select: { groupMemberships: true },
-          },
-          payments: {
-            select: {
-              amount: true,
-            },
-          },
-          payouts: {
-            select: {
-              amount: true,
-            },
-          },
-          createdBy: {
-            select: {
-              id: true,
-            },
-          },
+          _count: { select: { groupMemberships: true } },
+          payments: { select: { amount: true } },
+          payouts: { select: { amount: true } },
+          createdBy: { select: { id: true } },
           groupMemberships: {
             where: {
               status: MembershipStatus.Active,
@@ -71,9 +89,7 @@ export const groupRouter = router({
                 },
               },
             },
-            orderBy: {
-              payoutOrder: 'asc',
-            },
+            orderBy: { payoutOrder: 'asc' },
           },
         },
       });
@@ -91,16 +107,18 @@ export const groupRouter = router({
   
         const currentBalance = totalContributions.minus(totalPayouts);
   
-        // Transform the members data
-        const members = group.groupMemberships.map(membership => ({
-          id: membership.user.id,
-          firstName: membership.user.firstName,
-          lastName: membership.user.lastName,
-          email: membership.user.email,
-          gender: membership.user.gender,
+        // Filter out any memberships that have a null user to avoid runtime errors
+        const validMemberships = group.groupMemberships.filter((membership) => membership.user !== null);
+
+        const members = validMemberships.map(membership => ({
+          id: membership.user!.id,
+          firstName: membership.user!.firstName,
+          lastName: membership.user!.lastName,
+          email: membership.user!.email,
+          gender: membership.user!.gender,
           isAdmin: membership.isAdmin,
           payoutOrder: membership.payoutOrder,
-          stripeAccountId: membership.user.stripeAccountId,
+          stripeAccountId: membership.user!.stripeAccountId,
         }));
   
         return {
@@ -112,15 +130,14 @@ export const groupRouter = router({
           contributionAmount: group.contributionAmount?.toFixed(2) ?? null,
           contributionFrequency: group.contributionFrequency,
           payoutFrequency: group.payoutFrequency,
-          nextContributionDate:
-            group.nextContributionDate?.toISOString() ?? null,
+          nextContributionDate: group.nextContributionDate?.toISOString() ?? null,
           nextPayoutDate: group.nextPayoutDate?.toISOString() ?? null,
-          cycleStarted: group.cycleStarted, 
+          cycleStarted: group.cycleStarted,
           _count: group._count,
           totalContributions: totalContributions.toFixed(2),
           currentBalance: currentBalance.toFixed(2),
           isAdmin: group.createdById === userId,
-          members, // Add the members array to the response
+          members,
         };
       });
   
@@ -135,130 +152,105 @@ export const groupRouter = router({
   }),
   
   getGroupById: privateProcedure
-  .input(z.object({ groupId: z.string() }))
-  .query(async ({ ctx, input }) => {
-    const { userId } = ctx;
+    .input(z.object({ groupId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { userId } = ctx;
 
-    const group = await db.group.findUnique({
-      where: { id: input.groupId },
-      include: {
-        _count: {
-          select: { groupMemberships: true },
-        },
-        payments: true,
-        payouts: true,
-        groupMemberships: {
-          where: {
-            status: MembershipStatus.Active,
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                gender: true,
-                stripeAccountId: true,
+      const group = await db.group.findUnique({
+        where: { id: input.groupId },
+        include: {
+          _count: { select: { groupMemberships: true } },
+          payments: true,
+          payouts: true,
+          groupMemberships: {
+            where: { status: MembershipStatus.Active },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  gender: true,
+                  stripeAccountId: true,
+                },
               },
             },
           },
         },
-      },
-    });
-
-    console.log('Raw group memberships:', JSON.stringify(group?.groupMemberships, null, 2));
-
-    if (!group) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'Group not found',
       });
-    }
 
-    // Check if the current user is a member
-    const userMembership = group.groupMemberships.find(m => m.user.id === userId);
-    if (!userMembership) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'You are not a member of this group',
-      });
-    }
+      console.log('Raw group memberships:', JSON.stringify(group?.groupMemberships, null, 2));
 
-    const totalContributions = group.payments.reduce(
-      (sum: Decimal, payment) => sum.plus(payment.amount),
-      new Decimal(0)
-    );
+      if (!group) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Group not found',
+        });
+      }
 
-    const totalPayouts = group.payouts.reduce(
-      (sum: Decimal, payout) => sum.plus(payout.amount),
-      new Decimal(0)
-    );
+      // Check if the current user is a member
+      const userMembership = group.groupMemberships.find(m => m.user?.id === userId);
+      if (!userMembership) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You are not a member of this group',
+        });
+      }
 
-    // Transform members data
-    const members = group.groupMemberships.map(membership => ({
-      id: membership.user.id,
-      firstName: membership.user.firstName,
-      lastName: membership.user.lastName,
-      email: membership.user.email,
-      gender: membership.user.gender,
-      isAdmin: membership.isAdmin,
-      payoutOrder: membership.payoutOrder, 
-      stripeAccountId: membership.user.stripeAccountId  
-    }));
+      const totalContributions = group.payments.reduce(
+        (sum: Decimal, payment) => sum.plus(payment.amount),
+        new Decimal(0)
+      );
 
-    console.log('Transformed members:', JSON.stringify(members, null, 2));
+      const totalPayouts = group.payouts.reduce(
+        (sum: Decimal, payout) => sum.plus(payout.amount),
+        new Decimal(0)
+      );
 
+      // Filter out any memberships that have a null user
+      const validMemberships = group.groupMemberships.filter((membership) => membership.user !== null);
 
-    const groupWithStats: GroupWithStats = {
-      id: group.id,
-      name: group.name,
-      description: group.description,
-      createdById: group.createdById,
-      payoutOrderMethod: group.payoutOrderMethod,
-      contributionAmount: group.contributionAmount?.toString() || null,
-      contributionFrequency: group.contributionFrequency,
-      payoutFrequency: group.payoutFrequency,
-      nextContributionDate: group.nextContributionDate?.toISOString() || null,
-      nextPayoutDate: group.nextPayoutDate?.toISOString() || null,
-      cycleStarted: group.cycleStarted, // **Added Property**
-      _count: {
-        groupMemberships: group._count.groupMemberships,
-      },
-      totalContributions: totalContributions.toString(),
-      currentBalance: totalContributions.minus(totalPayouts).toString(),
-      isAdmin: userMembership.isAdmin,
-      members,
-      
-    };
+      const members = validMemberships.map(membership => ({
+        id: membership.user!.id,
+        firstName: membership.user!.firstName,
+        lastName: membership.user!.lastName,
+        email: membership.user!.email,
+        gender: membership.user!.gender,
+        isAdmin: membership.isAdmin,
+        payoutOrder: membership.payoutOrder,
+        stripeAccountId: membership.user!.stripeAccountId  
+      }));
 
-    return groupWithStats;
-}),
+      console.log('Transformed members:', JSON.stringify(members, null, 2));
 
+      const groupWithStats: GroupWithStats = {
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        createdById: group.createdById,
+        payoutOrderMethod: group.payoutOrderMethod,
+        contributionAmount: group.contributionAmount?.toString() || null,
+        contributionFrequency: group.contributionFrequency,
+        payoutFrequency: group.payoutFrequency,
+        nextContributionDate: group.nextContributionDate?.toISOString() || null,
+        nextPayoutDate: group.nextPayoutDate?.toISOString() || null,
+        cycleStarted: group.cycleStarted,
+        _count: {
+          groupMemberships: group._count.groupMemberships,
+        },
+        totalContributions: totalContributions.toString(),
+        currentBalance: totalContributions.minus(totalPayouts).toString(),
+        isAdmin: userMembership.isAdmin,
+        members,
+      };
+
+      return groupWithStats;
+    }),
 
   createGroup: privateProcedure
-    .input(
-      z.object({
-        name: z.string().min(3),
-        description: z.string().optional(),
-        contributionAmount: z.string(),
-        contributionFrequency: z.enum([
-          'Daily',
-          'Weekly',
-          'BiWeekly',
-          'Monthly',
-          'Custom',
-        ]),
-        payoutFrequency: z.enum([
-          'Daily',
-          'Weekly',
-          'BiWeekly',
-          'Monthly',
-          'Custom',
-        ]),
-        payoutOrderMethod: z.enum(['Admin_Selected', 'First_Come_First_Serve']),
-      })
-    )
+    .use(subscriptionCheckMiddleware)
+    .input(newGroupSchema)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
 
@@ -266,56 +258,56 @@ export const groupRouter = router({
         throw new TRPCError({ code: 'UNAUTHORIZED' });
       }
 
-      await subscriptionCheck(userId);
+      if (!input.acceptedTOS) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You must accept the Terms and Conditions.",
+        });
+      }
+
+      // Check group creation limit (example limit of 5)
+      const userGroups = await db.group.count({
+        where: {
+          createdById: userId,
+        },
+      });
+
+      if (userGroups >= 5) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message:
+            'You have reached the maximum number of groups you can create with your current plan.',
+        });
+      }
 
       try {
-        // Check group creation limit
-        const userGroups = await db.group.count({
-          where: {
-            createdById: userId,
-          },
-        });
-
-        if (userGroups >= 5) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message:
-              'You have reached the maximum number of groups you can create with your current plan.',
-          });
-        }
-
-        // Create group
         const group = await db.group.create({
           data: {
             name: input.name,
             description: input.description,
             createdById: userId,
-            contributionAmount: parseFloat(input.contributionAmount),
-            contributionFrequency: input.contributionFrequency as Frequency,
-            payoutFrequency: input.payoutFrequency as Frequency,
-            payoutOrderMethod: input.payoutOrderMethod as PayoutOrderMethod,
-          },
-        });
-
-        // Create membership
-        await db.groupMembership.create({
-          data: {
-            groupId: group.id,
-            userId: userId,
-            isAdmin: true,
-            payoutOrder: 1,
-            status: MembershipStatus.Active,
+            contributionAmount: new Prisma.Decimal(input.contributionAmount),
+            contributionFrequency: input.contributionFrequency,
+            payoutFrequency: input.payoutFrequency,
+            payoutOrderMethod: input.payoutOrderMethod,
+            groupMemberships: {
+              create: {
+                userId,
+                isAdmin: true,
+                payoutOrder: 1,
+                status: MembershipStatus.Active,
+                acceptedTOSAt: new Date(), // Store TOS acceptance date/time
+              },
+            },
           },
         });
 
         return {
           success: true,
           group,
-          redirectUrl: `/group/${group.id}`,
+          redirectUrl: `/groups/${group.id}`,
         };
       } catch (error) {
-        if (error instanceof TRPCError) throw error;
-
         console.error('Failed to create group:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -325,11 +317,8 @@ export const groupRouter = router({
     }),
 
   joinGroup: privateProcedure
-    .input(
-      z.object({
-        groupId: z.string(),
-      })
-    )
+    .use(subscriptionCheckMiddleware)
+    .input(joinGroupSchema)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
 
@@ -337,79 +326,91 @@ export const groupRouter = router({
         throw new TRPCError({ code: 'UNAUTHORIZED' });
       }
 
-      await subscriptionCheck(userId);
-
-      try {
-        // Check membership limit
-        const userMemberships = await db.groupMembership.count({
-          where: {
-            userId: userId,
-          },
+      if (!input.acceptedTOS) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You must accept the Terms and Conditions.",
         });
+      }
 
-        if (userMemberships >= 5) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message:
-              'You have reached the maximum number of groups you can join with your current plan.',
-          });
-        }
+      // Check membership limit (example limit of 5)
+      const userMemberships = await db.groupMembership.count({
+        where: {
+          userId: userId,
+        },
+      });
 
-        // Check if group exists
-        const group = await db.group.findUnique({
-          where: { id: input.groupId },
-          include: {
-            groupMemberships: true,
-          },
+      if (userMemberships >= 5) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message:
+            'You have reached the maximum number of groups you can join with your current plan.',
         });
+      }
 
-        if (!group) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Group not found',
-          });
-        }
+      // Check if group exists
+      const group = await db.group.findUnique({
+        where: { id: input.groupId },
+        include: { groupMemberships: true },
+      });
 
-        // Check for existing membership
-        const existingMembership = await db.groupMembership.findFirst({
-          where: {
-            groupId: input.groupId,
-            userId: userId,
-          },
+      if (!group) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Group not found',
         });
+      }
 
-        if (existingMembership) {
+      // Check for existing membership
+      const existingMembership = await db.groupMembership.findFirst({
+        where: {
+          groupId: input.groupId,
+          userId: userId,
+        },
+      });
+
+      if (existingMembership) {
+        if (existingMembership.status === MembershipStatus.Active) {
           throw new TRPCError({
             code: 'CONFLICT',
             message: 'You are already a member of this group',
           });
+        } else {
+          // If previously inactive, reactivate and set TOS acceptance time
+          const updatedMembership = await db.groupMembership.update({
+            where: { id: existingMembership.id },
+            data: {
+              status: MembershipStatus.Active,
+              acceptedTOSAt: new Date(),
+            },
+          });
+
+          return {
+            success: true,
+            membership: updatedMembership,
+            redirectUrl: `/groups/${group.id}`,
+          };
         }
-
-        // Create membership
-        const membership = await db.groupMembership.create({
-          data: {
-            groupId: input.groupId,
-            userId: userId,
-            isAdmin: false,
-            payoutOrder: group.groupMemberships.length + 1,
-            status: MembershipStatus.Active,
-          },
-        });
-
-        return {
-          success: true,
-          membership,
-          redirectUrl: `/group/${input.groupId}`,
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) throw error;
-
-        console.error('Failed to join group:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to join group',
-        });
       }
+
+      // If not already a member, create a new membership
+      const membership = await db.groupMembership.create({
+        data: {
+          groupId: input.groupId,
+          userId: userId,
+          isAdmin: false,
+          payoutOrder: group.groupMemberships.length + 1,
+          status: MembershipStatus.Pending, 
+          acceptedTOSAt: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        membership,
+        requiresContract: true, // Frontend will use this to prompt for contract signing
+        redirectUrl: `/groups/${input.groupId}/contract`, // New contract signing page
+      };
     }),
 
 getGroupAnalytics: privateProcedure

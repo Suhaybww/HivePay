@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "npx ts-node prisma/seed.ts"
+    "seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^3.5.0",
@@ -16,10 +19,11 @@
     "@hookform/resolvers": "^3.9.1",
     "@kinde-oss/kinde-auth-nextjs": "^2.4.4",
     "@nextui-org/react": "^2.4.8",
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^6.0.1",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.2",
     "@radix-ui/react-avatar": "^1.1.1",
+    "@radix-ui/react-checkbox": "^1.1.2",
     "@radix-ui/react-collapsible": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-dropdown-menu": "^2.1.2",
@@ -52,11 +56,13 @@
     "date-fns": "^4.1.0",
     "emoji-picker-react": "^4.12.0",
     "framer-motion": "^11.11.17",
+    "googleapis": "^144.0.0",
     "lucide-react": "^0.429.0",
     "next": "13.4.12",
     "next-auth": "^4.24.10",
     "nodemailer": "^6.9.16",
     "openai": "^4.72.0",
+    "pdf-lib": "^1.17.1",
     "pusher": "^5.2.0",
     "pusher-js": "^8.4.0-rc2",
     "react": "^18.2.0",
@@ -93,7 +99,7 @@
     "eslint": "^8.46.0",
     "eslint-config-next": "13.4.12",
     "postcss": "^8.4.41",
-    "prisma": "^5.22.0",
+    "prisma": "^6.0.1",
     "shadcn-ui": "^0.9.3",
     "tailwindcss": "^3.4.10",
     "ts-node": "^10.9.2",

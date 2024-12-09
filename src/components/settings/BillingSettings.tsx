@@ -72,7 +72,7 @@ export function BillingSettings({ user }: { user: any }) {
             </Button>
           ) : (
             <Link href="/pricing">
-              <Button className="bg-purple-600 hover:bg-purple-700">
+              <Button className="bg-yelllow-400 hover:bg-yellow-500">
                 Upgrade to Pro
               </Button>
             </Link>

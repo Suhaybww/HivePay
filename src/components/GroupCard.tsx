@@ -60,7 +60,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({ group }) => {
       <CardFooter className="flex justify-between items-center mt-auto">
         <Button
           variant="ghost"
-          className="text-purple-600 hover:bg-purple-50"
+          className="text-yellow-500 hover:bg-yellow-50"
           onClick={() => router.push(`/groups/${group.id}`)}
         >
           <Eye className="w-4 h-4 mr-1" /> View Details
@@ -69,7 +69,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({ group }) => {
           {group.isAdmin && (
             <Button
               variant="ghost"
-              className="text-purple-600 hover:bg-purple-50"
+              className="text-yellow-500 hover:bg-yellow-50"
               onClick={() => router.push(`/groups/${group.id}/edit`)}
             >
               <Pencil className="w-4 h-4 mr-1" /> Edit

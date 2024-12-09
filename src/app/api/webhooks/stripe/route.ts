@@ -25,11 +25,13 @@ export async function POST(request: Request) {
       process.env.STRIPE_WEBHOOK_SECRET || ''
     );
 
-    // Log whether this is a Connect account event or platform event
     console.log(
-      'Received webhook type:',
-      event.type,
-      event.account ? `for Connect account: ${event.account}` : 'for platform'
+      'Received webhook:',
+      {
+        type: event.type,
+        account: event.account || 'platform',
+        id: event.id
+      }
     );
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
@@ -41,128 +43,160 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
-      // ====== Subscription Events ======
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-
-        if (!session?.metadata?.userId) {
-          console.log('No userId in session metadata');
+        
+        // Define metadata type
+        interface SessionMetadata {
+          userId: string;
+          planSlug: string;
+          priceId: string;
+        }
+        
+        // Type assertion for metadata
+        const metadata = session.metadata as SessionMetadata | null;
+        
+        console.log('Processing checkout session:', {
+          sessionId: session.id,
+          metadata: metadata,
+          subscriptionId: session.subscription,
+          customerId: session.customer
+        });
+      
+        // Type guard for metadata
+        if (!metadata?.userId) {
+          console.log('No metadata or userId in session');
           return new NextResponse(null, { status: 200 });
         }
-
+      
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription as string
         );
-
-        console.log(
-          'Processing subscription:',
-          subscription.id,
-          'for user:',
-          session.metadata.userId
-        );
-
-        const existingUser = await db.user.findUnique({
-          where: { id: session.metadata.userId },
+      
+        console.log('Retrieved subscription:', {
+          id: subscription.id,
+          status: subscription.status,
+          customerId: subscription.customer,
+          priceId: subscription.items.data[0]?.price.id,
+          currentPeriodEnd: new Date(subscription.current_period_end * 1000)
         });
-
-        if (!existingUser) {
-          console.log('User not found:', session.metadata.userId);
-          return new NextResponse(null, { status: 404 });
-        }
-
-        console.log(
-          'Current user subscription status:',
-          existingUser.subscriptionStatus
-        );
-
-        // Update user subscription details
-        const updateResult = await db.user.update({
-          where: {
-            id: session.metadata.userId,
-          },
-          data: {
-            stripeSubscriptionId: subscription.id,
-            stripeCustomerId: subscription.customer as string,
-            stripePriceId: subscription.items.data[0]?.price.id,
-            stripeCurrentPeriodEnd: new Date(
-              subscription.current_period_end * 1000
-            ),
-            subscriptionStatus: SubscriptionStatus.Active,
-            subscriptions: {
-              create: {
-                stripeSubscriptionId: subscription.id,
-                status: SubscriptionStatus.Active,
-                startDate: new Date(),
-                planId:
-                  session.metadata.planSlug === 'pro'
-                    ? 'pro_plan'
-                    : 'basic_plan',
+      
+        try {
+          const updateResult = await db.$transaction(async (tx) => {
+            const user = await tx.user.update({
+              where: {
+                id: metadata.userId,
               },
-            },
-          },
-          include: {
-            subscriptions: true,
-          },
-        });
-
-        console.log('Update result:', updateResult);
+              data: {
+                stripeSubscriptionId: subscription.id,
+                stripeCustomerId: subscription.customer as string,
+                stripePriceId: subscription.items.data[0]?.price.id,
+                stripeCurrentPeriodEnd: new Date(
+                  subscription.current_period_end * 1000
+                ),
+                subscriptionStatus: SubscriptionStatus.Active,
+                subscriptions: {
+                  create: {
+                    stripeSubscriptionId: subscription.id,
+                    status: SubscriptionStatus.Active,
+                    startDate: new Date(),
+                    planId: metadata.planSlug === 'pro' ? 'pro_plan' : 'basic_plan',
+                  },
+                },
+              },
+              include: {
+                subscriptions: true,
+              },
+            });
+      
+            console.log('User update successful:', {
+              userId: user.id,
+              subscriptionId: user.stripeSubscriptionId,
+              status: user.subscriptionStatus
+            });
+      
+            return user;
+          });
+      
+          console.log('Transaction completed successfully:', updateResult.id);
+        } catch (error) {
+          console.error('Failed to update user subscription:', error);
+          console.error('Update attempt data:', {
+            userId: metadata.userId,
+            subscriptionId: subscription.id,
+            customerId: subscription.customer,
+            priceId: subscription.items.data[0]?.price.id
+          });
+          throw error;
+        }
+      
         break;
       }
 
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
+        console.log('Processing invoice payment:', {
+          invoiceId: invoice.id,
+          subscriptionId: invoice.subscription,
+          customerId: invoice.customer
+        });
 
-        if (!subscriptionId) {
+        if (!invoice.subscription) {
           console.log('No subscription ID in invoice');
           break;
         }
 
         const subscription = await stripe.subscriptions.retrieve(
-          subscriptionId
+          invoice.subscription as string
         );
 
         await db.user.update({
           where: {
-            stripeSubscriptionId: subscriptionId,
+            stripeSubscriptionId: invoice.subscription as string,
           },
           data: {
             stripePriceId: invoice.lines.data[0]?.price?.id,
-            stripeCurrentPeriodEnd: new Date(
-              subscription.current_period_end * 1000
-            ),
+            stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
             subscriptionStatus: SubscriptionStatus.Active,
           },
         });
 
+        console.log('Successfully updated user subscription from invoice');
         break;
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-
-        await db.user.update({
-          where: {
-            stripeSubscriptionId: subscription.id,
-          },
-          data: {
-            subscriptionStatus: SubscriptionStatus.Canceled,
-            stripeSubscriptionId: null,
-            stripePriceId: null,
-            stripeCurrentPeriodEnd: null,
-          },
+        console.log('Processing subscription deletion:', {
+          subscriptionId: subscription.id,
+          customerId: subscription.customer
         });
 
-        await db.subscription.updateMany({
-          where: {
-            stripeSubscriptionId: subscription.id,
-          },
-          data: {
-            status: SubscriptionStatus.Canceled,
-            endDate: new Date(),
-          },
+        await db.$transaction(async (tx) => {
+          await tx.user.update({
+            where: {
+              stripeSubscriptionId: subscription.id,
+            },
+            data: {
+              subscriptionStatus: SubscriptionStatus.Canceled,
+              stripeSubscriptionId: null,
+              stripePriceId: null,
+              stripeCurrentPeriodEnd: null,
+            },
+          });
+
+          await tx.subscription.updateMany({
+            where: {
+              stripeSubscriptionId: subscription.id,
+            },
+            data: {
+              status: SubscriptionStatus.Canceled,
+              endDate: new Date(),
+            },
+          });
         });
 
+        console.log('Successfully processed subscription deletion');
         break;
       }
 

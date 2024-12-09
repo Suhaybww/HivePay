@@ -19,6 +19,17 @@ export function classNames(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+export function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC'
+  }).format(date);
+}
+
 export function constructMetadata({
   title = "HivePay",
   description = "HivePay is a digital platform for secure and automated rotating savings. Whether saving with friends or family, our system ensures trust and transparency every step of the way.",

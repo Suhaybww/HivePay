@@ -24,7 +24,7 @@ const FeatureCard = ({
 const FeatureTitle = ({ children, icon }: { children?: React.ReactNode; icon?: React.ReactNode }) => {
   return (
     <div className="flex items-center gap-3 mb-2">
-      {icon && <div className="text-purple-600 dark:text-purple-400">{icon}</div>}
+      {icon && <div className="text-yellow-400 dark:text-yellow-500">{icon}</div>}
       <h3 className="text-xl md:text-2xl font-semibold text-left tracking-tight text-black dark:text-white">
         {children}
       </h3>

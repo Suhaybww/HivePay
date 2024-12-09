@@ -1,6 +1,9 @@
 import { TRPCError } from '@trpc/server';
 import { db } from '../db';
+import { middleware } from './trpc';
+import type { Context } from './trpc';
 
+// Middleware to check if the user has an active subscription
 export const subscriptionCheck = async (userId: string) => {
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -17,3 +20,19 @@ export const subscriptionCheck = async (userId: string) => {
     });
   }
 };
+
+// Middleware for subscription check only
+export const withSubscription = middleware(async (opts) => {
+  const { ctx } = opts;
+
+  if (!ctx.userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+
+  // Perform subscription check
+  await subscriptionCheck(ctx.userId);
+
+  return opts.next({
+    ctx,
+  });
+});

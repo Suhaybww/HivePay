@@ -1,8 +1,7 @@
-import nodemailer from 'nodemailer';
-import OpenAI from 'openai';
 import * as brevo from '@getbrevo/brevo';
-import { TicketPriority } from '@prisma/client';
 import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from '@getbrevo/brevo';
+import OpenAI from 'openai';
+import { TicketPriority } from '@prisma/client';
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -27,7 +26,7 @@ if (!BREVO_API_KEY || typeof BREVO_API_KEY !== 'string') {
   throw new Error('BREVO_API_KEY is not properly configured');
 }
 
-// Initialize API client with correct enum type
+// Initialize Brevo client
 const brevoClient = new TransactionalEmailsApi();
 brevoClient.setApiKey(TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
 
@@ -186,7 +185,6 @@ export async function sendTicketEmail(
   message: string,
   aiResponse: string | null = null
 ) {
-  // Check if email exists
   if (!userEmail) {
     console.error('Cannot send email: User email is missing');
     return;
@@ -197,7 +195,7 @@ export async function sendTicketEmail(
 
   try {
     const sendSmtpEmail = new brevo.SendSmtpEmail();
-
+    
     sendSmtpEmail.subject = `Ticket Created: ${subject}`;
     sendSmtpEmail.htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -233,7 +231,7 @@ export async function sendTicketEmail(
     
     sendSmtpEmail.sender = {
       name: 'HivePay Support',
-      email: 'hivepay.team@gmail.com'  
+      email: 'support@hivepayapp.com'
     };
     
     sendSmtpEmail.to = [{
@@ -248,21 +246,16 @@ export async function sendTicketEmail(
   }
 }
 
-// Send email notification to the support team
-export async function sendTicketNotificationToSupportTeam(
-  supportEmail: string,
+export async function notifySupportTeam(
   ticketId: string,
-  userName: string,
-  userEmail: string,
+  user: User,
   subject: string,
   priority: TicketPriority,
   message: string
 ) {
-  const priorityIcon = getTicketSummary(priority).split(' ')[0];
-
   try {
     const sendSmtpEmail = new brevo.SendSmtpEmail();
-
+    
     sendSmtpEmail.subject = `New Support Ticket #${ticketId.slice(0, 8)}: ${subject}`;
     sendSmtpEmail.htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -274,10 +267,10 @@ export async function sendTicketNotificationToSupportTeam(
           <p><strong>Ticket Details:</strong></p>
           <ul style="list-style: none; padding-left: 0;">
             <li><strong>Ticket ID:</strong> ${ticketId}</li>
-            <li><strong>User Name:</strong> ${userName}</li>
-            <li><strong>User Email:</strong> ${userEmail}</li>
+            <li><strong>User Name:</strong> ${user.firstName} ${user.lastName}</li>
+            <li><strong>User Email:</strong> ${user.email}</li>
             <li><strong>Subject:</strong> ${subject}</li>
-            <li><strong>Priority:</strong> ${priorityIcon} ${priority}</li>
+            <li><strong>Priority:</strong> ${priority}</li>
           </ul>
         </div>
 
@@ -296,77 +289,16 @@ export async function sendTicketNotificationToSupportTeam(
     
     sendSmtpEmail.sender = {
       name: 'HivePay Support',
-      email: 'hivepay.team@gmail.com'  // Updated sender email
+      email: 'support@hivepayapp.com'
     };
     
     sendSmtpEmail.to = [{
-      email: supportEmail,
+      email: 'support@hivepayapp.com',
       name: 'HivePay Support Team'
     }];
 
-    const response = await brevoClient.sendTransacEmail(sendSmtpEmail);
-    console.log('Support ticket notification sent to support team successfully:', response);
-  } catch (error) {
-    console.error('Failed to send support ticket notification to support team:', error);
-  }
-}
-
-export async function notifySupportTeam(
-  ticketId: string,
-  user: User,
-  subject: string,
-  priority: TicketPriority,
-  message: string
-) {
-  try {
-    // Create a Nodemailer transporter using Gmail SMTP
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: 'yourgmailaccount@gmail.com',
-        pass: 'yourapppassword', // Use an App Password if 2FA is enabled
-      },
-    });
-
-    // Email content
-    const mailOptions = {
-      from: '"HivePay Support" <yourgmailaccount@gmail.com>',
-      to: 'hivepay.team@gmail.com',
-      subject: `New Support Ticket #${ticketId.slice(0, 8)}: ${subject}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>New Support Ticket Received</h2>
-          
-          <p>A new support ticket has been created.</p>
-          
-          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>Ticket Details:</strong></p>
-            <ul style="list-style: none; padding-left: 0;">
-              <li><strong>Ticket ID:</strong> ${ticketId}</li>
-              <li><strong>User Name:</strong> ${user.firstName} ${user.lastName}</li>
-              <li><strong>User Email:</strong> ${user.email}</li>
-              <li><strong>Subject:</strong> ${subject}</li>
-              <li><strong>Priority:</strong> ${priority}</li>
-            </ul>
-          </div>
-
-          <div style="background-color: #fff; border: 1px solid #e1e1e1; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>Message:</strong></p>
-            <p>${message}</p>
-          </div>
-          
-          <p>You can reply directly to this email to respond to the user.</p>
-          
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="color: #666; font-size: 0.9em;">HivePay System Notification</p>
-          </div>
-        </div>
-      `,
-    };
-
-    // Send the email
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Support team notification email sent:', info.response);
+    await brevoClient.sendTransacEmail(sendSmtpEmail);
+    console.log('Support team notification email sent successfully');
   } catch (error) {
     console.error('Failed to send support team notification email:', error);
   }

@@ -64,9 +64,17 @@ export const subscriptionRouter = router({
         payment_method_types: ['card'],
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
-        metadata: { userId, priceId, planSlug },
+        metadata: { 
+          userId: userId,
+          priceId: priceId,
+          planSlug: planSlug 
+        },
         subscription_data: {
-          metadata: { userId, priceId, planSlug },
+          metadata: { 
+            userId: userId,
+            priceId: priceId,
+            planSlug: planSlug 
+          },
         },
       });
 

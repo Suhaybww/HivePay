@@ -3,11 +3,10 @@ import { publicProcedure, privateProcedure, router } from "../trpc";
 import { db } from "@/src/db";
 import { TRPCError } from "@trpc/server";
 import { TicketStatus, TicketPriority } from "@prisma/client";
-import { determineTicketPriority, getAIResponse, getResponseTimeByPriority, shouldNotifyImmediately, sendTicketNotificationToSupportTeam } from "@/src/lib/support-utils";
-import { sendTicketEmail, notifySupportTeam } from "@/src/lib/support-utils";
-import nodemailer from 'nodemailer';
 import * as brevo from '@getbrevo/brevo';
 import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from '@getbrevo/brevo';
+import { determineTicketPriority, getAIResponse, getResponseTimeByPriority, shouldNotifyImmediately } from "@/src/lib/support-utils";
+import { sendTicketEmail, notifySupportTeam } from "@/src/lib/support-utils";
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
@@ -18,14 +17,6 @@ if (!BREVO_API_KEY) {
 // Initialize Brevo client
 const brevoClient = new TransactionalEmailsApi();
 brevoClient.setApiKey(TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: 'hivepay.team@gmail.com',
-    pass: process.env.EMAIL_PASSWORD 
-  }
-});
 
 export const supportRouter = router({
   submitFeedback: privateProcedure
@@ -42,7 +33,6 @@ export const supportRouter = router({
       const { type, title, description, rating } = input;
 
       try {
-        // Use the imported db instance directly instead of ctx.db
         const user = await db.user.findUnique({
           where: { id: userId },
           select: { email: true, firstName: true, lastName: true }
@@ -52,23 +42,32 @@ export const supportRouter = router({
           throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
         }
 
-        // Send email
-        await transporter.sendMail({
-          from: 'hivepay.team@gmail.com',
-          to: 'hivepay.team@gmail.com',
-          subject: `New Feedback: ${title}`,
-          html: `
-            <h2>New Feedback Received</h2>
-            <p><strong>From:</strong> ${user.firstName} ${user.lastName} (${user.email})</p>
-            <p><strong>Type:</strong> ${type}</p>
-            <p><strong>Rating:</strong> ${rating}/5</p>
-            <p><strong>Title:</strong> ${title}</p>
-            <p><strong>Description:</strong></p>
-            <p>${description}</p>
-          `
-        });
+        // Send email using Brevo
+        const sendSmtpEmail = new brevo.SendSmtpEmail();
+        
+        sendSmtpEmail.subject = `New Feedback: ${title}`;
+        sendSmtpEmail.htmlContent = `
+          <h2>New Feedback Received</h2>
+          <p><strong>From:</strong> ${user.firstName} ${user.lastName} (${user.email})</p>
+          <p><strong>Type:</strong> ${type}</p>
+          <p><strong>Rating:</strong> ${rating}/5</p>
+          <p><strong>Title:</strong> ${title}</p>
+          <p><strong>Description:</strong></p>
+          <p>${description}</p>
+        `;
+        
+        sendSmtpEmail.sender = {
+          name: 'HivePay Support',
+          email: 'support@hivepayapp.com'
+        };
+        
+        sendSmtpEmail.to = [{
+          email: 'support@hivepayapp.com',
+          name: 'HivePay Support Team'
+        }];
 
-        // Store feedback in database using the imported db instance
+        await brevoClient.sendTransacEmail(sendSmtpEmail);
+
         await db.feedback.create({
           data: {
             userId,
@@ -613,7 +612,7 @@ getTicketResponses: privateProcedure
       
       sendSmtpEmail.sender = {
         name: 'HivePay Support',
-        email: 'hivepay.team@gmail.com'
+        email: 'support@hivepayapp.com'
       };
       
       sendSmtpEmail.to = [{

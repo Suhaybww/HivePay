@@ -140,7 +140,7 @@ export default function ContactPage() {
               href="mailto:support@hivepay.com"
               className="text-yellow-400 hover:underline"
             >
-              hivepay.team@gmail.com
+              support@hivepayapp.com
             </a>.
           </p>
         </div>

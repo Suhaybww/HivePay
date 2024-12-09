@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,6 +9,12 @@ datasource db {
 }
 
 // Enums
+
+enum ContractStatus {
+  Pending
+  Signed
+  Rejected
+}
 
 enum SubscriptionStatus {
   Active
@@ -25,6 +30,7 @@ enum PayoutOrderMethod {
 enum MembershipStatus {
   Active
   Inactive
+  Pending
 }
 
 enum PayoutStatus {
@@ -91,7 +97,7 @@ model User {
   lastName                String
   email                   String              @unique
   phoneNumber             String
-  gender                  Gender?             // Optional field
+  gender                  Gender?
   age                     Int?
 
   // Stripe Information
@@ -102,10 +108,10 @@ model User {
   stripeCurrentPeriodEnd  DateTime?           @map(name: "stripe_current_period_end")
 
   // BECS Direct Debit Information
-  stripeSetupIntentId     String?             // Setup Intent ID for BECS setup
-  stripeBecsPaymentMethodId String?           // Payment Method ID for BECS direct debit
-  becsSetupStatus           BECSSetupStatus     @default(Pending) // Setup status: Pending, Completed, or Failed
-  stripeMandateId         String?             // Mandate ID for recurring authorization (optional)
+  stripeSetupIntentId       String?
+  stripeBecsPaymentMethodId String?
+  becsSetupStatus           BECSSetupStatus     @default(Pending)
+  stripeMandateId           String?
 
   subscriptionStatus      SubscriptionStatus
   onboardingStatus        OnboardingStatus    @default(Pending)
@@ -126,6 +132,8 @@ model User {
   supportTickets          SupportTicket[]
   ticketResponses         TicketResponse[]
   feedback                Feedback[]
+  contracts        Contract[]      
+
 }
 
 model Plan {
@@ -175,21 +183,24 @@ model Group {
   payments         Payment[]
   transactions     Transaction[]
   messages         Message[]
+  contracts        Contract[]     
+
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model GroupMembership {
-  id          String           @id @default(cuid())
-  group       Group            @relation(fields: [groupId], references: [id])
-  groupId     String
-  user        User             @relation(fields: [userId], references: [id])
-  userId      String
-  joinDate    DateTime         @default(now())
-  payoutOrder Int
-  isAdmin     Boolean          @default(false)
-  status      MembershipStatus
+  id            String           @id @default(cuid())
+  group         Group            @relation(fields: [groupId], references: [id])
+  groupId       String
+  user          User             @relation(fields: [userId], references: [id])
+  userId        String
+  joinDate      DateTime         @default(now())
+  payoutOrder   Int
+  isAdmin       Boolean          @default(false)
+  status        MembershipStatus
+  acceptedTOSAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -207,7 +218,7 @@ model Payment {
   paymentDate           DateTime      @default(now())
   status                PaymentStatus @default(Pending)
   stripePaymentIntentId String?       @unique
-  mandateId             String?       // BECS Direct Debit Mandate ID
+  mandateId             String?
   transactions          Transaction[]
 
   createdAt DateTime @default(now())
@@ -290,7 +301,7 @@ model TicketResponse {
   isStaff     Boolean       @default(false)
   ticket      SupportTicket @relation(fields: [ticketId], references: [id])
   ticketId    String
-  user        User?         @relation(fields: [userId], references: [id]) // Make optional
+  user        User?         @relation(fields: [userId], references: [id])
   userId      String?
 
   createdAt   DateTime      @default(now())
@@ -307,4 +318,31 @@ model Feedback {
   rating      Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model ContractTemplate {
+  id            String    @id @default(cuid())
+  version       String    @unique
+  content       String    @db.Text
+  effectiveDate DateTime
+  lastUpdated   DateTime  @updatedAt
+  contracts     Contract[]
+}
+
+model Contract {
+  id                 String         @id @default(cuid())
+  contractTemplate   ContractTemplate @relation(fields: [contractTemplateId], references: [id])
+  contractTemplateId String
+  group             Group          @relation(fields: [groupId], references: [id])
+  groupId           String
+  user              User           @relation(fields: [userId], references: [id])
+  userId            String
+  status            ContractStatus @default(Pending)
+  signedContent     String         @db.Text
+  signedAt          DateTime?
+  fullName          String?        // Name as signed on contract
+  pdfUrl            String?        // URL to stored PDF
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 }

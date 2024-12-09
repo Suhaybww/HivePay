@@ -111,7 +111,7 @@ export default function GroupPage() {
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="flex justify-between items-start mb-8">
         <div className="space-y-2">
-          <h1 className="text-5xl font-bold text-yellow-400 leading-tight">
+          <h1 className="text-5xl font-bold text leading-tight">
             {group.name}
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl">
