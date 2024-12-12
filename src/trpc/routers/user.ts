@@ -1,8 +1,9 @@
 import { privateProcedure, router } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../db';
-import { MembershipStatus, PaymentStatus } from '@prisma/client';
+import { MembershipStatus, PaymentStatus, GroupStatus, SubscriptionStatus, OnboardingStatus } from '@prisma/client';
 import { z } from "zod";
+import { stripe } from '../../lib/stripe';
 
 export const userRouter = router({
   getRecentActivity: privateProcedure.query(async ({ ctx }) => {
@@ -259,6 +260,200 @@ export const userRouter = router({
       });
     }
   }),
+
+
+  deleteAccount: privateProcedure
+  .input(
+    z.object({
+      reason: z.string().optional(),
+    })
+  )
+  .mutation(async ({ ctx, input }) => {
+    const { userId } = ctx;
+  
+    try {
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: {
+          stripeSubscriptionId: true,
+          stripeCustomerId: true,
+          email: true,
+        },
+      });
+  
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
+  
+      // Check for active group memberships with cycleStarted condition
+      const activeGroupMemberships = await db.groupMembership.findMany({
+        where: {
+          userId,
+          status: MembershipStatus.Active,
+          group: {
+            cycleStarted: true,
+          },
+        },
+        select: {
+          id: true,
+          groupId: true,
+          group: {
+            select: {
+              id: true,
+              name: true,
+              cycleStarted: true,
+            },
+          },
+        },
+      });
+  
+      const activeGroupsWithStartedCycle = activeGroupMemberships.filter(
+        membership => membership.group?.cycleStarted
+      );
+  
+      if (activeGroupsWithStartedCycle.length > 0) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Cannot delete account while you have active groups with started cycles. Please leave these groups first.',
+        });
+      }
+  
+      // Start a transaction for soft deletion
+      await db.$transaction(async (tx) => {
+        // Cancel Stripe subscription if exists
+        if (user.stripeCustomerId) {
+          try {
+            const subscriptions = await stripe.subscriptions.list({
+              customer: user.stripeCustomerId,
+              status: 'active',
+            });
+  
+            // Cancel all active subscriptions
+            for (const subscription of subscriptions.data) {
+              try {
+                await stripe.subscriptions.cancel(subscription.id);
+              } catch (stripeError) {
+                console.error(`Failed to cancel subscription ${subscription.id}:`, stripeError);
+              }
+            }
+          } catch (stripeError) {
+            console.error('Failed to list/cancel Stripe subscriptions:', stripeError);
+          }
+        }
+  
+        // Update groups where user is admin but cycle hasn't started
+        await tx.group.updateMany({
+          where: {
+            createdById: userId,
+            cycleStarted: false,
+          },
+          data: {
+            status: GroupStatus.Paused,
+          },
+        });
+  
+        // Mark group memberships as inactive
+        await tx.groupMembership.updateMany({
+          where: { userId },
+          data: { status: MembershipStatus.Inactive },
+        });
+  
+        // Cancel subscriptions in database
+        await tx.subscription.updateMany({
+          where: { userId },
+          data: { 
+            status: SubscriptionStatus.Canceled,
+            endDate: new Date()
+          },
+        });
+  
+        // Update user state
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            subscriptionStatus: SubscriptionStatus.Canceled,
+            email: `deleted_${user.email}_${Date.now()}`,
+            stripeCustomerId: null,
+            stripeAccountId: null,
+            stripeSubscriptionId: null,
+            stripePriceId: null,
+            stripeSetupIntentId: null,
+            stripeBecsPaymentMethodId: null,
+            stripeMandateId: null,
+            onboardingStatus: OnboardingStatus.Failed,
+            // Flag as deleted in database
+            isDeleted: true,
+            deletedAt: new Date(),
+            deletionReason: input.reason,
+          },
+        });
+      });
+  
+      return { 
+        success: true, 
+        message: 'Account successfully deactivated',
+        isLogoutRequired: true
+      };
+    } catch (error) {
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      
+      console.error('Failed to delete account:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to delete account. Please try again or contact support.',
+      });
+    }
+  }),
+
+canDeleteAccount: privateProcedure
+.query(async ({ ctx }) => {
+  const { userId } = ctx;
+
+  try {
+    // Check for active memberships in groups with started cycles
+    const activeGroupMemberships = await db.groupMembership.count({
+      where: {
+        userId,
+        status: MembershipStatus.Active,
+        group: {
+          cycleStarted: true,
+        },
+      },
+    });
+
+    // Check for created groups with active cycles
+    const activeGroupsCreated = await db.group.count({
+      where: {
+        createdById: userId,
+        cycleStarted: true,
+        groupMemberships: {
+          some: {
+            status: MembershipStatus.Active,
+          },
+        },
+      },
+    });
+
+    const canDelete = activeGroupMemberships === 0 && activeGroupsCreated === 0;
+
+    return {
+      canDelete,
+      hasActiveGroupMemberships: activeGroupMemberships > 0,
+      hasActiveCreatedGroups: activeGroupsCreated > 0,
+    };
+  } catch (error) {
+    console.error('Failed to check account deletion status:', error);
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Failed to check account deletion status',
+    });
+  }
+}),
 
 
 updateProfile: privateProcedure

@@ -4,6 +4,7 @@ import { db } from '../../db';
 import { TRPCError } from '@trpc/server';
 import { generateContractPDF, sendContractEmail } from '../../lib/contracts';
 import { ContractStatus, MembershipStatus } from '@prisma/client';
+import { ContractData } from '@/src/types/contract';
 
 export const contractRouter = router({
   // Step 1: Fetch the contract details
@@ -91,8 +92,8 @@ export const contractRouter = router({
       };
     }),
 
-  // Step 2: Confirm and sign the contract
-  signGroupContract: privateProcedure
+    // Step 2: Confirm and sign the contract
+    signGroupContract: privateProcedure
     .input(z.object({
       groupId: z.string(),
       fullName: z.string(),
@@ -129,16 +130,41 @@ export const contractRouter = router({
         });
       }
 
-      // Ensure a contract template exists
-      const template = await db.contractTemplate.findFirst({
+      // Ensure a contract template exists, create default if missing
+      let template = await db.contractTemplate.findFirst({
         orderBy: { effectiveDate: 'desc' },
       });
 
       if (!template) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Contract template not found',
-        });
+        try {
+          console.log('Attempting to create a default template...');
+          template = await db.contractTemplate.create({
+            data: {
+              version: 'v1',
+              content: `
+                HIVEPAY ROSCA GROUP CONTRACT TEMPLATE:
+      
+                TERMS AND CONDITIONS:
+      
+                1. The member agrees to contribute [CONTRIBUTION_AMOUNT] on a [PAYOUT_FREQUENCY] basis.
+                2. The member acknowledges that failure to make contributions may result in legal action.
+                3. The member agrees not to withdraw from the group after receiving their payout.
+                4. The member understands that this is a legally binding agreement.
+      
+                Electronically signed by: [USER_NAME]
+                Date: [DATE]
+              `,
+              effectiveDate: new Date(),
+            },
+          });
+          console.log('Template created successfully:', template);
+        } catch (error) {
+          console.error('Error creating default template:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to create default contract template.',
+          });
+        }
       }
 
       // Generate contract content
@@ -148,19 +174,17 @@ export const contractRouter = router({
         .replace('[USER_NAME]', fullName)
         .replace('[DATE]', new Date().toISOString());
 
-      // Generate contract PDF
-      const pdfBuffer = await generateContractPDF({
+      // Construct the complete ContractData object
+      const contractData: ContractData = {
         groupName: group.name,
         userName: fullName,
         contributionAmount: group.contributionAmount?.toString() || '0',
         payoutFrequency: group.payoutFrequency || 'Monthly',
         signedAt: new Date(),
-      });
-
-      const contractData = {
-        contributionAmount: group.contributionAmount?.toString() || '0',
-        payoutFrequency: group.payoutFrequency || 'Monthly',
       };
+
+      // Generate contract PDF
+      const pdfBuffer = await generateContractPDF(contractData);
 
       // Use transaction for consistency
       const result = await db.$transaction(async (tx) => {
@@ -171,7 +195,6 @@ export const contractRouter = router({
             userId,
             status: ContractStatus.Signed,
             signedContent: contractContent,
-            ipAddress: 'N/A', // Removed IP address
             signedAt: new Date(),
             fullName,
           },
@@ -185,7 +208,7 @@ export const contractRouter = router({
         return { contract, membership: updatedMembership };
       });
 
-      // Send email with the generated PDF
+      // Send email with the generated PDF using the same contractData
       await sendContractEmail(user.email, fullName, Buffer.from(pdfBuffer), contractData);
 
       return {
@@ -194,4 +217,5 @@ export const contractRouter = router({
         redirectUrl: `/groups/${groupId}`,
       };
     }),
+
 });

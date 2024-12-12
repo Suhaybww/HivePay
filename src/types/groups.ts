@@ -1,5 +1,4 @@
-
-import { PayoutOrderMethod, Frequency, Gender } from '@prisma/client';
+import { PayoutOrderMethod, Frequency, Gender, GroupStatus } from '@prisma/client';
 
 export type GroupMember = {
   id: string;
@@ -23,7 +22,8 @@ export type GroupWithStats = {
   payoutFrequency?: Frequency | null;
   nextContributionDate?: string | null;
   nextPayoutDate?: string | null;
-  cycleStarted: boolean; 
+  cycleStarted: boolean;
+  status: GroupStatus;  
   _count: {
     groupMemberships: number;
   };

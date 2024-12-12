@@ -11,14 +11,29 @@ import {
   SelectValue,
 } from '@/src/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import { format } from 'date-fns';
-import { Download, CreditCard, Wallet, ArrowUpRight, Ban } from 'lucide-react';
+import { ExternalLink, CreditCard, Wallet, ArrowUpRight, Download } from 'lucide-react';
 import { Badge } from '@/src/components/ui/badge';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { Skeleton } from '@/src/components/ui/skeleton';
 
+interface StripeAccountStatus {
+  hasConnectedAccount: boolean;
+  isOnboardingComplete: boolean;
+  accountStatus?: {
+    detailsSubmitted: boolean;
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+    currentlyDue: string[];
+    pastDue: string[];
+    eventuallyDue: string[];
+    pendingVerification: string[];
+  };
+}
+
 export default function PaymentsPage() {
+  // States
+  const [activeSection, setActiveSection] = useState('transactions');
   const [timeframe, setTimeframe] = useState<'all' | 'week' | 'month' | 'year'>('all');
   const [type, setType] = useState<'all' | 'contributions' | 'payouts'>('all');
 
@@ -29,10 +44,29 @@ export default function PaymentsPage() {
     trpc.payment.getUpcomingPayments.useQuery();
   const { data: paymentMethods, isLoading: isLoadingMethods } = 
     trpc.payment.getPaymentMethods.useQuery();
+  const { data: accountStatus } = trpc.auth.getStripeAccountStatus.useQuery<StripeAccountStatus>();
 
   // Mutations
   const setupBECS = trpc.auth.setupBECSDirectDebit.useMutation();
   const createConnectAccount = trpc.auth.createStripeConnectAccount.useMutation();
+  const stripeDashboard = trpc.auth.getStripeDashboardLink.useMutation();
+
+  // Type guard function
+  const hasAccountStatus = (
+    status: StripeAccountStatus
+  ): status is StripeAccountStatus & { accountStatus: NonNullable<StripeAccountStatus['accountStatus']> } => {
+    return status.hasConnectedAccount && !!status.accountStatus;
+  };
+
+  // Handlers
+  const handleDashboardAccess = async () => {
+    try {
+      const result = await stripeDashboard.mutateAsync();
+      if (result?.url) window.open(result.url, '_blank');
+    } catch (error) {
+      console.error('Failed to access Stripe dashboard:', error);
+    }
+  };
 
   const handleBECSSetup = async () => {
     try {
@@ -64,22 +98,55 @@ export default function PaymentsPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold mb-6">Payments & Transactions</h1>
+    <div className="container mx-auto px-6">
+      <h1 className="text-2xl font-bold py-6">Payments & Transactions</h1>
+  
+      {/* Segmented Navigation */}
+      <div className="border-b mb-8">
+        <div className="flex flex-wrap -mb-px">
+          <button
+            onClick={() => setActiveSection('transactions')}
+            className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
+              ${activeSection === 'transactions' 
+                ? 'border-yellow-400 text-black' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Transactions
+          </button>
+          <button
+            onClick={() => setActiveSection('upcoming')}
+            className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
+              ${activeSection === 'upcoming' 
+                ? 'border-yellow-400 text-black' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Upcoming Payments
+          </button>
+          <button
+            onClick={() => setActiveSection('methods')}
+            className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
+              ${activeSection === 'methods' 
+                ? 'border-yellow-400 text-black' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Payment Methods
+          </button>
+        </div>
+      </div>
+  
+      {/* Content Area */}
+      <div className="space-y-6">
 
-      <Tabs defaultValue="transactions" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="upcoming">Upcoming Payments</TabsTrigger>
-          <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
-        </TabsList>
-
-        {/* Transactions Tab */}
-        <TabsContent value="transactions" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-4">
+{/* Transactions Section */}
+{activeSection === 'transactions' && (
+        <div className="space-y-6">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 sm:items-center sm:justify-between">
+            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               <Select value={timeframe} onValueChange={(val: any) => setTimeframe(val)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Timeframe" />
                 </SelectTrigger>
                 <SelectContent>
@@ -91,7 +158,7 @@ export default function PaymentsPage() {
               </Select>
 
               <Select value={type} onValueChange={(val: any) => setType(val)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Transaction type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -102,7 +169,7 @@ export default function PaymentsPage() {
               </Select>
             </div>
 
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
               <Download className="w-4 h-4 mr-2" />
               Export
             </Button>
@@ -149,10 +216,12 @@ export default function PaymentsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* Upcoming Payments Tab */}
-        <TabsContent value="upcoming" className="space-y-4">
+      {/* Upcoming Payments Section */}
+      {activeSection === 'upcoming' && (
+        <div className="space-y-4">
           {isLoadingUpcoming ? (
             <div className="space-y-4">
               {[1, 2].map((i) => (
@@ -191,10 +260,11 @@ export default function PaymentsPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-
-        {/* Payment Methods Tab */}
-        <TabsContent value="payment-methods" className="space-y-6">
+        </div>
+      )}
+  {/* Payment Methods Section */}
+  {activeSection === 'methods' && (
+        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -235,22 +305,69 @@ export default function PaymentsPage() {
             </CardHeader>
             <CardContent>
               {paymentMethods?.connectAccount ? (
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">Account connected</p>
-                    <p className="text-sm text-gray-500">
-                      {paymentMethods.connectAccount.charges_enabled ? 
-                        'Ready to receive payments' : 
-                        'Additional verification required'}
-                    </p>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">Account connected</p>
+                      <p className="text-sm text-gray-500">
+                        {accountStatus?.isOnboardingComplete ? 
+                          'Ready to receive payments' : 
+                          'Additional verification required'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {accountStatus?.isOnboardingComplete ? (
+                        <Button 
+                          variant="outline"
+                          onClick={handleDashboardAccess}
+                          className="flex items-center"
+                        >
+                          View Dashboard
+                          <ExternalLink className="w-4 h-4 ml-2" />
+                        </Button>
+                      ) : (
+                        <Button 
+                          onClick={handleConnectAccount}
+                        >
+                          Complete Setup
+                          <ArrowUpRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Button 
-                    variant="outline"
-                    onClick={handleConnectAccount}
-                  >
-                    Update Account
-                    <ArrowUpRight className="w-4 h-4 ml-2" />
-                  </Button>
+
+                  {/* Account Status Details */}
+                  {accountStatus && hasAccountStatus(accountStatus) && (
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={accountStatus.accountStatus.chargesEnabled ? "success" : "secondary"}>
+                          {accountStatus.accountStatus.chargesEnabled ? "Charges Enabled" : "Charges Disabled"}
+                        </Badge>
+                        <Badge variant={accountStatus.accountStatus.payoutsEnabled ? "success" : "secondary"}>
+                          {accountStatus.accountStatus.payoutsEnabled ? "Payouts Enabled" : "Payouts Disabled"}
+                        </Badge>
+                      </div>
+
+                      {/* Requirements Section */}
+                      {(accountStatus.accountStatus.currentlyDue.length > 0 ||
+                        accountStatus.accountStatus.pastDue.length > 0) && (
+                        <Alert className="mt-4">
+                          <AlertDescription>
+                            <div className="space-y-2">
+                              {accountStatus.accountStatus.currentlyDue.length > 0 && (
+                                <p>Required information: {accountStatus.accountStatus.currentlyDue.join(", ")}</p>
+                              )}
+                              {accountStatus.accountStatus.pastDue.length > 0 && (
+                                <p className="text-red-500">
+                                  Past due requirements: {accountStatus.accountStatus.pastDue.join(", ")}
+                                </p>
+                              )}
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex justify-between items-center">
@@ -263,8 +380,9 @@ export default function PaymentsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 }

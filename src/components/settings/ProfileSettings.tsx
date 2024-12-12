@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/src/components/ui/use-toast";
 import { trpc } from "@/src/app/_trpc/client";
 import { Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/src/components/ui/card";
+import { Card, CardContent } from "@/src/components/ui/card";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters."),
@@ -70,27 +70,25 @@ export function ProfileSettings({ user }: { user: any }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Profile Settings</CardTitle>
-        <CardDescription>
-          Manage your personal information and preferences
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Card className="border rounded-lg">
+      <CardContent className="pt-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="firstName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>First Name</FormLabel>
+                    <FormLabel className="text-sm font-medium">First Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your first name" {...field} />
+                      <Input 
+                        placeholder="Enter your first name" 
+                        {...field}
+                        className="h-9"
+                      />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -100,11 +98,15 @@ export function ProfileSettings({ user }: { user: any }) {
                 name="lastName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Last Name</FormLabel>
+                    <FormLabel className="text-sm font-medium">Last Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your last name" {...field} />
+                      <Input 
+                        placeholder="Enter your last name" 
+                        {...field}
+                        className="h-9"
+                      />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -115,14 +117,14 @@ export function ProfileSettings({ user }: { user: any }) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel className="text-sm font-medium">Email</FormLabel>
                   <FormControl>
-                    <Input {...field} type="email" disabled />
+                    <Input {...field} type="email" disabled className="h-9" />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription className="text-xs">
                     Contact support to change your email address.
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
@@ -132,26 +134,36 @@ export function ProfileSettings({ user }: { user: any }) {
               name="phoneNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel className="text-sm font-medium">Phone Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your phone number" {...field} type="tel" />
+                    <Input 
+                      placeholder="Enter your phone number" 
+                      {...field} 
+                      type="tel"
+                      className="h-9"
+                    />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="age"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Age</FormLabel>
+                    <FormLabel className="text-sm font-medium">Age</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your age" {...field} type="number" />
+                      <Input 
+                        placeholder="Enter your age" 
+                        {...field} 
+                        type="number"
+                        className="h-9"
+                      />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -161,10 +173,10 @@ export function ProfileSettings({ user }: { user: any }) {
                 name="gender"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Gender</FormLabel>
+                    <FormLabel className="text-sm font-medium">Gender</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-9">
                           <SelectValue placeholder="Select gender" />
                         </SelectTrigger>
                       </FormControl>
@@ -173,26 +185,28 @@ export function ProfileSettings({ user }: { user: any }) {
                         <SelectItem value="Female">Female</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
             </div>
 
-            <Button 
-              type="submit" 
-              className="bg-yellow-400 hover:bg-yellow-500 text-white w-full sm:w-auto"
-              disabled={updateProfile.isLoading}
-            >
-              {updateProfile.isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving changes...
-                </>
-              ) : (
-                "Save changes"
-              )}
-            </Button>
+            <div className="pt-2">
+              <Button 
+                type="submit" 
+                className="bg-yellow-400 hover:bg-yellow-500 h-9 px-4 text-sm"
+                disabled={updateProfile.isLoading}
+              >
+                {updateProfile.isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    Saving changes...
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </Button>
+            </div>
           </form>
         </Form>
       </CardContent>

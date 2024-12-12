@@ -1,11 +1,17 @@
 -- CreateEnum
+CREATE TYPE "ContractStatus" AS ENUM ('Pending', 'Signed', 'Rejected');
+
+-- CreateEnum
 CREATE TYPE "SubscriptionStatus" AS ENUM ('Active', 'Inactive', 'Canceled');
+
+-- CreateEnum
+CREATE TYPE "GroupStatus" AS ENUM ('Active', 'Paused');
 
 -- CreateEnum
 CREATE TYPE "PayoutOrderMethod" AS ENUM ('Admin_Selected', 'First_Come_First_Serve');
 
 -- CreateEnum
-CREATE TYPE "MembershipStatus" AS ENUM ('Active', 'Inactive');
+CREATE TYPE "MembershipStatus" AS ENUM ('Active', 'Inactive', 'Pending');
 
 -- CreateEnum
 CREATE TYPE "PayoutStatus" AS ENUM ('Pending', 'Completed', 'Failed');
@@ -23,26 +29,38 @@ CREATE TYPE "Gender" AS ENUM ('Female', 'Male');
 CREATE TYPE "Frequency" AS ENUM ('Daily', 'Weekly', 'BiWeekly', 'Monthly', 'Custom');
 
 -- CreateEnum
-CREATE TYPE "VerificationMethod" AS ENUM ('None', 'DocumentUpload', 'ThirdPartyService');
+CREATE TYPE "OnboardingStatus" AS ENUM ('Pending', 'Completed', 'Failed');
+
+-- CreateEnum
+CREATE TYPE "BECSSetupStatus" AS ENUM ('Pending', 'Completed', 'Failed');
+
+-- CreateEnum
+CREATE TYPE "TicketStatus" AS ENUM ('Open', 'InProgress', 'Resolved', 'Closed');
+
+-- CreateEnum
+CREATE TYPE "TicketPriority" AS ENUM ('Low', 'Medium', 'High', 'Urgent');
 
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
-    "auth0UserId" TEXT NOT NULL,
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "phoneNumber" TEXT NOT NULL,
-    "emailVerified" BOOLEAN NOT NULL DEFAULT false,
-    "gender" "Gender" NOT NULL,
+    "gender" "Gender",
     "age" INTEGER,
-    "passwordHash" TEXT NOT NULL,
-    "stripeCustomerId" TEXT,
+    "stripe_customer_id" TEXT,
     "stripeAccountId" TEXT,
+    "stripe_subscription_id" TEXT,
+    "stripe_price_id" TEXT,
+    "stripe_current_period_end" TIMESTAMP(3),
+    "stripeSetupIntentId" TEXT,
+    "stripeBecsPaymentMethodId" TEXT,
+    "becsSetupStatus" "BECSSetupStatus" NOT NULL DEFAULT 'Pending',
+    "stripeMandateId" TEXT,
     "subscriptionStatus" "SubscriptionStatus" NOT NULL,
-    "idVerified" BOOLEAN NOT NULL DEFAULT false,
-    "verificationMethod" "VerificationMethod",
-    "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "onboardingStatus" "OnboardingStatus" NOT NULL DEFAULT 'Pending',
+    "onboardingDate" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -91,6 +109,8 @@ CREATE TABLE "Group" (
     "payoutFrequency" "Frequency",
     "nextContributionDate" TIMESTAMP(3),
     "nextPayoutDate" TIMESTAMP(3),
+    "cycleStarted" BOOLEAN NOT NULL DEFAULT false,
+    "status" "GroupStatus" NOT NULL DEFAULT 'Active',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -106,6 +126,7 @@ CREATE TABLE "GroupMembership" (
     "payoutOrder" INTEGER NOT NULL,
     "isAdmin" BOOLEAN NOT NULL DEFAULT false,
     "status" "MembershipStatus" NOT NULL,
+    "acceptedTOSAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -137,6 +158,7 @@ CREATE TABLE "Payout" (
     "amount" DECIMAL(10,2) NOT NULL,
     "status" "PayoutStatus" NOT NULL DEFAULT 'Pending',
     "stripeTransferId" TEXT,
+    "payoutOrder" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -183,30 +205,95 @@ CREATE TABLE "Message" (
 );
 
 -- CreateTable
-CREATE TABLE "Vote" (
+CREATE TABLE "SupportTicket" (
     "id" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "status" "TicketStatus" NOT NULL DEFAULT 'Open',
+    "priority" "TicketPriority" NOT NULL DEFAULT 'Medium',
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SupportTicket_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TicketResponse" (
+    "id" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "staffEmail" TEXT,
+    "isStaff" BOOLEAN NOT NULL DEFAULT false,
+    "ticketId" TEXT NOT NULL,
+    "userId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TicketResponse_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Feedback" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "rating" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Feedback_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ContractTemplate" (
+    "id" TEXT NOT NULL,
+    "version" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "effectiveDate" TIMESTAMP(3) NOT NULL,
+    "lastUpdated" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ContractTemplate_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Contract" (
+    "id" TEXT NOT NULL,
+    "contractTemplateId" TEXT NOT NULL,
     "groupId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "candidateId" TEXT NOT NULL,
+    "status" "ContractStatus" NOT NULL DEFAULT 'Pending',
+    "signedContent" TEXT NOT NULL,
+    "signedAt" TIMESTAMP(3),
+    "fullName" TEXT,
+    "pdfUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Vote_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Contract_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_auth0UserId_key" ON "User"("auth0UserId");
+CREATE UNIQUE INDEX "User_id_key" ON "User"("id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_stripeCustomerId_key" ON "User"("stripeCustomerId");
+CREATE UNIQUE INDEX "User_stripe_customer_id_key" ON "User"("stripe_customer_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_stripeAccountId_key" ON "User"("stripeAccountId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_stripe_subscription_id_key" ON "User"("stripe_subscription_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Plan_name_key" ON "Plan"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "GroupMembership_groupId_userId_key" ON "GroupMembership"("groupId", "userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Payment_stripePaymentIntentId_key" ON "Payment"("stripePaymentIntentId");
@@ -214,59 +301,5 @@ CREATE UNIQUE INDEX "Payment_stripePaymentIntentId_key" ON "Payment"("stripePaym
 -- CreateIndex
 CREATE UNIQUE INDEX "Payout_stripeTransferId_key" ON "Payout"("stripeTransferId");
 
--- AddForeignKey
-ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_planId_fkey" FOREIGN KEY ("planId") REFERENCES "Plan"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Group" ADD CONSTRAINT "Group_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "GroupMembership" ADD CONSTRAINT "GroupMembership_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "GroupMembership" ADD CONSTRAINT "GroupMembership_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Payment" ADD CONSTRAINT "Payment_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Payout" ADD CONSTRAINT "Payout_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Payout" ADD CONSTRAINT "Payout_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Transaction" ADD CONSTRAINT "Transaction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Transaction" ADD CONSTRAINT "Transaction_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Transaction" ADD CONSTRAINT "Transaction_relatedPaymentId_fkey" FOREIGN KEY ("relatedPaymentId") REFERENCES "Payment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Transaction" ADD CONSTRAINT "Transaction_relatedPayoutId_fkey" FOREIGN KEY ("relatedPayoutId") REFERENCES "Payout"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Message" ADD CONSTRAINT "Message_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Message" ADD CONSTRAINT "Message_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Vote" ADD CONSTRAINT "Vote_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Vote" ADD CONSTRAINT "Vote_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Vote" ADD CONSTRAINT "Vote_candidateId_fkey" FOREIGN KEY ("candidateId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- CreateIndex
+CREATE UNIQUE INDEX "ContractTemplate_version_key" ON "ContractTemplate"("version");

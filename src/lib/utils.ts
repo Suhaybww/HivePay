@@ -63,7 +63,7 @@ export function constructMetadata({
       creator: "x"
     },
     icons,
-    metadataBase: new URL('https://sag-app-pi.vercel.app'),
+    metadataBase: new URL('https://hivepayapp.com'),
     // themeColor: '#FFF',
     ...(noIndex && {
       robots: {

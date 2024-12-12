@@ -8,7 +8,6 @@ import { useToast } from '@/src/components/ui/use-toast';
 import { GroupDetails } from '@/src/components/GroupDetails';
 import { GroupAnalytics } from '@/src/components/GroupAnalytics';
 import { GroupMessaging } from '@/src/components/GroupMessaging';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import GroupSettings from '@/src/components/GroupSettings';
 import GroupAdmin from '@/src/components/GroupAdmin';
 
@@ -37,7 +36,7 @@ export default function GroupPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeSection, setActiveSection] = useState('details');  // Changed from activeTab
   const utils = trpc.useContext();
 
   const groupId = params?.groupId as string;
@@ -59,14 +58,14 @@ export default function GroupPage() {
   const { data: analyticsData, isLoading: isLoadingAnalytics } = trpc.group.getGroupAnalytics.useQuery(
     { groupId },
     {
-      enabled: activeTab === 'analytics',
+      enabled: activeSection === 'analytics',
     }
   );
 
   const { data: messagesData, isLoading: isLoadingMessages } = trpc.group.getGroupMessages.useQuery(
     { groupId, limit: 50 },
     {
-      enabled: activeTab === 'messaging',
+      enabled: activeSection === 'messaging',
     }
   );
 
@@ -109,6 +108,7 @@ export default function GroupPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
+      {/* Header Section */}
       <div className="flex justify-between items-start mb-8">
         <div className="space-y-2">
           <h1 className="text-5xl font-bold text leading-tight">
@@ -120,91 +120,121 @@ export default function GroupPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="border-b border-gray-300 mb-6 flex space-x-4">
-          <TabsTrigger
-            value="details"
-            className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
+      {/* Segmented Navigation */}
+      <div className="border-b mb-8">
+        <div className="flex flex-wrap -mb-px">
+          <button
+            onClick={() => setActiveSection('details')}
+            className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
+              ${activeSection === 'details' 
+                ? 'border-yellow-400 text-black' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Details
-          </TabsTrigger>
-          <TabsTrigger
-            value="analytics"
-            className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
+          </button>
+          <button
+            onClick={() => setActiveSection('analytics')}
+            className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
+              ${activeSection === 'analytics' 
+                ? 'border-yellow-400 text-black' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Analytics
-          </TabsTrigger>
-          <TabsTrigger
-            value="messaging"
-            className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
+          </button>
+          <button
+            onClick={() => setActiveSection('messaging')}
+            className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
+              ${activeSection === 'messaging' 
+                ? 'border-yellow-400 text-black' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Messaging
-          </TabsTrigger>
-          <TabsTrigger
-            value="settings"
-            className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
+          </button>
+          <button
+            onClick={() => setActiveSection('settings')}
+            className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
+              ${activeSection === 'settings' 
+                ? 'border-yellow-400 text-black' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Settings
-          </TabsTrigger>
-          {group.isAdmin && ( // Show Admin tab only if user is admin
-            <TabsTrigger
-              value="admin"
-              className="px-6 py-3 text-gray-700 hover:text-yellow-400 transition-colors font-medium"
+          </button>
+          {group.isAdmin && (
+            <button
+              onClick={() => setActiveSection('admin')}
+              className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
+                ${activeSection === 'admin' 
+                  ? 'border-yellow-400 text-black' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               Admin
-            </TabsTrigger>
+            </button>
           )}
-        </TabsList>
+        </div>
+      </div>
 
-        <TabsContent value="details">
+      {/* Content Sections */}
+      <div className="space-y-6">
+
+{/* Details Section */}
+{activeSection === 'details' && (
           <GroupDetails group={group} />
-        </TabsContent>
-
-        <TabsContent value="analytics">
-          {isLoadingAnalytics ? (
-            <div className="space-y-4">
-              <Skeleton className="h-80 w-full" />
-              <Skeleton className="h-80 w-full" />
-            </div>
-          ) : (
-            <GroupAnalytics
-              group={group}
-              analyticsData={analyticsData || defaultAnalyticsData}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="messaging">
-          {isLoadingMessages ? (
-            <Skeleton className="h-[600px] w-full" />
-          ) : (
-            <GroupMessaging
-              group={group}
-              messages={messagesData?.messages || []}
-              onSendMessage={handleSendMessage}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="settings">
-          {group && (
-            <GroupSettings
-              group={group}
-              onLeaveGroup={handleLeaveGroup}
-              onGroupUpdate={handleGroupUpdate}
-            />
-          )}
-        </TabsContent>
-
-        {group.isAdmin && (
-          <TabsContent value="admin">
-            <GroupAdmin
-              group={group}
-              onGroupUpdate={handleGroupUpdate}
-            />
-          </TabsContent>
         )}
-      </Tabs>
+
+        {/* Analytics Section */}
+        {activeSection === 'analytics' && (
+          <>
+            {isLoadingAnalytics ? (
+              <div className="space-y-4">
+                <Skeleton className="h-80 w-full" />
+                <Skeleton className="h-80 w-full" />
+              </div>
+            ) : (
+              <GroupAnalytics
+                group={group}
+                analyticsData={analyticsData || defaultAnalyticsData}
+              />
+            )}
+          </>
+        )}
+
+        {/* Messaging Section */}
+        {activeSection === 'messaging' && (
+          <>
+            {isLoadingMessages ? (
+              <Skeleton className="h-[600px] w-full" />
+            ) : (
+              <GroupMessaging
+                group={group}
+                messages={messagesData?.messages || []}
+                onSendMessage={handleSendMessage}
+              />
+            )}
+          </>
+        )}
+
+        {/* Settings Section */}
+        {activeSection === 'settings' && group && (
+          <GroupSettings
+            group={group}
+            onLeaveGroup={handleLeaveGroup}
+            onGroupUpdate={handleGroupUpdate}
+          />
+        )}
+
+        {/* Admin Section */}
+        {activeSection === 'admin' && group.isAdmin && (
+          <GroupAdmin
+            group={group}
+            onGroupUpdate={handleGroupUpdate}
+          />
+        )}
+      </div>
     </div>
   );
 }

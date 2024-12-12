@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   InfoIcon,
   Loader2,
+  PauseCircle,
 } from "lucide-react"
 import { useToast } from "@/src/components/ui/use-toast"
 import { trpc } from "@/src/app/_trpc/client"
@@ -73,6 +74,36 @@ export function GroupDetails({ group }: GroupDetailsProps) {
   const { toast } = useToast()
   const router = useRouter()
   const utils = trpc.useContext()
+  const [isReactivating, setIsReactivating] = useState(false)
+
+
+// Add the reactivation mutation:
+const { mutate: reactivateGroup } = trpc.subscription.reactivateGroup.useMutation({
+  onSuccess: () => {
+    toast({
+      title: "Success",
+      description: "Group has been reactivated successfully.",
+    })
+    utils.group.getGroupDetails.invalidate()
+  },
+  onError: (error) => {
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: error.message || "Failed to reactivate group",
+    })
+  },
+  onSettled: () => {
+    setIsReactivating(false)
+  },
+})
+
+// Add the reactivation handler:
+const handleReactivate = () => {
+  setIsReactivating(true)
+  reactivateGroup({ groupId: group.id })
+}
+
 
   // Fetch all group members' setup statuses
   const { data: groupMembersSetupStatus } = trpc.group.getGroupMembersSetupStatus.useQuery({
@@ -154,31 +185,77 @@ export function GroupDetails({ group }: GroupDetailsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header with Start Cycle button for admins */}
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Group Details</h2>
-        {group.isAdmin && (
-          <Button
-            onClick={() => setIsStartCycleDialogOpen(true)}
-            size="lg"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-            disabled={isStarting}
-          >
-            {isStarting ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                <span>Starting cycle...</span>
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                <span>Start contribution cycle</span>
-              </>
-            )}
-            {!isStarting && <span className="sr-only">Start contribution cycle</span>}
-          </Button>
-        )}
-      </div>
+{/* Header with Start Cycle button and Status for admins */}
+<div className="flex justify-between items-center mb-6">
+  <div className="flex items-center gap-4">
+    <h2 className="text-2xl font-bold tracking-tight">Group Details</h2>
+    <Badge 
+      variant={group.status === "Active" ? "default" : "destructive"}
+      className="px-2 py-1"
+    >
+      {group.status === "Active" ? (
+        <Play className="w-4 h-4 mr-1" />
+      ) : (
+        <PauseCircle className="w-4 h-4 mr-1" />
+      )}
+      {group.status}
+    </Badge>
+  </div>
+  {group.isAdmin && group.status === "Active" && (
+    <Button
+      onClick={() => setIsStartCycleDialogOpen(true)}
+      size="lg"
+      className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+      disabled={isStarting}
+    >
+      {isStarting ? (
+        <>
+          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+          <span>Starting cycle...</span>
+        </>
+      ) : (
+        <>
+          <Play className="mr-2 h-4 w-4" />
+          <span>Start contribution cycle</span>
+        </>
+      )}
+      {!isStarting && <span className="sr-only">Start contribution cycle</span>}
+    </Button>
+  )}
+  {group.isAdmin && group.status === "Paused" && (
+    <Button
+      onClick={handleReactivate}
+      size="lg"
+      className="bg-green-600 hover:bg-green-700 text-white font-medium"
+      disabled={isReactivating}
+    >
+      {isReactivating ? (
+        <>
+          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+          <span>Reactivating...</span>
+        </>
+      ) : (
+        <>
+          <Play className="mr-2 h-4 w-4" />
+          <span>Reactivate Group</span>
+        </>
+      )}
+    </Button>
+  )}
+</div>
+
+{/* Status Warning for Paused Groups */}
+{group.status === "Paused" && (
+  <div className="mb-6 flex items-start space-x-2 bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+    <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+    <div className="flex-1">
+      <p className="text-sm font-medium text-yellow-800">Group Currently Paused</p>
+      <p className="text-sm text-yellow-700 mt-1">
+        This group is currently paused due to inactive subscriptions. All members need active subscriptions to resume group activities.
+      </p>
+    </div>
+  </div>
+)}
 
       {/* Financial Overview Cards */}
       <div className="grid gap-4 md:grid-cols-3">

@@ -152,101 +152,102 @@ export const groupRouter = router({
   }),
   
   getGroupById: privateProcedure
-    .input(z.object({ groupId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const { userId } = ctx;
+  .input(z.object({ groupId: z.string() }))
+  .query(async ({ ctx, input }) => {
+    const { userId } = ctx;
 
-      const group = await db.group.findUnique({
-        where: { id: input.groupId },
-        include: {
-          _count: { select: { groupMemberships: true } },
-          payments: true,
-          payouts: true,
-          groupMemberships: {
-            where: { status: MembershipStatus.Active },
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                  gender: true,
-                  stripeAccountId: true,
-                },
+    const group = await db.group.findUnique({
+      where: { id: input.groupId },
+      include: {
+        _count: { select: { groupMemberships: true } },
+        payments: true,
+        payouts: true,
+        groupMemberships: {
+          where: { status: MembershipStatus.Active },
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                gender: true,
+                stripeAccountId: true,
               },
             },
           },
         },
+      },
+    });
+
+    console.log('Raw group memberships:', JSON.stringify(group?.groupMemberships, null, 2));
+
+    if (!group) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Group not found',
       });
+    }
 
-      console.log('Raw group memberships:', JSON.stringify(group?.groupMemberships, null, 2));
+    // Check if the current user is a member
+    const userMembership = group.groupMemberships.find(m => m.user?.id === userId);
+    if (!userMembership) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'You are not a member of this group',
+      });
+    }
 
-      if (!group) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Group not found',
-        });
-      }
+    const totalContributions = group.payments.reduce(
+      (sum: Decimal, payment) => sum.plus(payment.amount),
+      new Decimal(0)
+    );
 
-      // Check if the current user is a member
-      const userMembership = group.groupMemberships.find(m => m.user?.id === userId);
-      if (!userMembership) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You are not a member of this group',
-        });
-      }
+    const totalPayouts = group.payouts.reduce(
+      (sum: Decimal, payout) => sum.plus(payout.amount),
+      new Decimal(0)
+    );
 
-      const totalContributions = group.payments.reduce(
-        (sum: Decimal, payment) => sum.plus(payment.amount),
-        new Decimal(0)
-      );
+    // Filter out any memberships that have a null user
+    const validMemberships = group.groupMemberships.filter((membership) => membership.user !== null);
 
-      const totalPayouts = group.payouts.reduce(
-        (sum: Decimal, payout) => sum.plus(payout.amount),
-        new Decimal(0)
-      );
+    const members = validMemberships.map(membership => ({
+      id: membership.user!.id,
+      firstName: membership.user!.firstName,
+      lastName: membership.user!.lastName,
+      email: membership.user!.email,
+      gender: membership.user!.gender,
+      isAdmin: membership.isAdmin,
+      payoutOrder: membership.payoutOrder,
+      stripeAccountId: membership.user!.stripeAccountId  
+    }));
 
-      // Filter out any memberships that have a null user
-      const validMemberships = group.groupMemberships.filter((membership) => membership.user !== null);
+    console.log('Transformed members:', JSON.stringify(members, null, 2));
 
-      const members = validMemberships.map(membership => ({
-        id: membership.user!.id,
-        firstName: membership.user!.firstName,
-        lastName: membership.user!.lastName,
-        email: membership.user!.email,
-        gender: membership.user!.gender,
-        isAdmin: membership.isAdmin,
-        payoutOrder: membership.payoutOrder,
-        stripeAccountId: membership.user!.stripeAccountId  
-      }));
+    const groupWithStats: GroupWithStats = {
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      createdById: group.createdById,
+      payoutOrderMethod: group.payoutOrderMethod,
+      contributionAmount: group.contributionAmount?.toString() || null,
+      contributionFrequency: group.contributionFrequency,
+      payoutFrequency: group.payoutFrequency,
+      nextContributionDate: group.nextContributionDate?.toISOString() || null,
+      nextPayoutDate: group.nextPayoutDate?.toISOString() || null,
+      cycleStarted: group.cycleStarted,
+      status: group.status,  // Added status field
+      _count: {
+        groupMemberships: group._count.groupMemberships,
+      },
+      totalContributions: totalContributions.toString(),
+      currentBalance: totalContributions.minus(totalPayouts).toString(),
+      isAdmin: userMembership.isAdmin,
+      members,
+    };
 
-      console.log('Transformed members:', JSON.stringify(members, null, 2));
-
-      const groupWithStats: GroupWithStats = {
-        id: group.id,
-        name: group.name,
-        description: group.description,
-        createdById: group.createdById,
-        payoutOrderMethod: group.payoutOrderMethod,
-        contributionAmount: group.contributionAmount?.toString() || null,
-        contributionFrequency: group.contributionFrequency,
-        payoutFrequency: group.payoutFrequency,
-        nextContributionDate: group.nextContributionDate?.toISOString() || null,
-        nextPayoutDate: group.nextPayoutDate?.toISOString() || null,
-        cycleStarted: group.cycleStarted,
-        _count: {
-          groupMemberships: group._count.groupMemberships,
-        },
-        totalContributions: totalContributions.toString(),
-        currentBalance: totalContributions.minus(totalPayouts).toString(),
-        isAdmin: userMembership.isAdmin,
-        members,
-      };
-
-      return groupWithStats;
-    }),
+    return groupWithStats;
+  }),
 
   createGroup: privateProcedure
     .use(subscriptionCheckMiddleware)
@@ -919,7 +920,8 @@ getGroupDetails: privateProcedure
         payoutFrequency: group.payoutFrequency,
         nextContributionDate: group.nextContributionDate?.toISOString() ?? null,
         nextPayoutDate: group.nextPayoutDate?.toISOString() ?? null,
-        cycleStarted: group.cycleStarted, // **Added Property**
+        cycleStarted: group.cycleStarted,
+        status: group.status, // Add this line
         _count: group._count,
         totalContributions: totalContributions.toFixed(2),
         currentBalance: currentBalance.toFixed(2),

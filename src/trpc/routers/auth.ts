@@ -573,6 +573,105 @@ startContributionCycle: privateProcedure
         });
       }
     }),
+
+    getStripeDashboardLink: privateProcedure
+    .mutation(async ({ ctx }) => {  
+      const { userId } = ctx;
+
+      // Fetch the user's Stripe Connect account ID
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: {
+          stripeAccountId: true,
+          onboardingStatus: true,
+        },
+      });
+
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
+
+      if (!user.stripeAccountId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No Stripe Connect account found for this user',
+        });
+      }
+
+      if (user.onboardingStatus !== 'Completed') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Please complete your Stripe Connect onboarding first',
+        });
+      }
+
+      try {
+        // Create a login link for the connected account
+        const loginLink = await stripe.accounts.createLoginLink(
+          user.stripeAccountId
+        );
+
+        return {
+          url: loginLink.url,
+        };
+
+      } catch (error) {
+        console.error('Error creating Stripe login link:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create Stripe dashboard login link',
+        });
+      }
+    }),
+
+  // Optional: Add a method to check account status
+  getStripeAccountStatus: privateProcedure
+    .query(async ({ ctx }) => {
+      const { userId } = ctx;
+
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: {
+          stripeAccountId: true,
+          onboardingStatus: true,
+        },
+      });
+
+      if (!user || !user.stripeAccountId) {
+        return {
+          hasConnectedAccount: false,
+          isOnboardingComplete: false,
+        };
+      }
+
+      try {
+        // Fetch the account details from Stripe
+        const account = await stripe.accounts.retrieve(user.stripeAccountId);
+
+        return {
+          hasConnectedAccount: true,
+          isOnboardingComplete: account.details_submitted && account.charges_enabled,
+          accountStatus: {
+            detailsSubmitted: account.details_submitted ?? false,
+            chargesEnabled: account.charges_enabled ?? false,
+            payoutsEnabled: account.payouts_enabled ?? false,
+            currentlyDue: account.requirements?.currently_due ?? [],
+            pastDue: account.requirements?.past_due ?? [],
+            eventuallyDue: account.requirements?.eventually_due ?? [],
+            pendingVerification: account.requirements?.pending_verification ?? [],
+          },
+        };
+      } catch (error) {
+        console.error('Error fetching Stripe account status:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch Stripe account status',
+        });
+      }
+    }),
 });
 
 // Helper function to calculate the next contribution date
