@@ -21,11 +21,13 @@ import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/src/components/ui/card";
 
 const profileFormSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters."),
-  lastName: z.string().min(2, "Last name must be at least 2 characters."),
-  email: z.string().email("Invalid email address."),
-  phoneNumber: z.string().min(10, "Phone number must be at least 10 characters."),
-  age: z.string().transform(Number).optional(),
+  firstName: z.string().min(2, "First name must be at least 2 characters.").optional(),
+  lastName: z.string().min(2, "Last name must be at least 2 characters.").optional(),
+  email: z.string().email("Invalid email address."), // still required but disabled in UI
+  phoneNumber: z.string()
+    .min(10, "Phone number must be at least 10 characters.")
+    .optional(),
+  age: z.string().transform((val) => val ? Number(val) : undefined).optional(),
   gender: z.enum(["Male", "Female"]).optional(),
 });
 
@@ -38,12 +40,12 @@ export function ProfileSettings({ user }: { user: any }) {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phoneNumber: user.phoneNumber || "",
-      age: user.age?.toString() || "",
-      gender: user.gender || undefined,
+      firstName: user.firstName ?? "",
+      lastName: user.lastName ?? "",
+      email: user.email, // won't change because disabled
+      phoneNumber: user.phoneNumber ?? "",
+      age: user.age?.toString() ?? "",
+      gender: user.gender ?? undefined,
     },
   });
 
@@ -66,7 +68,16 @@ export function ProfileSettings({ user }: { user: any }) {
   });
 
   function onSubmit(data: ProfileFormValues) {
-    updateProfile.mutate(data);
+    // Remove empty strings from data so we don't overwrite fields with empty values.
+    const cleanedData = {
+      ...data,
+      firstName: data.firstName || undefined,
+      lastName: data.lastName || undefined,
+      phoneNumber: data.phoneNumber || undefined,
+      age: data.age || undefined,
+      gender: data.gender || undefined,
+    };
+    updateProfile.mutate(cleanedData);
   }
 
   return (
@@ -88,7 +99,7 @@ export function ProfileSettings({ user }: { user: any }) {
                         className="h-9"
                       />
                     </FormControl>
-                    <FormMessage className="text-xs" />
+                    <FormMessage className="text-xs text-red-500" />
                   </FormItem>
                 )}
               />
@@ -106,7 +117,7 @@ export function ProfileSettings({ user }: { user: any }) {
                         className="h-9"
                       />
                     </FormControl>
-                    <FormMessage className="text-xs" />
+                    <FormMessage className="text-xs text-red-500" />
                   </FormItem>
                 )}
               />
@@ -124,29 +135,32 @@ export function ProfileSettings({ user }: { user: any }) {
                   <FormDescription className="text-xs">
                     Contact support to change your email address.
                   </FormDescription>
-                  <FormMessage className="text-xs" />
+                  <FormMessage className="text-xs text-red-500" />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm font-medium">Phone Number</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="Enter your phone number" 
-                      {...field} 
-                      type="tel"
-                      className="h-9"
-                    />
-                  </FormControl>
-                  <FormMessage className="text-xs" />
-                </FormItem>
-              )}
-            />
+        <FormField
+          control={form.control}
+          name="phoneNumber"
+          render={({ field, fieldState }) => (
+            <FormItem>
+              <FormLabel className={`text-sm font-medium ${fieldState.error ? "text-red-500" : ""}`}>
+                Phone Number
+              </FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="Enter your phone number"
+                  {...field}
+                  type="tel"
+                  className={`h-9 ${fieldState.error ? "border-red-500" : ""}`}
+                />
+              </FormControl>
+              <FormMessage className="text-xs text-red-500" />
+            </FormItem>
+          )}
+        />
+
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
@@ -163,7 +177,7 @@ export function ProfileSettings({ user }: { user: any }) {
                         className="h-9"
                       />
                     </FormControl>
-                    <FormMessage className="text-xs" />
+                    <FormMessage className="text-xs text-red-500" />
                   </FormItem>
                 )}
               />
@@ -185,7 +199,7 @@ export function ProfileSettings({ user }: { user: any }) {
                         <SelectItem value="Female">Female</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage className="text-xs" />
+                    <FormMessage className="text-xs text-red-500" />
                   </FormItem>
                 )}
               />

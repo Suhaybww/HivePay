@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "prisma db seed"
+    "seed": "prisma db seed",
+    "test:cron": "curl -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/delete-users",
+    "seed:test-deletion": "ts-node -T prisma/seed-test-deletion.ts",
+    "test:deletion": "npm run seed:test-deletion && npm run test:cron"
   },
   "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^3.5.0",

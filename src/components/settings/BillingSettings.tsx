@@ -32,7 +32,6 @@ export function BillingSettings({ user: initialUser }: { user: any }) {
   const [userStatus, setUserStatus] = useState(initialUser.subscriptionStatus);
   const utils = trpc.useContext();
 
-  // Mutation handlers remain the same...
   const { mutate: cancelSubscription } = trpc.subscription.cancelSubscription.useMutation({
     onMutate: () => {
       setIsLoading(true);
@@ -121,6 +120,11 @@ export function BillingSettings({ user: initialUser }: { user: any }) {
     }
   ];
 
+  const isProUser = userStatus === "Active" || userStatus === "PendingCancel";
+  const periodEndDate = initialUser.stripeCurrentPeriodEnd
+    ? new Date(initialUser.stripeCurrentPeriodEnd).toLocaleDateString()
+    : null;
+
   return (
     <div className="space-y-4">
       <Card className="border">
@@ -141,42 +145,46 @@ export function BillingSettings({ user: initialUser }: { user: any }) {
                     Cancellation scheduled
                   </span>
                 )}
-                {userStatus !== "Active" && userStatus !== "PendingCancel" && (
+                {!isProUser && (
                   <span className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-gray-300" />
-                    Free Plan
+                    You are currently not on the Pro plan
                   </span>
                 )}
               </CardDescription>
             </div>
-            {(userStatus === "Active" || userStatus === "PendingCancel") && (
+            {userStatus === "Active" && periodEndDate && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <CalendarClock className="h-3 w-3" />
-                <span>Next billing: {new Date(initialUser.stripeCurrentPeriodEnd).toLocaleDateString()}</span>
+                <span>Next billing: {periodEndDate}</span>
+              </div>
+            )}
+            {userStatus === "PendingCancel" && periodEndDate && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <CalendarClock className="h-3 w-3" />
+                <span>Plan ends: {periodEndDate}</span>
               </div>
             )}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-3">
-            {proFeatures.map((feature, index) => (
-              <div
-                key={index}
-                className={`flex items-start gap-3 rounded-md border bg-card p-3 transition-all ${
-                  userStatus === "Active" || userStatus === "PendingCancel"
-                    ? ""
-                    : "opacity-60"
-                }`}
-              >
-                <div className="mt-0.5">{feature.icon}</div>
-                <div className="space-y-0.5">
-                  <h4 className="text-sm font-medium leading-none">{feature.title}</h4>
-                  <p className="text-xs text-muted-foreground">{feature.description}</p>
+        {isProUser && (
+          <CardContent>
+            <div className="grid gap-3">
+              {proFeatures.map((feature, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-3 rounded-md border bg-card p-3 transition-all"
+                >
+                  <div className="mt-0.5">{feature.icon}</div>
+                  <div className="space-y-0.5">
+                    <h4 className="text-sm font-medium leading-none">{feature.title}</h4>
+                    <p className="text-xs text-muted-foreground">{feature.description}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
+              ))}
+            </div>
+          </CardContent>
+        )}
         <CardFooter className="flex justify-end gap-4 pt-4">
           {userStatus === "Active" ? (
             <AlertDialog>

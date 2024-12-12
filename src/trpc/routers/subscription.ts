@@ -24,6 +24,7 @@ export const subscriptionRouter = router({
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not found in database' });
       }
 
+      const billingUrl = absoluteUrl('/dashboard');
       const plan = PLANS.find((plan) => plan.slug === planSlug);
       if (!plan) {
         throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Plan not found' });
@@ -59,8 +60,8 @@ export const subscriptionRouter = router({
 
       const stripeSession = await stripe.checkout.sessions.create({
         customer: stripeCustomer.id,
-        success_url: '/dashboard',
-        cancel_url: '/dashboard',
+        success_url: billingUrl,
+        cancel_url: billingUrl,
         payment_method_types: ['card'],
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
@@ -93,10 +94,12 @@ export const subscriptionRouter = router({
     });
 
     return {
-      isSubscribed: dbUser?.subscriptionStatus === SubscriptionStatus.Active && !!dbUser?.stripeSubscriptionId,
+      isSubscribed:
+        dbUser?.subscriptionStatus === 'Active' && !!dbUser?.stripeSubscriptionId,
       status: dbUser?.subscriptionStatus,
     };
   }),
+
 
   cancelSubscription: privateProcedure
     .mutation(async ({ ctx }) => {
