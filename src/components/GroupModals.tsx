@@ -105,7 +105,8 @@ export const GroupModals = () => {
 
   const joinGroup = trpc.group.joinGroup.useMutation({
     onSuccess: (data) => {
-      if (data.requiresContract) {
+      if (data.membership.status === 'Pending' && !data.membership.acceptedTOSAt) {
+        // User needs to sign contract if status is Pending and hasn't accepted TOS
         setSelectedGroupId(data.membership.groupId);
         setShowContract(true);
       } else {

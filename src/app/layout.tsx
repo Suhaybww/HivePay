@@ -25,6 +25,10 @@ export default async function RootLayout({
   const headersList = headers();
   const pathname = headersList.get('x-invoke-path') || '';
 
+  // Add console logging for debugging
+  console.log('Current pathname:', pathname);
+  console.log('Kinde user:', kindeUser?.id);
+
   const user = kindeUser
     ? await db.user.findUnique({
         where: { id: kindeUser.id },
@@ -38,6 +42,8 @@ export default async function RootLayout({
       })
     : null;
 
+  console.log('DB user found:', !!user);
+
   const protectedRoutes = [
     '/dashboard',
     '/groups',
@@ -46,27 +52,44 @@ export default async function RootLayout({
     '/analytics',
     '/settings',
     '/onboarding',
-    '/company/contact',
-    '/company/about', // Added about route
-    '/company/faqs',  // Added FAQs route
   ];
 
+  const companyRoutes = [
+    '/company/contact',
+    '/company/about',
+    '/company/faqs',
+    '/company/pricing',
+  ];
+
+  // More specific route checking
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
-  const isPublicCompanyRoute =
-    ['/company/contact', '/company/about', '/company/faqs'].includes(pathname);
+  
+  const isCompanyRoute = companyRoutes.some((route) => 
+    pathname.startsWith(route)
+  );
 
-  // Modify logic for navbar/footer rendering
-  const shouldShowNavbarAndFooter =
-    !user && (!isProtectedRoute || isPublicCompanyRoute);
+  // Force app layout for authenticated users on company routes
+  const shouldShowAppLayout = Boolean(user) && (isProtectedRoute || isCompanyRoute);
+  
+  // Only show public layout for non-authenticated users
+  const shouldShowNavbarAndFooter = !user;
+
+  console.log({
+    isProtectedRoute,
+    isCompanyRoute,
+    shouldShowAppLayout,
+    shouldShowNavbarAndFooter
+  });
 
   return (
     <html lang="en" className="light">
       <body className={cn('min-h-screen bg-background', inter.className)}>
         <Providers>
           <Toaster />
-          {user && isProtectedRoute ? (
+          {user ? (
+            // Always show app layout for authenticated users
             <SidebarProvider>
               <AppSidebar user={user} />
               <SidebarInset>
@@ -81,12 +104,13 @@ export default async function RootLayout({
               </SidebarInset>
             </SidebarProvider>
           ) : (
+            // Public layout for non-authenticated users
             <>
-              {shouldShowNavbarAndFooter && <Navbar />}
+              <Navbar />
               <main className="flex-1">
                 <div className="container max-w-7xl mx-auto p-8">{children}</div>
               </main>
-              {shouldShowNavbarAndFooter && <Footer />}
+              <Footer />
             </>
           )}
         </Providers>

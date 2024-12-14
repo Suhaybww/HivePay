@@ -23,12 +23,13 @@ import {
   SidebarMenuItem,
 } from "@/src/components/ui/sidebar";
 
+// Update UserProps to match your schema's SubscriptionStatus
 interface UserProps {
   firstName: string | null;
   lastName: string | null;
   email: string;
   avatarUrl?: string;
-  subscriptionStatus: "Active" | "Inactive" | "Canceled";
+  subscriptionStatus: "Active" | "PendingCancel" | "Inactive" | "Canceled";
 }
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
@@ -36,12 +37,27 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
+  // Map the subscription status to what NavUser expects
+  const mapSubscriptionStatus = (status: UserProps['subscriptionStatus']): "Active" | "Inactive" | "Canceled" => {
+    switch (status) {
+      case "Active":
+        return "Active";
+      case "PendingCancel":
+        return "Active"; // Treat pending cancellations as still active
+      case "Canceled":
+        return "Canceled";
+      case "Inactive":
+      default:
+        return "Inactive";
+    }
+  };
+
   const data = {
     user: {
       name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
       email: user.email,
       avatar: user.avatarUrl ?? "/avatars/default.jpg",
-      subscriptionStatus: user.subscriptionStatus,
+      subscriptionStatus: mapSubscriptionStatus(user.subscriptionStatus),
     },
     navMain: [
       {
