@@ -1,5 +1,5 @@
 {
-  "name": "circlepay",
+  "name": "HivePay",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "seed": "prisma db seed",
     "analyze": "cross-env ANALYZE=true next build",
     "test:cron": "curl -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/delete-users",
