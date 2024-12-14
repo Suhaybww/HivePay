@@ -369,7 +369,7 @@ return (
           <CardHeader>
             <CardTitle>Submit a Support Ticket</CardTitle>
             <CardDescription>
-              Can't find what you're looking for? Submit a ticket and we'll get
+              Can&apos;t find what you&apos;re looking for? Submit a ticket and we&apos;ll get
               back to you within 24 hours.
             </CardDescription>
           </CardHeader>

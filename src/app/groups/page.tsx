@@ -126,7 +126,6 @@ export default function GroupsPage() {
             </div>
           </div>
   
-          {/* Action Button */}
           <Button 
             className="w-full bg-yellow-400 hover:bg-yellow-500 text-white mt-4"
             onClick={() => router.push(`/groups/${group.id}`)}

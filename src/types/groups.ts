@@ -14,16 +14,16 @@ export type GroupMember = {
 export type GroupWithStats = {
   id: string;
   name: string;
-  description?: string | null;
+  description: string | null;
   createdById: string;
   payoutOrderMethod: PayoutOrderMethod;
-  contributionAmount?: string | null;
-  contributionFrequency?: Frequency | null;
-  payoutFrequency?: Frequency | null;
-  nextContributionDate?: string | null;
-  nextPayoutDate?: string | null;
+  contributionAmount: string | null;
+  contributionFrequency: Frequency | null;
+  payoutFrequency: Frequency | null;
+  nextContributionDate: string | null;
+  nextPayoutDate: string | null;
   cycleStarted: boolean;
-  status: GroupStatus;  
+  status: GroupStatus;  // This is required
   _count: {
     groupMemberships: number;
   };

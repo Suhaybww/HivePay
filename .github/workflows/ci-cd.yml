@@ -11,21 +11,22 @@ on:
       - 'feature/**'
 
 jobs:
-  build:
+  build-and-analyze:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        node-version: [20.x]  # Updated to Node.js 20.x
+        node-version: [20.x]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      # Set up Node and cache dependencies to speed up builds
+      - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
@@ -33,20 +34,34 @@ jobs:
       - name: Lint code
         run: npm run lint
 
+      - name: Type check
+        run: npm run typecheck
+
       - name: Build the app
         run: npm run build
 
-      - name: Upload production-ready build artifacts
+      # Optional: Run bundle analysis to identify performance issues
+      - name: Analyze bundle
+        run: npm run analyze
+        # This should produce output in a directory, e.g., `.next/analyze`
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
           name: nextjs-build
           path: .next
 
+      - name: Upload analysis artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: bundle-analysis
+          path: .next/analyze
+
   notify-failure:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-and-analyze
     if: failure()
-
     steps:
-      - name: Notify failure
-        run: echo "Build failed!"
+      - name: Failure notification
+        run: echo "The pipeline has failed. Please check the logs and artifacts."

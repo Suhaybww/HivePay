@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 const Hero = () => {
   return (
@@ -35,11 +36,16 @@ const Hero = () => {
             </div>
           </div>
           <div className="container items-center max-w-4xl px-5 mx-auto mt-16 text-center">
-            <img
-              src="/images/hero.png"
-              alt="HivePay Introduction"
-              className="w-full"
-            />
+            <div className="relative w-full aspect-[16/9]">
+              <Image
+                src="/images/hero.png"
+                alt="HivePay Introduction"
+                fill
+                priority
+                className="object-contain"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
+              />
+            </div>
           </div>
         </section>
       </div>

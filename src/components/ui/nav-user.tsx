@@ -124,16 +124,6 @@ const NavUser: React.FC<NavUserProps> = ({
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/settings" className="flex items-center gap-2 p-2">
-                  <CreditCard className="h-4 w-4" />
-                  Billing
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="flex items-center gap-2 p-2">
-                  <Bell className="h-4 w-4" />
-                  Notifications
-                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

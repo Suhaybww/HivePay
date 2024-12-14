@@ -1,9 +1,15 @@
 {
-    "crons": [{
-      "path": "/api/cron/delete-users",
-      "schedule": "0 0 * * *"
-    }],
-    "regions": ["syd1"], 
+    "crons": [
+      {
+        "path": "/api/cron/delete-users",
+        "schedule": "0 0 * * *"
+      },
+      {
+        "path": "/api/cron/contribution-reminders",
+        "schedule": "0 0 * * *"
+      }
+    ],
+    "regions": ["syd1"],
     "headers": [
       {
         "source": "/api/(.*)",

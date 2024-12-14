@@ -207,7 +207,7 @@ export function BillingSettings({ user: initialUser }: { user: any }) {
                     <p>Are you sure you want to cancel your subscription? This will:</p>
                     <ul className="list-disc list-inside space-y-1">
                       <li>Keep your access until the end of current billing period</li>
-                      <li>Pause any active groups where members don't have active subscriptions</li>
+                      <li>Pause any active groups where members don&apos;t have active subscriptions</li>
                       <li>Limit your ability to create new groups</li>
                       <li>Remove access to premium features after billing period ends</li>
                     </ul>
@@ -248,8 +248,8 @@ export function BillingSettings({ user: initialUser }: { user: any }) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Reactivate Subscription?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Your subscription will continue and you won't lose access to any features. 
-                    You'll continue to be billed on your regular billing date.
+                    Your subscription will continue and you won&apos;t lose access to any features. 
+                    You&apos;ll continue to be billed on your regular billing date.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -24,7 +24,7 @@ import {
 } from "@/src/components/ui/alert-dialog";
 import { Loader2, HelpCircle, Trash2 } from "lucide-react";
 import { Textarea } from "../ui/text-area";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/server";
 
 export function AccountSettings({ user }: { user: any }) {
@@ -42,7 +42,7 @@ export function AccountSettings({ user }: { user: any }) {
     },
     onSuccess: async () => {
       setIsDeleting(false);
-      // Redirect to Kinde's logout URL
+      // Redirect to Kinde&apos;s logout URL
       window.location.href = "/api/auth/logout";
     },
     onError: (error) => {
@@ -108,7 +108,7 @@ export function AccountSettings({ user }: { user: any }) {
                       </p>
                       <ul className="list-disc list-inside space-y-1 text-sm">
                         <li>Your account will be deactivated immediately</li>
-                        <li>You'll lose access to all groups and savings history</li>
+                        <li>You&apos;ll lose access to all groups and savings history</li>
                         <li>Any pending payments or transfers will be cancelled</li>
                         <li>After 30 days, all your data will be permanently deleted</li>
                       </ul>
@@ -116,7 +116,7 @@ export function AccountSettings({ user }: { user: any }) {
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium">
-                        Please tell us why you're leaving (optional):
+                        Please tell us why you&apos;re leaving (optional):
                       </label>
                       <Textarea
                         value={deletionReason}

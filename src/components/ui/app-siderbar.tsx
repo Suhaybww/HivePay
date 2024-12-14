@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from "react";
+import Image from 'next/image';
 import {
   Users,
   CreditCard,
@@ -107,11 +108,13 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="/dashboard" className="flex items-center gap-3 px-2">
-                <div className="flex aspect-square size-10 items-center justify-center">
-                  <img
+                <div className="relative flex aspect-square size-10 items-center justify-center">
+                  <Image
                     src="/images/HivePay.svg"
                     alt="HivePay Logo"
-                    className="w-10 h-10 transform scale-150"
+                    width={40}
+                    height={40}
+                    className="transform scale-150"
                     style={{
                       filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.1))",
                     }}

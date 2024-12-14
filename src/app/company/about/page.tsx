@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import MaxWidthWrapper from '@/src/components/MaxWidthWrapper';
 import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 
@@ -28,7 +29,7 @@ const AboutPage: React.FC = () => {
             <div className="lg:w-1/2 space-y-8">
               <h2 className="text-3xl font-semibold">Our Mission</h2>
               <p className="text-lg text-gray-700 leading-relaxed">
-                At HivePay, our mission is to transform traditional saving circles into a modern, digital experience—accessible, intuitive, and secure. We’re dedicated to enabling communities to build trust, share resources, and achieve financial goals together.
+                At HivePay, our mission is to transform traditional saving circles into a modern, digital experience—accessible, intuitive, and secure. We&apos;re dedicated to enabling communities to build trust, share resources, and achieve financial goals together.
               </p>
             </div>
             <div className="lg:w-1/2 space-y-8">
@@ -55,11 +56,16 @@ const AboutPage: React.FC = () => {
               </p>
             </div>
             <div className="flex justify-center lg:justify-end">
-              <img
-                src="/images/about.png"
-                alt="HivePay Community"
-                className="w-full max-w-md"
-              />
+              <div className="relative w-full max-w-md aspect-square">
+                <Image
+                  src="/images/about.png"
+                  alt="HivePay Community"
+                  fill
+                  className="object-contain"
+                  priority
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
+              </div>
             </div>
           </div>
         </MaxWidthWrapper>
@@ -73,7 +79,7 @@ const AboutPage: React.FC = () => {
               Ready to Start Saving as a Community?
             </h2>
             <p className="text-lg text-gray-700 mb-8">
-              Join a movement that’s reshaping the future of finance. Come together, build trust, and achieve your financial dreams—together.
+              Join a movement that&apos;s reshaping the future of finance. Come together, build trust, and achieve your financial dreams—together.
             </p>
             <RegisterLink
               className="inline-block bg-yellow-400 hover:bg-yellow-500 text-white text-lg font-medium px-8 py-3 rounded-md shadow transition-colors"

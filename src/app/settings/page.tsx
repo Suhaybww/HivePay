@@ -36,19 +36,6 @@ export default function SettingsPage() {
           )}
         </button>
         <button
-          onClick={() => setActiveSection('account')}
-          className={`px-4 pb-4 pt-2 text-sm font-medium transition-colors relative
-            ${activeSection === 'account' 
-              ? 'text-foreground' 
-              : 'text-muted-foreground'
-            }`}
-        >
-          Account
-          {activeSection === 'account' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-400" />
-          )}
-        </button>
-        <button
           onClick={() => setActiveSection('billing')}
           className={`px-4 pb-4 pt-2 text-sm font-medium transition-colors relative
             ${activeSection === 'billing' 
@@ -58,6 +45,19 @@ export default function SettingsPage() {
         >
           Billing
           {activeSection === 'billing' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-400" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveSection('account')}
+          className={`px-4 pb-4 pt-2 text-sm font-medium transition-colors relative
+            ${activeSection === 'account' 
+              ? 'text-foreground' 
+              : 'text-muted-foreground'
+            }`}
+        >
+          Account
+          {activeSection === 'account' && (
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-400" />
           )}
         </button>

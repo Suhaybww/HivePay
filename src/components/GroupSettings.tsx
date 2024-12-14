@@ -175,7 +175,7 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Connect your bank account to receive your payout when it's your turn
+                Connect your bank account to receive your payout when it&apos;s your turn
               </p>
               {userSetupStatus?.stripeOnboardingStatus !== 'Completed' && (
                 <Button

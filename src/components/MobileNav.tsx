@@ -3,24 +3,27 @@
 import { ArrowRight, Menu } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 const MobileNav = ({ isAuth }: { isAuth: boolean }) => {
   const [isOpen, setOpen] = useState<boolean>(false)
 
-  const toggleOpen = () => setOpen((prev) => !prev)
-
   const pathname = usePathname()
 
-  useEffect(() => {
-    if (isOpen) toggleOpen()
-  }, [pathname])
+  // Move toggleOpen into useCallback to avoid recreation on each render
+  const toggleOpen = useCallback(() => setOpen((prev) => !prev), [])
 
-  const closeOnCurrent = (href: string) => {
-    if (pathname === href) {
-      toggleOpen()
+  useEffect(() => {
+    if (isOpen) {
+      setOpen(false) // Directly set to false instead of toggling
     }
-  }
+  }, [pathname, isOpen]) // Add isOpen to dependencies
+
+  const closeOnCurrent = useCallback((href: string) => {
+    if (pathname === href) {
+      setOpen(false) // Directly set to false instead of using toggle
+    }
+  }, [pathname])
 
   return (
     <div className='sm:hidden'>
@@ -36,9 +39,7 @@ const MobileNav = ({ isAuth }: { isAuth: boolean }) => {
               <>
                 <li>
                   <Link
-                    onClick={() =>
-                      closeOnCurrent('/sign-up')
-                    }
+                    onClick={() => closeOnCurrent('/sign-up')}
                     className='flex items-center w-full font-semibold text-green-600'
                     href='/sign-up'>
                     Get started
@@ -48,9 +49,7 @@ const MobileNav = ({ isAuth }: { isAuth: boolean }) => {
                 <li className='my-3 h-px w-full bg-gray-300' />
                 <li>
                   <Link
-                    onClick={() =>
-                      closeOnCurrent('/sign-in')
-                    }
+                    onClick={() => closeOnCurrent('/sign-in')}
                     className='flex items-center w-full font-semibold'
                     href='/sign-in'>
                     Sign in
@@ -59,9 +58,7 @@ const MobileNav = ({ isAuth }: { isAuth: boolean }) => {
                 <li className='my-3 h-px w-full bg-gray-300' />
                 <li>
                   <Link
-                    onClick={() =>
-                      closeOnCurrent('/pricing')
-                    }
+                    onClick={() => closeOnCurrent('/pricing')}
                     className='flex items-center w-full font-semibold'
                     href='/pricing'>
                     Pricing
@@ -72,9 +69,7 @@ const MobileNav = ({ isAuth }: { isAuth: boolean }) => {
               <>
                 <li>
                   <Link
-                    onClick={() =>
-                      closeOnCurrent('/dashboard')
-                    }
+                    onClick={() => closeOnCurrent('/dashboard')}
                     className='flex items-center w-full font-semibold'
                     href='/dashboard'>
                     Dashboard

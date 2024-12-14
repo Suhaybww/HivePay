@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from 'next/image';
 
 const PaymentFlow: React.FC = () => {
   const steps = [
@@ -44,8 +45,8 @@ const PaymentFlow: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6">
         {/* Header */}
         <div className="text-center mb-16">
-        <h2 className="text-4xl md:text-5xl font-medium tracking-tight text-black dark:text-white mb-4">
-        How Payments Work on{" "}
+          <h2 className="text-4xl md:text-5xl font-medium tracking-tight text-black dark:text-white mb-4">
+            How Payments Work on{" "}
             <span className="text-yellow-400">HivePay</span>
           </h2>
           <p className="text-xl text-gray-600">
@@ -62,11 +63,16 @@ const PaymentFlow: React.FC = () => {
               <div className="absolute inset-0 bg-yellow-200 rounded-full blur-3xl opacity-30"></div>
 
               {/* Image */}
-              <img
-                src={steps[currentStep].imageUrl}
-                alt={steps[currentStep].title}
-                className="relative w-full h-full object-contain rounded-full shadow-lg"
-              />
+              <div className="relative w-full h-full">
+                <Image
+                  src={steps[currentStep].imageUrl}
+                  alt={steps[currentStep].title}
+                  fill
+                  className="object-contain rounded-full"
+                  sizes="(max-width: 768px) 320px, 320px"
+                  priority
+                />
+              </div>
             </div>
             <h3 className="text-3xl font-bold text-gray-900 mb-4">
               {steps[currentStep].title}

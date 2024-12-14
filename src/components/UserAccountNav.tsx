@@ -16,11 +16,12 @@ import {
   WalletCards,
 } from 'lucide-react'
 import { LogoutLink } from '@kinde-oss/kinde-auth-nextjs/server'
+import { SubscriptionStatus } from '@prisma/client'
 
 interface UserAccountNavProps {
   email: string
   name: string
-  subscriptionStatus: 'Active' | 'Inactive' | 'Canceled'
+  subscriptionStatus: SubscriptionStatus
 }
 
 const UserAccountNav = ({
@@ -28,6 +29,8 @@ const UserAccountNav = ({
   name,
   subscriptionStatus,
 }: UserAccountNavProps) => {
+  const isSubscribed = subscriptionStatus === 'Active' || subscriptionStatus === 'PendingCancel'
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -78,10 +81,10 @@ const UserAccountNav = ({
         <DropdownMenuSeparator />
 
         <DropdownMenuItem asChild>
-          {subscriptionStatus === 'Active' ? (
+          {isSubscribed ? (
             <Link href='/billing' className="flex items-center gap-2">
               <WalletCards className="h-4 w-4" />
-              Manage Subscription
+              {subscriptionStatus === 'PendingCancel' ? 'Reactivate Subscription' : 'Manage Subscription'}
             </Link>
           ) : (
             <Link href='/pricing' className="flex items-center gap-2">

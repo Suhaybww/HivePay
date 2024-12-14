@@ -133,6 +133,7 @@ export const groupRouter = router({
           nextContributionDate: group.nextContributionDate?.toISOString() ?? null,
           nextPayoutDate: group.nextPayoutDate?.toISOString() ?? null,
           cycleStarted: group.cycleStarted,
+          status: group.status,
           _count: group._count,
           totalContributions: totalContributions.toFixed(2),
           currentBalance: currentBalance.toFixed(2),
