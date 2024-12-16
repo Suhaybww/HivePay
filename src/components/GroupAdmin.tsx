@@ -82,9 +82,13 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
         title: 'Member Removed',
         description: 'The member has been removed from the group.',
       });
+      // Invalidate the query to refetch fresh data
       utils.group.getGroupById.invalidate({ groupId: group.id });
+      onGroupUpdate();
     },
     onError: (error: any) => {
+      // On error, revert the optimistic update
+      setMembers(group.members);
       toast({
         title: 'Error',
         description: error.message,
@@ -121,11 +125,20 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    await removeMemberMutation.mutateAsync({
-      groupId: group.id,
-      memberId,
-    });
-    onGroupUpdate();
+    // Optimistically update the UI
+    setMembers(currentMembers => 
+      currentMembers.filter(member => member.id !== memberId)
+    );
+
+    try {
+      await removeMemberMutation.mutateAsync({
+        groupId: group.id,
+        memberId,
+      });
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+      console.error('Failed to remove member:', error);
+    }
   };
 
   const handleTransferAdmin = async () => {

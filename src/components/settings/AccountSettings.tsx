@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/src/components/ui/button";
 import { useToast } from "@/src/components/ui/use-toast";
 import { trpc } from "@/src/app/_trpc/client";
@@ -22,10 +22,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/src/components/ui/alert-dialog";
-import { Loader2, HelpCircle, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/src/components/ui/alert";
+import { Loader2, Trash2, RefreshCw } from "lucide-react";
 import { Textarea } from "../ui/text-area";
 import { useRouter } from "next/navigation";
-import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/server";
 
 export function AccountSettings({ user }: { user: any }) {
   const { toast } = useToast();
@@ -36,13 +36,27 @@ export function AccountSettings({ user }: { user: any }) {
 
   const { data: deleteStatus } = trpc.user.canDeleteAccount.useQuery();
 
+  // Show reactivation toast if account was just reactivated
+  useEffect(() => {
+    if (user?.wasReactivated) {
+      toast({
+        title: "Account Reactivated",
+        description: "Welcome back! Your account has been successfully reactivated.",
+      });
+    }
+  }, [user?.wasReactivated, toast]);
+
   const deleteAccount = trpc.user.deleteAccount.useMutation({
     onMutate: () => {
       setIsDeleting(true);
     },
     onSuccess: async () => {
       setIsDeleting(false);
-      // Redirect to Kinde&apos;s logout URL
+      toast({
+        title: "Account Deactivated",
+        description: "Your account has been deactivated. You have 30 days to log back in if you change your mind.",
+      });
+      // Redirect to Kinde's logout URL
       window.location.href = "/api/auth/logout";
     },
     onError: (error) => {
@@ -60,22 +74,38 @@ export function AccountSettings({ user }: { user: any }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {user?.wasReactivated && (
+        <Alert>
+          <RefreshCw className="h-4 w-4" />
+          <AlertDescription>
+            Your account has been reactivated. Welcome back! Your account settings and data have been restored.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card className="border">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-medium">Danger Zone</CardTitle>
-          <CardDescription>Permanent account deletion</CardDescription>
+          <CardDescription>Account Deletion Settings</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="rounded-md border border-red-200 bg-red-50 p-3">
+            <div className="rounded-md border border-red-200 bg-red-50 p-4">
               <div className="flex items-start gap-3">
                 <Trash2 className="h-5 w-5 text-red-500 mt-0.5" />
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <p className="text-sm font-medium text-red-900">Delete Account</p>
-                  <p className="text-sm text-red-700">
-                    This action cannot be undone immediately. Your account will be deactivated and permanently deleted after 30 days.
-                  </p>
+                  <div className="space-y-1 text-sm text-red-700">
+                    <p>
+                      Your account will be deactivated immediately, but you have options:
+                    </p>
+                    <ul className="list-disc list-inside pl-2 space-y-1">
+                      <li>Log back in within 30 days to reactivate your account</li>
+                      <li>After 30 days, your account will be permanently deleted</li>
+                      <li>All data will be permanently removed after the 30-day period</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -91,7 +121,7 @@ export function AccountSettings({ user }: { user: any }) {
                   {isDeleting ? (
                     <>
                       <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      Deleting Account...
+                      Deactivating Account...
                     </>
                   ) : (
                     "Delete Account"
@@ -102,15 +132,21 @@ export function AccountSettings({ user }: { user: any }) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription className="space-y-4">
-                    <div>
-                      <p className="font-medium text-red-600 mb-2">
-                        This action will deactivate your account immediately. After 30 days, it will be permanently deleted.
+                    <div className="space-y-3">
+                      <p className="font-medium text-red-600">
+                        Your account will be deactivated with a 30-day recovery period.
                       </p>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                        <p className="text-sm text-yellow-800 font-medium">
+                          You can reactivate your account by logging back in within 30 days.
+                        </p>
+                      </div>
                       <ul className="list-disc list-inside space-y-1 text-sm">
-                        <li>Your account will be deactivated immediately</li>
-                        <li>You&apos;ll lose access to all groups and savings history</li>
-                        <li>Any pending payments or transfers will be cancelled</li>
-                        <li>After 30 days, all your data will be permanently deleted</li>
+                        <li>Immediate deactivation of your account</li>
+                        <li>30-day window to change your mind</li>
+                        <li>Loss of access to groups and savings history</li>
+                        <li>Cancellation of pending payments or transfers</li>
+                        <li>Permanent deletion after 30 days</li>
                       </ul>
                     </div>
 
@@ -141,7 +177,7 @@ export function AccountSettings({ user }: { user: any }) {
                     className="bg-red-500 hover:bg-red-600"
                     disabled={!deleteStatus?.canDelete}
                   >
-                    Delete Account
+                    Deactivate Account
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

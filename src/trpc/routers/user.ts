@@ -48,7 +48,7 @@ export const userRouter = router({
 
   getCurrentUser: privateProcedure.query(async ({ ctx }) => {
     const { userId } = ctx;
-
+  
     try {
       const user = await db.user.findUnique({
         where: { id: userId },
@@ -70,14 +70,65 @@ export const userRouter = router({
           onboardingDate: true,
           createdAt: true,
           updatedAt: true,
+          isDeleted: true,
+          deletedAt: true,
         },
       });
-
+  
       if (!user) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
       }
-
-      // Transform null values to undefined
+  
+      // Check if this is a deleted user trying to reactivate within 30 days
+      if (user.isDeleted && user.deletedAt) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+        if (user.deletedAt > thirtyDaysAgo) {
+          // Extract original email from the deleted_timestamp_email format
+          const emailMatch = user.email.match(/^deleted_\d+_(.+)$/);
+          const originalEmail = emailMatch ? emailMatch[1] : user.email;
+  
+          // Reactivate the account with original email
+          const updatedUser = await db.user.update({
+            where: { id: userId },
+            data: {
+              isDeleted: false,
+              deletedAt: null,
+              email: originalEmail,
+              subscriptionStatus: SubscriptionStatus.Inactive,
+              onboardingStatus: OnboardingStatus.Completed,
+              // Reset all stripe-related fields to their defaults or null
+              stripeCustomerId: null,
+              stripeAccountId: null,
+              stripeSubscriptionId: null,
+              stripePriceId: null,
+              stripeSetupIntentId: null,
+              stripeBecsPaymentMethodId: null,
+              stripeMandateId: null,
+            },
+          });
+  
+          // Transform null values to undefined
+          const formattedUser = {
+            ...updatedUser,
+            gender: updatedUser.gender ?? undefined,
+            age: updatedUser.age ?? undefined,
+            stripeCustomerId: updatedUser.stripeCustomerId ?? undefined,
+            stripeAccountId: updatedUser.stripeAccountId ?? undefined,
+            wasReactivated: true,
+          };
+  
+          return formattedUser;
+        } else {
+          throw new TRPCError({ 
+            code: 'FORBIDDEN', 
+            message: 'Account permanently deleted. Please create a new account.' 
+          });
+        }
+      }
+  
+      // Transform null values to undefined for regular users
       const formattedUser = {
         ...user,
         gender: user.gender ?? undefined,
@@ -85,10 +136,13 @@ export const userRouter = router({
         stripeCustomerId: user.stripeCustomerId ?? undefined,
         stripeAccountId: user.stripeAccountId ?? undefined,
       };
-
+  
       return formattedUser;
     } catch (error) {
       console.error('Failed to fetch current user:', error);
+      if (error instanceof TRPCError) {
+        throw error;
+      }
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to fetch current user',
@@ -370,12 +424,12 @@ export const userRouter = router({
           },
         });
   
-        // Update user state
+        // Update user state - now with 30-day deletion window
         await tx.user.update({
           where: { id: userId },
           data: {
             subscriptionStatus: SubscriptionStatus.Canceled,
-            email: `deleted_${user.email}_${Date.now()}`,
+            email: `deleted_${Date.now()}_${user.email}`,
             stripeCustomerId: null,
             stripeAccountId: null,
             stripeSubscriptionId: null,
@@ -383,10 +437,9 @@ export const userRouter = router({
             stripeSetupIntentId: null,
             stripeBecsPaymentMethodId: null,
             stripeMandateId: null,
-            onboardingStatus: OnboardingStatus.Failed,
-            // Flag as deleted in database
+            onboardingStatus: OnboardingStatus.Pending,
             isDeleted: true,
-            deletedAt: new Date(),
+            deletedAt: new Date(), // This starts the 30-day countdown
             deletionReason: input.reason,
           },
         });
@@ -394,7 +447,7 @@ export const userRouter = router({
   
       return { 
         success: true, 
-        message: 'Account successfully deactivated',
+        message: 'Account deactivated. You have 30 days to log back in to reactivate your account.',
         isLogoutRequired: true
       };
     } catch (error) {

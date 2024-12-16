@@ -296,10 +296,10 @@ export const groupRouter = router({
             groupMemberships: {
               create: {
                 userId,
-                isAdmin: true,
+                isAdmin: true, // Set admin status
                 payoutOrder: 1,
-                status: MembershipStatus.Active,
-                acceptedTOSAt: new Date(), // Store TOS acceptance date/time
+                status: MembershipStatus.Pending, // Changed from Active to Pending
+                acceptedTOSAt: null, // Set to null until contract is signed
               },
             },
           },
@@ -308,7 +308,7 @@ export const groupRouter = router({
         return {
           success: true,
           group,
-          redirectUrl: `/groups/${group.id}`,
+          requiresContract: true, // Add this flag to indicate contract signing is needed
         };
       } catch (error) {
         console.error('Failed to create group:', error);

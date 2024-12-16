@@ -4,9 +4,12 @@ import React, { useState } from "react";
 import { Input } from "@/src/components/ui/input";
 import { Textarea } from "@/src/components/ui/text-area";
 import { Button } from "@/src/components/ui/button";
+import { useToast } from "@/src/components/ui/use-toast";
 import { cn } from "@/src/lib/utils";
 
 export default function ContactPage() {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -23,14 +26,15 @@ export default function ContactPage() {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
 
-    // Clear error when the user types
+    // Clear error when user types
     if (errors[id as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [id]: "" }));
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     // Validate fields
     const newErrors = {
@@ -47,10 +51,35 @@ export default function ContactPage() {
     const isValid = Object.values(newErrors).every((error) => error === "");
 
     if (isValid) {
-      console.log("Form submitted successfully:", formData);
-      alert("Your message has been sent successfully!");
-      setFormData({ name: "", email: "", message: "" });
+      try {
+        const response = await fetch('/api/contact', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to send message');
+        }
+
+        toast({
+          title: "Message sent!",
+          description: "We'll get back to you as soon as possible.",
+        });
+
+        setFormData({ name: "", email: "", message: "" });
+      } catch (error) {
+        toast({
+          title: "Error sending message",
+          description: "Please try again or email us directly.",
+          variant: "destructive",
+        });
+      }
     }
+    
+    setIsSubmitting(false);
   };
 
   return (
@@ -74,10 +103,10 @@ export default function ContactPage() {
               onChange={handleChange}
               placeholder="Enter your name"
               className={cn(
-                "mt-1 block w-full border border-gray-300 rounded-md",
-                "focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 focus:outline-none",
+                "mt-1",
                 errors.name && "border-red-500"
               )}
+              disabled={isSubmitting}
             />
             {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
@@ -94,10 +123,10 @@ export default function ContactPage() {
               onChange={handleChange}
               placeholder="Enter your email"
               className={cn(
-                "mt-1 block w-full border border-gray-300 rounded-md",
-                "focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 focus:outline-none",
+                "mt-1",
                 errors.email && "border-red-500"
               )}
+              disabled={isSubmitting}
             />
             {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
           </div>
@@ -114,10 +143,10 @@ export default function ContactPage() {
               placeholder="Type your message here..."
               rows={5}
               className={cn(
-                "mt-1 block w-full border border-gray-300 rounded-md",
-                "focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 focus:outline-none",
+                "mt-1",
                 errors.message && "border-red-500"
               )}
+              disabled={isSubmitting}
             />
             {errors.message && <p className="text-red-500 text-sm mt-1">{errors.message}</p>}
           </div>
@@ -126,9 +155,10 @@ export default function ContactPage() {
           <div className="text-center">
             <Button
               type="submit"
-              className="px-6 py-2 bg-yellow-400 text-white font-semibold rounded-md hover:bg-yellow-500 focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+              className="bg-yellow-400 hover:bg-yellow-500"
+              disabled={isSubmitting}
             >
-              Submit
+              {isSubmitting ? "Sending..." : "Submit"}
             </Button>
           </div>
         </form>
@@ -137,11 +167,11 @@ export default function ContactPage() {
           <p>
             Alternatively, email us at{" "}
             <a
-              href="mailto:support@hivepay.com"
+              href="mailto:support@hivepayapp.com"
               className="text-yellow-400 hover:underline"
             >
               support@hivepayapp.com
-            </a>.
+            </a>
           </p>
         </div>
       </section>

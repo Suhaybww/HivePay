@@ -3,7 +3,7 @@ import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../db';
 import { z } from 'zod';
-import { SubscriptionStatus, Frequency, PayoutStatus, TransactionType, Prisma, PaymentStatus } from '@prisma/client'; // Updated import
+import { SubscriptionStatus, Frequency, PayoutStatus, TransactionType, Prisma, PaymentStatus, OnboardingStatus } from '@prisma/client'; // Updated import
 import { stripe } from '../../lib/stripe';
 
 
@@ -109,34 +109,101 @@ export const authRouter = router({
       }
     }),
 
-  getUser: privateProcedure.query(async ({ ctx }) => {
-    const { userId } = ctx;
-
-    const dbUser = await db.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phoneNumber: true,
-        age: true,
-        gender: true,
-        subscriptionStatus: true,
-        stripeSubscriptionId: true,
-        stripeCurrentPeriodEnd: true,
-      },
-    });
-
-    if (!dbUser) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'User not found in database',
-      });
-    }
-
-    return dbUser;
-  }),
+    getUser: privateProcedure.query(async ({ ctx }) => {
+      const { userId } = ctx;
+    
+      try {
+        const dbUser = await db.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phoneNumber: true,
+            age: true,
+            gender: true,
+            subscriptionStatus: true,
+            stripeSubscriptionId: true,
+            stripeCurrentPeriodEnd: true,
+            isDeleted: true,
+            deletedAt: true,
+          },
+        });
+    
+        if (!dbUser) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'User not found in database',
+          });
+        }
+    
+        // Check if this is a deleted user trying to reactivate within 30 days
+        if (dbUser.isDeleted && dbUser.deletedAt) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+          if (dbUser.deletedAt > thirtyDaysAgo) {
+            // Extract original email from the deleted_timestamp_email format
+            const emailMatch = dbUser.email.match(/^deleted_\d+_(.+)$/);
+            const originalEmail = emailMatch ? emailMatch[1] : dbUser.email;
+    
+            // Reactivate the account
+            const updatedUser = await db.user.update({
+              where: { id: userId },
+              data: {
+                isDeleted: false,
+                deletedAt: null,
+                email: originalEmail,
+                subscriptionStatus: SubscriptionStatus.Inactive,
+                onboardingStatus: OnboardingStatus.Completed,
+                // Reset all stripe-related fields
+                stripeCustomerId: null,
+                stripeAccountId: null,
+                stripeSubscriptionId: null,
+                stripePriceId: null,
+                stripeSetupIntentId: null,
+                stripeBecsPaymentMethodId: null,
+                stripeMandateId: null,
+              },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phoneNumber: true,
+                age: true,
+                gender: true,
+                subscriptionStatus: true,
+                stripeSubscriptionId: true,
+                stripeCurrentPeriodEnd: true,
+              },
+            });
+    
+            return {
+              ...updatedUser,
+              wasReactivated: true,
+            };
+          } else {
+            throw new TRPCError({ 
+              code: 'FORBIDDEN', 
+              message: 'Account permanently deleted. Please create a new account.' 
+            });
+          }
+        }
+    
+        return dbUser;
+      } catch (error) {
+        console.error('Error in getUser:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch user',
+        });
+      }
+    }),
 
   getUserStatus: privateProcedure.query(async ({ ctx }) => {
     const { userId } = ctx;

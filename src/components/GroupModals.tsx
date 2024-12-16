@@ -62,7 +62,6 @@ type NewGroupFormData = z.infer<typeof newGroupSchema>;
 type JoinGroupFormData = z.infer<typeof joinGroupSchema>;
 type ContractSigningFormData = z.infer<typeof contractSigningSchema>;
 
-
 const toastStyles = {
   className:
     "group fixed bottom-4 left-1/2 -translate-x-1/2 w-[360px] rounded-lg border bg-white text-foreground shadow-lg",
@@ -75,23 +74,20 @@ export const GroupModals = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
-  const { toast } = useToast();
-  const utils = trpc.useContext();
   const [showContract, setShowContract] = useState(false);
+  const [showOwnerContract, setShowOwnerContract] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [newGroupData, setNewGroupData] = useState<any>(null);
+  const { toast } = useToast();
+  const utils = trpc.useContext();
   const { data: subscriptionStatus } = trpc.subscription.checkSubscriptionStatus.useQuery();
 
   const createGroup = trpc.group.createGroup.useMutation({
     onSuccess: (data) => {
-      toast({
-        ...toastStyles,
-        title: "Success",
-        description: "Your savings group has been created successfully.",
-      });
+      setNewGroupData(data);
+      setShowOwnerContract(true);
       setCreateOpen(false);
-      utils.group.getAllGroups.invalidate();
-      router.push(`/groups/${data.group.id}`);
     },
     onError: (error) => {
       toast({
@@ -103,10 +99,32 @@ export const GroupModals = () => {
     },
   });
 
+  const createAndSignContract = trpc.contract.createAndSignOwnerContract.useMutation({
+    onSuccess: (data) => {
+      toast({
+        ...toastStyles,
+        title: "Success",
+        description: "Group created and contract signed successfully.",
+      });
+      setShowOwnerContract(false);
+      utils.group.getAllGroups.invalidate();
+      if (newGroupData?.group?.id) {
+        router.push(`/groups/${newGroupData.group.id}`);
+      }
+    },
+    onError: (error) => {
+      toast({
+        ...toastStyles,
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to sign contract. Please try again.",
+      });
+    },
+  });
+
   const joinGroup = trpc.group.joinGroup.useMutation({
     onSuccess: (data) => {
       if (data.membership.status === 'Pending' && !data.membership.acceptedTOSAt) {
-        // User needs to sign contract if status is Pending and hasn't accepted TOS
         setSelectedGroupId(data.membership.groupId);
         setShowContract(true);
       } else {
@@ -128,26 +146,6 @@ export const GroupModals = () => {
         description: "Please verify the group ID and try again.",
       });
     },
-  });
-
-  const {
-    register: registerNewGroup,
-    control,
-    handleSubmit: handleNewGroupSubmit,
-    formState: { errors: newGroupErrors },
-    reset: resetNewGroupForm,
-  } = useForm<NewGroupFormData>({
-    resolver: zodResolver(newGroupSchema),
-  });
-
-  const {
-    register: registerJoinGroup,
-    control: joinGroupControl, // Add this line to get the joinGroupControl
-    handleSubmit: handleJoinGroupSubmit,
-    formState: { errors: joinGroupErrors },
-    reset: resetJoinGroupForm,
-  } = useForm<JoinGroupFormData>({
-    resolver: zodResolver(joinGroupSchema),
   });
 
   const signContract = trpc.contract.signGroupContract.useMutation({
@@ -174,28 +172,40 @@ export const GroupModals = () => {
   });
 
   const {
+    register: registerNewGroup,
+    control: newGroupControl,
+    handleSubmit: handleNewGroupSubmit,
+    formState: { errors: newGroupErrors },
+    reset: resetNewGroupForm,
+  } = useForm<NewGroupFormData>({
+    resolver: zodResolver(newGroupSchema),
+  });
+
+  const {
+    register: registerJoinGroup,
+    control: joinGroupControl,
+    handleSubmit: handleJoinGroupSubmit,
+    formState: { errors: joinGroupErrors },
+    reset: resetJoinGroupForm,
+  } = useForm<JoinGroupFormData>({
+    resolver: zodResolver(joinGroupSchema),
+  });
+
+  const {
     register: registerContract,
     control: contractControl,
     handleSubmit: handleContractSubmit,
     formState: { errors: contractErrors },
+    reset: resetContractForm,
   } = useForm<ContractSigningFormData>({
     resolver: zodResolver(contractSigningSchema),
   });
-  
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollHeight, scrollTop, clientHeight } = e.currentTarget;
     if (scrollHeight - scrollTop <= clientHeight + 5) {
       setHasScrolledToBottom(true);
     }
-  };
-  
-  const onSignContract = async (data: ContractSigningFormData) => {
-    if (!selectedGroupId) return;
-    
-    await signContract.mutateAsync({
-      groupId: selectedGroupId,
-      fullName: data.fullName,
-    });
   };
 
   const handleCreateClick = () => {
@@ -238,12 +248,29 @@ export const GroupModals = () => {
 
   const onCreateGroup = async (data: NewGroupFormData) => {
     await createGroup.mutateAsync(data);
-    resetNewGroupForm();
   };
 
   const onJoinGroup = async (data: JoinGroupFormData) => {
     await joinGroup.mutateAsync(data);
     resetJoinGroupForm();
+  };
+
+  const onSignContract = async (data: ContractSigningFormData) => {
+    if (!selectedGroupId) return;
+    
+    await signContract.mutateAsync({
+      groupId: selectedGroupId,
+      fullName: data.fullName,
+    });
+  };
+
+  const onSignOwnerContract = async (data: ContractSigningFormData) => {
+    if (!newGroupData?.group?.id) return;
+    
+    await createAndSignContract.mutateAsync({
+      groupId: newGroupData.group.id,
+      fullName: data.fullName,
+    });
   };
 
   return (
@@ -252,12 +279,12 @@ export const GroupModals = () => {
         <Plus className="w-4 h-4 mr-2" />
         New Group
       </Button>
-  
+
       <Button variant="outline" className="border-yellow-400 text-yellow-500" onClick={handleJoinClick}>
         <Users className="w-4 h-4 mr-2" />
         Join Group
       </Button>
-  
+
       {/* Create New Group Dialog */}
       {subscriptionStatus?.isSubscribed && (
         <DialogPrimitive.Root open={createOpen} onOpenChange={setCreateOpen}>
@@ -310,7 +337,7 @@ export const GroupModals = () => {
                 <div>
                   <Label htmlFor="contributionFrequency">Contribution Frequency</Label>
                   <Controller
-                    control={control}
+                    control={newGroupControl}
                     name="contributionFrequency"
                     defaultValue={undefined}
                     render={({ field }) => (
@@ -335,7 +362,7 @@ export const GroupModals = () => {
                 <div>
                   <Label htmlFor="payoutFrequency">Payout Frequency</Label>
                   <Controller
-                    control={control}
+                    control={newGroupControl}
                     name="payoutFrequency"
                     defaultValue={undefined}
                     render={({ field }) => (
@@ -360,7 +387,7 @@ export const GroupModals = () => {
                 <div>
                   <Label htmlFor="payoutOrderMethod">Payout Order Method</Label>
                   <Controller
-                    control={control}
+                    control={newGroupControl}
                     name="payoutOrderMethod"
                     defaultValue={undefined}
                     render={({ field }) => (
@@ -371,7 +398,7 @@ export const GroupModals = () => {
                         <SelectContent>
                           {payoutOrderOptions.map((method) => (
                             <SelectItem key={method} value={method}>
-                              {method}
+                              {method.replace('_', ' ')}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -387,7 +414,7 @@ export const GroupModals = () => {
                     <div className="flex items-start gap-3">
                       <Controller
                         name="acceptedTOS"
-                        control={control}
+                        control={newGroupControl}
                         defaultValue={false}
                         render={({ field }) => (
                           <Checkbox
@@ -422,222 +449,313 @@ export const GroupModals = () => {
       )}
 
       {/* Join Group Dialog */}
-    {subscriptionStatus?.isSubscribed && (
-      <DialogPrimitive.Root open={joinOpen} onOpenChange={setJoinOpen}>
+      {subscriptionStatus?.isSubscribed && (
+        <DialogPrimitive.Root open={joinOpen} onOpenChange={setJoinOpen}>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay className="fixed inset-0 z-50 backdrop-blur-sm" />
+            <DialogPrimitive.Content className="fixed z-50 flex flex-col gap-4 p-6 bg-white rounded-lg shadow-lg top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full sm:max-w-[425px]">
+              <div className="flex justify-between items-center">
+                <DialogHeader>
+                  <DialogTitle>Join a Savings Group</DialogTitle>
+                </DialogHeader>
+                <DialogPrimitive.Close className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </DialogPrimitive.Close>
+              </div>
+              <form onSubmit={handleJoinGroupSubmit(onJoinGroup)} className="space-y-4">
+                <div>
+                  <Label htmlFor="groupId">Group ID</Label>
+                  <Input
+                    id="groupId"
+                    {...registerJoinGroup("groupId")}
+                    className="mt-1"
+                    placeholder="Enter the Group ID"
+                  />
+                  {joinGroupErrors.groupId && (
+                    <p className="text-sm text-red-500 mt-1">{joinGroupErrors.groupId.message}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="acceptedTOS" className="mt-4">
+                    <div className="flex items-start gap-3">
+                      <Controller
+                        name="acceptedTOS"
+                        control={joinGroupControl}
+                        defaultValue={false}
+                        render={({ field }) => (
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) => field.onChange(checked === true)}
+                          />
+                        )}
+                      />
+                      <span className="text-sm leading-relaxed">
+                        I agree to the{" "}
+                        <button
+                          type="button"
+                          onClick={() => setShowTerms(true)}
+                          className="text-yellow-400 hover:underline"
+                        >
+                          Terms and Conditions
+                        </button>
+                      </span>
+                    </div>
+                  </Label>
+                  {joinGroupErrors.acceptedTOS && (
+                    <p className="text-sm text-red-500 mt-1">{joinGroupErrors.acceptedTOS.message}</p>
+                  )}
+                </div>
+                <Button type="submit" className="w-full bg-yellow-400 hover:bg-yellow-500 text-white">
+                  Join Group
+                </Button>
+              </form>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </DialogPrimitive.Root>
+      )}
+
+      {/* Owner Contract Signing Dialog */}
+      <DialogPrimitive.Root open={showOwnerContract} onOpenChange={setShowOwnerContract}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 backdrop-blur-sm" />
-          <DialogPrimitive.Content className="fixed z-50 flex flex-col gap-4 p-6 bg-white rounded-lg shadow-lg top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full sm:max-w-[425px]">
+          <DialogPrimitive.Content className="fixed z-50 flex flex-col gap-4 p-6 bg-white rounded-lg shadow-lg top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full sm:max-w-[800px] max-h-[90vh]">
             <div className="flex justify-between items-center">
               <DialogHeader>
-                <DialogTitle>Join a Savings Group</DialogTitle>
+                <DialogTitle>Group Owner Contract</DialogTitle>
               </DialogHeader>
               <DialogPrimitive.Close className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
               </DialogPrimitive.Close>
             </div>
-            <form onSubmit={handleJoinGroupSubmit(onJoinGroup)} className="space-y-4">
+
+            <form onSubmit={handleContractSubmit(onSignOwnerContract)} className="space-y-4">
+              {/* Contract Content */}
+              <div 
+                className="h-[400px] overflow-y-auto border rounded-md p-4 prose prose-sm max-w-none"
+                onScroll={handleScroll}
+              >
+                <h2 className="text-xl font-semibold">HIVEPAY ROSCA Group Owner Contract</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  This is a legally binding agreement. Please read carefully before signing.
+                </p>
+
+                <div className="space-y-4">
+                  <section>
+                    <h3 className="text-lg font-medium">1. Group Owner Responsibilities</h3>
+                    <p>As the group owner, you are responsible for managing the group and ensuring all members follow the rules.</p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-medium">2. Financial Management</h3>
+                    <p>You must oversee contribution collections and payouts according to the agreed schedule.</p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-medium">3. Member Management</h3>
+                    <p>You are responsible for approving new members and managing any conflicts within the group.</p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-medium">4. Legal Obligations</h3>
+                    <p>You understand that you are legally responsible for the proper management of the group funds.</p>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-medium">5. Dispute Resolution</h3>
+                    <p>You agree to mediate any disputes that arise within the group fairly and transparently.</p>
+                  </section>
+                </div>
+              </div>
+
+              {/* Full Name Input */}
               <div>
-                <Label htmlFor="groupId">Group ID</Label>
+                <Label htmlFor="fullName">Full Legal Name</Label>
                 <Input
-                  id="groupId"
-                  {...registerJoinGroup("groupId")}
+                  id="fullName"
+                  {...registerContract("fullName")}
                   className="mt-1"
-                  placeholder="Enter the Group ID"
+                  placeholder="Enter your full legal name"
                 />
-                {joinGroupErrors.groupId && (
-                  <p className="text-sm text-red-500 mt-1">{joinGroupErrors.groupId.message}</p>
+                {contractErrors.fullName && (
+                  <p className="text-sm text-red-500 mt-1">{contractErrors.fullName.message}</p>
                 )}
               </div>
-              <div>
-                <Label htmlFor="acceptedTOS" className="mt-4">
-                  <div className="flex items-start gap-3">
-                    <Controller
-                      name="acceptedTOS"
-                      control={joinGroupControl}
-                      defaultValue={false}
-                      render={({ field }) => (
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={(checked) => field.onChange(checked === true)}
-                        />
-                      )}
+
+              {/* Read Confirmation */}
+              <div className="flex items-start gap-3">
+                <Controller
+                  name="hasRead"
+                  control={contractControl}
+                  defaultValue={false}
+                  render={({ field }) => (
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                      disabled={!hasScrolledToBottom}
                     />
-                    <span className="text-sm leading-relaxed">
-                      I agree to the{" "}
-                      <button
-                        type="button"
-                        onClick={() => setShowTerms(true)}
-                        className="text-yellow-400 hover:underline"
-                      >
-                        Terms and Conditions
-                      </button>
-                    </span>
-                  </div>
+                  )}
+                />
+                <Label className="text-sm leading-relaxed">
+                  I have read and understood the entire contract
+                  {!hasScrolledToBottom && (
+                    <span className="text-yellow-500 ml-2">(Please scroll to the bottom)</span>
+                  )}
                 </Label>
-                {joinGroupErrors.acceptedTOS && (
-                  <p className="text-sm text-red-500 mt-1">{joinGroupErrors.acceptedTOS.message}</p>
-                )}
               </div>
-              <Button type="submit" className="w-full bg-yellow-400 hover:bg-yellow-500 text-white">
-                Join Group
+
+              {/* Accept Contract */}
+              <div className="flex items-start gap-3">
+                <Controller
+                  name="acceptContract"
+                  control={contractControl}
+                  defaultValue={false}
+                  render={({ field }) => (
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(checked === true)}
+                      disabled={!hasScrolledToBottom}
+                    />
+                  )}
+                />
+                <Label className="text-sm leading-relaxed">
+                  I accept this contract and understand it is legally binding
+                </Label>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full bg-yellow-400 hover:bg-yellow-500 text-white"
+                disabled={!hasScrolledToBottom || createAndSignContract.isLoading}
+              >
+                {createAndSignContract.isLoading ? "Signing Contract..." : "Sign Contract"}
               </Button>
             </form>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
-    )}
 
-    {/* Contract Signing Dialog */}
-    <DialogPrimitive.Root open={showContract} onOpenChange={setShowContract}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 backdrop-blur-sm" />
-        <DialogPrimitive.Content className="fixed z-50 flex flex-col gap-4 p-6 bg-white rounded-lg shadow-lg top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full sm:max-w-[800px] max-h-[90vh]">
-          <div className="flex justify-between items-center">
-            <DialogHeader>
-              <DialogTitle>Group Membership Contract</DialogTitle>
-            </DialogHeader>
-            <DialogPrimitive.Close className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DialogPrimitive.Close>
+{/* Regular Member Contract Signing Dialog */}
+<DialogPrimitive.Root open={showContract} onOpenChange={setShowContract}>
+  <DialogPrimitive.Portal>
+    <DialogPrimitive.Overlay className="fixed inset-0 z-50 backdrop-blur-sm" />
+    <DialogPrimitive.Content className="fixed z-50 flex flex-col gap-4 p-6 bg-white rounded-lg shadow-lg top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full sm:max-w-[800px] max-h-[90vh]">
+      <div className="flex justify-between items-center">
+        <DialogHeader>
+          <DialogTitle>Group Membership Contract</DialogTitle>
+        </DialogHeader>
+        <DialogPrimitive.Close className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </div>
+
+      <form onSubmit={handleContractSubmit(onSignContract)} className="space-y-4">
+        {/* Contract Content */}
+        <div 
+          className="h-[400px] overflow-y-auto border rounded-md p-4 prose prose-sm max-w-none"
+          onScroll={handleScroll}
+        >
+          <h2 className="text-xl font-semibold">HIVEPAY ROSCA Group Member Contract</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            This is a legally binding agreement. Please read carefully before signing.
+          </p>
+
+          <div className="space-y-4">
+            <section>
+              <h3 className="text-lg font-medium">1. Member Responsibilities</h3>
+              <p>As a group member, you agree to make all required contributions on time and participate in group activities.</p>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-medium">2. Financial Obligations</h3>
+              <p>You must make regular contributions according to the group schedule and maintain financial commitments.</p>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-medium">3. Participation Rules</h3>
+              <p>You agree to follow group rules and communicate any issues promptly with group administrators.</p>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-medium">4. Legal Terms</h3>
+              <p>You understand this is a legally binding agreement and accept the terms and conditions.</p>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-medium">5. Exit Terms</h3>
+              <p>You agree not to withdraw from the group after receiving your payout until all obligations are fulfilled.</p>
+            </section>
           </div>
+        </div>
 
-          <form onSubmit={handleContractSubmit(onSignContract)} className="space-y-4">
-            {/* Contract Content */}
-            <div 
-              className="h-[400px] overflow-y-auto border rounded-md p-4 prose prose-sm max-w-none"
-              onScroll={handleScroll}
-            >
-              <h2 className="text-xl font-semibold">HIVEPAY ROSCA Group Contract</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                This is a legally binding agreement. Please read carefully before signing.
-              </p>
+        {/* Full Name Input */}
+        <div>
+          <Label htmlFor="fullName">Full Legal Name</Label>
+          <Input
+            id="fullName"
+            {...registerContract("fullName")}
+            className="mt-1"
+            placeholder="Enter your full legal name"
+          />
+          {contractErrors.fullName && (
+            <p className="text-sm text-red-500 mt-1">{contractErrors.fullName.message}</p>
+          )}
+        </div>
 
-              <div className="space-y-4">
-                <section>
-                  <h3 className="text-lg font-medium">1. Financial Obligations</h3>
-                  <p>Members agree to make all required contributions on time according to the group schedule.</p>
-                </section>
-
-                <section>
-                  <h3 className="text-lg font-medium">2. Payout Terms</h3>
-                  <p>Members who receive their payout must continue making contributions until the cycle ends.</p>
-                </section>
-
-                <section>
-                  <h3 className="text-lg font-medium">3. Default Consequences</h3>
-                  <p>Failure to meet obligations may result in legal action and collection proceedings.</p>
-                </section>
-
-                <section>
-                  <h3 className="text-lg font-medium">4. Dispute Resolution</h3>
-                  <p>Any disputes will be resolved through mediation or legal proceedings as necessary.</p>
-                </section>
-
-                <section>
-                  <h3 className="text-lg font-medium">5. Member Responsibilities</h3>
-                  <p>All members must maintain active participation and communicate any issues promptly.</p>
-                </section>
-
-                <section>
-                  <h3 className="text-lg font-medium">6. Electronic Signature</h3>
-                  <p>By signing below, you acknowledge this is a legally binding contract equivalent to a physical signature.</p>
-                </section>
-              </div>
-            </div>
-
-            {/* Full Name Input */}
-            <div>
-              <Label htmlFor="fullName">Full Legal Name</Label>
-              <Input
-                id="fullName"
-                {...registerContract("fullName")}
-                className="mt-1"
-                placeholder="Enter your full legal name"
+        {/* Read Confirmation */}
+        <div className="flex items-start gap-3">
+          <Controller
+            name="hasRead"
+            control={contractControl}
+            defaultValue={false}
+            render={({ field }) => (
+              <Checkbox
+                checked={field.value}
+                onCheckedChange={(checked) => field.onChange(checked === true)}
+                disabled={!hasScrolledToBottom}
               />
-              {contractErrors.fullName && (
-                <p className="text-sm text-red-500 mt-1">{contractErrors.fullName.message}</p>
-              )}
-            </div>
+            )}
+          />
+          <Label className="text-sm leading-relaxed">
+            I have read and understood the entire contract
+            {!hasScrolledToBottom && (
+              <span className="text-yellow-500 ml-2">(Please scroll to the bottom)</span>
+            )}
+          </Label>
+        </div>
 
-            {/* Read Confirmation */}
-            <div className="flex items-start gap-3">
-              <Controller
-                name="hasRead"
-                control={contractControl}
-                defaultValue={false}
-                render={({ field }) => (
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                    disabled={!hasScrolledToBottom}
-                  />
-                )}
+        {/* Accept Contract */}
+        <div className="flex items-start gap-3">
+          <Controller
+            name="acceptContract"
+            control={contractControl}
+            defaultValue={false}
+            render={({ field }) => (
+              <Checkbox
+                checked={field.value}
+                onCheckedChange={(checked) => field.onChange(checked === true)}
+                disabled={!hasScrolledToBottom}
               />
-              <Label className="text-sm leading-relaxed">
-                I have read and understood the entire contract
-                {!hasScrolledToBottom && (
-                  <span className="text-yellow-500 ml-2">(Please scroll to the bottom)</span>
-                )}
-              </Label>
-            </div>
+            )}
+          />
+          <Label className="text-sm leading-relaxed">
+            I accept this contract and understand it is legally binding
+          </Label>
+        </div>
 
-            {/* Accept Contract */}
-            <div className="flex items-start gap-3">
-              <Controller
-                name="acceptContract"
-                control={contractControl}
-                defaultValue={false}
-                render={({ field }) => (
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                    disabled={!hasScrolledToBottom}
-                  />
-                )}
-              />
-              <Label className="text-sm leading-relaxed">
-                I accept this contract and understand it is legally binding
-              </Label>
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-white"
-              disabled={!hasScrolledToBottom || signContract.isLoading}
-            >
-              {signContract.isLoading ? "Signing Contract..." : "Sign Contract"}
-            </Button>
-          </form>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
-
-    {/* Terms Modal */}
-    <DialogPrimitive.Root open={showTerms} onOpenChange={setShowTerms}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 backdrop-blur-sm" />
-        <DialogPrimitive.Content className="fixed z-50 p-6 bg-white rounded-lg shadow-lg top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
-          <div className="flex justify-between items-center">
-            <DialogHeader>
-              <DialogTitle>Terms and Conditions</DialogTitle>
-            </DialogHeader>
-            <DialogPrimitive.Close className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DialogPrimitive.Close>
-          </div>
-          <div className="max-h-[500px] overflow-y-auto">
-            <TermsOfService />
-          </div>
-          <Button onClick={() => setShowTerms(false)} className="w-full bg-gray-200 hover:bg-gray-300 mt-4">
-            Close
-          </Button>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
-  </div>
-);
+        <Button 
+          type="submit" 
+          className="w-full bg-yellow-400 hover:bg-yellow-500 text-white"
+          disabled={!hasScrolledToBottom || signContract.isLoading}
+        >
+          {signContract.isLoading ? "Signing Contract..." : "Sign Contract"}
+        </Button>
+      </form>
+    </DialogPrimitive.Content>
+  </DialogPrimitive.Portal>
+</DialogPrimitive.Root>
+    </div>
+  );
 };
-

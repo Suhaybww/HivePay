@@ -203,13 +203,6 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
     x: 50,
   });
 
-  await pdfManager.drawText('Unit 205, 76 Epping Rd, Epping VIC 3076', {
-    font: regularFont,
-    size: 12,
-    color: rgb(0, 0, 0),
-    x: 50,
-  });
-
   // Add Contract Title
   await pdfManager.drawText('HivePay ROSCA Group Contract', {
     font: boldFont,
