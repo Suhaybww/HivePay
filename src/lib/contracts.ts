@@ -167,7 +167,7 @@ function splitLongWord(word: string, font: PDFFont, fontSize: number, maxWidth: 
 }
 
 /**
- * Generates the contract PDF with multi-page support.
+ * Generates the contract PDF with ABN and ACN details.
  * @param contractData The data required to populate the contract.
  * @returns A Buffer containing the PDF data.
  */
@@ -179,7 +179,6 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
     pdfDoc.embedFont(StandardFonts.HelveticaBold),
   ]);
 
-  // Initialize PDF Manager with desired settings
   const pdfManager = new PDFManager(pdfDoc, { regular: regularFont, bold: boldFont, italic: italicFont }, {
     margin: 50,
     fontSize: 12,
@@ -187,10 +186,31 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
     color: rgb(0, 0, 0), // Black color
   });
 
-  // Colors
   const darkBlue = rgb(0, 0.2, 0.6);
 
-  // Title
+  // Add Company Details
+  await pdfManager.drawText('HivePay Pty Ltd', {
+    font: boldFont,
+    size: 16,
+    color: darkBlue,
+    x: 50,
+  });
+
+  await pdfManager.drawText('ABN: 56 683 103 808 | ACN: 683 103 808', {
+    font: regularFont,
+    size: 12,
+    color: rgb(0, 0, 0),
+    x: 50,
+  });
+
+  await pdfManager.drawText('Unit 205, 76 Epping Rd, Epping VIC 3076', {
+    font: regularFont,
+    size: 12,
+    color: rgb(0, 0, 0),
+    x: 50,
+  });
+
+  // Add Contract Title
   await pdfManager.drawText('HivePay ROSCA Group Contract', {
     font: boldFont,
     size: 20,
@@ -202,7 +222,7 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
   const introText = `This Contract Agreement ("Agreement") is made and entered into on ${contractData.signedAt.toLocaleDateString(
     'en-AU',
     { timeZone: 'Australia/Sydney' }
-  )}, by and between HivePay ("Provider") and ${contractData.userName} ("Member"), collectively referred to as the "Parties". This Agreement is governed by the laws of Australia, including but not limited to the Australian Contract Law and the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010).`;
+  )}, by and between HivePay Pty Ltd ("Provider", ABN: 56 683 103 808, ACN: 683 103 808) and ${contractData.userName} ("Member"), collectively referred to as the "Parties". This Agreement is governed by the laws of Australia, including but not limited to the Australian Contract Law and the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010).`;
 
   await pdfManager.drawText(introText, {
     font: italicFont,

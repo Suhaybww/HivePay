@@ -21,6 +21,8 @@ import {
   Crown,
   AlertTriangle,
 } from 'lucide-react';
+import { AdminInviteSection } from './AdminInviteSection';
+
 
 interface GroupAdminProps {
   group: GroupWithStats;
@@ -209,85 +211,91 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
 
           <Separator className="my-8" />
 
-          {/* Unified Member Management */}
+          {/* Invitation and Member Management Section */}
           {!cycleStarted && (
-            <div className="space-y-4">
-              <h3 className="text-xl font-medium flex items-center gap-2">
-                <Users className="h-6 w-6 text-primary" />
-                <span>Manage Members</span>
-              </h3>
+            <>
+              <div className="space-y-4">
+                <h3 className="text-xl font-medium flex items-center gap-2">
+                  <Users className="h-6 w-6 text-primary" />
+                  <span>Manage Members</span>
+                </h3>
 
-              <Alert className="bg-background">
-                <Users className="h-5 w-5" />
-                <AlertDescription className="text-sm text-muted-foreground">
-                  Drag members to reorder them. Use the remove button to remove a member from the group.
-                </AlertDescription>
-              </Alert>
+                {/* Invitations Section */}
+                <AdminInviteSection groupId={group.id} />
 
-              <DragDropContext onDragEnd={onDragEnd}>
-                <Droppable droppableId="members">
-                  {(provided) => (
-                    <ScrollArea className="h-[400px] w-full rounded-lg border-2 border-muted">
-                      <ul
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="p-4 space-y-3"
-                      >
-                        {members.map((member, index) => (
-                          <Draggable key={member.id} draggableId={member.id} index={index}>
-                            {(provided, snapshot) => (
-                              <li
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className={`group flex justify-between items-center p-4 rounded-lg border-2 transition-all duration-200 ${
-                                  snapshot.isDragging
-                                    ? 'bg-accent border-primary shadow-lg'
-                                    : 'bg-background border-muted hover:border-primary/50'
-                                }`}
-                              >
-                                <div className="flex items-center gap-4">
-                                  <div
-                                    {...provided.dragHandleProps}
-                                    className="p-2 hover:bg-muted rounded-md transition-colors cursor-grab active:cursor-grabbing"
-                                  >
-                                    <GripVertical className="h-5 w-5 text-muted-foreground" />
-                                  </div>
-                                  <span className="text-lg font-medium">{member.firstName}</span>
-                                  {member.isAdmin && (
-                                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-50 border border-yellow-200">
-                                      <Crown className="h-4 w-4 text-yellow-500" />
-                                      <span className="text-sm text-yellow-700">Admin</span>
-                                    </div>
-                                  )}
-                                </div>
+                {/* Member Management */}
+                <Alert className="bg-background">
+                  <Users className="h-5 w-5" />
+                  <AlertDescription className="text-sm text-muted-foreground">
+                    Drag members to reorder them. Use the remove button to remove a member from the group.
+                  </AlertDescription>
+                </Alert>
 
-                                <div className="flex items-center gap-2">
-                                  {!member.isAdmin && (
-                                    <Button
-                                      variant="destructive"
-                                      size="sm"
-                                      onClick={() => handleRemoveMember(member.id)}
-                                      className="flex items-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <Droppable droppableId="members">
+                    {(provided) => (
+                      <ScrollArea className="h-[400px] w-full rounded-lg border-2 border-muted">
+                        <ul
+                          {...provided.droppableProps}
+                          ref={provided.innerRef}
+                          className="p-4 space-y-3"
+                        >
+                          {members.map((member, index) => (
+                            <Draggable key={member.id} draggableId={member.id} index={index}>
+                              {(provided, snapshot) => (
+                                <li
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className={`group flex justify-between items-center p-4 rounded-lg border-2 transition-all duration-200 ${
+                                    snapshot.isDragging
+                                      ? 'bg-accent border-primary shadow-lg'
+                                      : 'bg-background border-muted hover:border-primary/50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-4">
+                                    <div
+                                      {...provided.dragHandleProps}
+                                      className="p-2 hover:bg-muted rounded-md transition-colors cursor-grab active:cursor-grabbing"
                                     >
-                                      <Trash2 className="h-4 w-4" />
-                                      Remove
-                                    </Button>
-                                  )}
-                                </div>
-                              </li>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </ul>
-                    </ScrollArea>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            </div>
-          )}
+                                      <GripVertical className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <span className="text-lg font-medium">{member.firstName}</span>
+                                    {member.isAdmin && (
+                                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-50 border border-yellow-200">
+                                        <Crown className="h-4 w-4 text-yellow-500" />
+                                        <span className="text-sm text-yellow-700">Admin</span>
+                                      </div>
+                                    )}
+                                  </div>
 
-          <Separator className="my-8" />
+                                  <div className="flex items-center gap-2">
+                                    {!member.isAdmin && (
+                                      <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => handleRemoveMember(member.id)}
+                                        className="flex items-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        Remove
+                                      </Button>
+                                    )}
+                                  </div>
+                                </li>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </ul>
+                      </ScrollArea>
+                    )}
+                  </Droppable>
+                </DragDropContext>
+              </div>
+
+              <Separator className="my-8" />
+            </>
+          )}
 
           {/* Admin Transfer Section */}
           <div className="space-y-4">

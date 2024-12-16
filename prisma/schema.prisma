@@ -45,6 +45,8 @@ model User {
   ticketResponses           TicketResponse[]
   feedback                  Feedback[]
   contracts                 Contract[]
+  invitationsSent Invitation[] @relation("UserInvitesSent")
+
 }
 
 model Plan {
@@ -96,6 +98,8 @@ model Group {
   transactions          Transaction[]
   messages              Message[]
   contracts             Contract[]
+  invitations     Invitation[]
+
 }
 
 model GroupMembership {
@@ -107,6 +111,7 @@ model GroupMembership {
   isAdmin       Boolean          @default(false)
   status        MembershipStatus
   acceptedTOSAt DateTime?
+  lastReadAt    DateTime?        // New field to track last read time
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   group         Group            @relation(fields: [groupId], references: [id])
@@ -248,6 +253,21 @@ model Contract {
   user               User             @relation(fields: [userId], references: [id])
 }
 
+model Invitation {
+  id           String           @id @default(cuid())
+  groupId      String
+  email        String
+  status       InvitationStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+  expiresAt    DateTime
+  invitedById  String
+  group        Group            @relation(fields: [groupId], references: [id])
+  invitedBy    User             @relation("UserInvitesSent", fields: [invitedById], references: [id])
+
+  @@index([groupId])
+  @@index([invitedById])
+}
+
 enum ContractStatus {
   Pending
   Signed
@@ -260,7 +280,6 @@ enum SubscriptionStatus {
   Inactive      // Subscription is inactive, possibly due to expiration or manual cancellation.
   Canceled      // Subscription has been fully canceled and is no longer active.
 }
-
 
 enum GroupStatus {
   Active
@@ -332,4 +351,11 @@ enum TicketPriority {
   Medium
   High
   Urgent
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
 }

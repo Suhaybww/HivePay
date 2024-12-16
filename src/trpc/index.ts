@@ -6,6 +6,7 @@ import { userRouter } from './routers/user';
 import { supportRouter } from './routers/support';
 import { contractRouter } from './routers/contract';
 import { paymentRouter } from './routers/payment';
+import { invitationRouter } from './routers/invitation';
 
 
 export const appRouter = router({
@@ -16,6 +17,7 @@ export const appRouter = router({
   support: supportRouter,
   contract: contractRouter,
   payment: paymentRouter,
+  invitation: invitationRouter,
 });
 
 export type AppRouter = typeof appRouter;

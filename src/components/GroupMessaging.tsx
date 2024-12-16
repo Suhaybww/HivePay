@@ -11,12 +11,6 @@ import { Send, Smile, MoreVertical } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import EmojiPicker from 'emoji-picker-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/src/components/ui/dropdown-menu';
 import type { GroupWithStats } from '../types/groups';
 
 interface Message {
@@ -122,18 +116,6 @@ export function GroupMessaging({ group, messages: initialMessages, onSendMessage
               </p>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Mute notifications</DropdownMenuItem>
-              <DropdownMenuItem>Search messages</DropdownMenuItem>
-              <DropdownMenuItem>View members</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </CardHeader>
 

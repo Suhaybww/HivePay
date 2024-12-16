@@ -7,6 +7,7 @@ import {
   MembershipStatus,
   Frequency,
   PayoutOrderMethod,
+  InvitationStatus,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import type { GroupWithStats } from '../../types/groups';
@@ -318,30 +319,30 @@ export const groupRouter = router({
       }
     }),
 
-  joinGroup: privateProcedure
+    joinGroup: privateProcedure
     .use(subscriptionCheckMiddleware)
     .input(joinGroupSchema)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
-
+  
       if (!userId) {
         throw new TRPCError({ code: 'UNAUTHORIZED' });
       }
-
+  
       if (!input.acceptedTOS) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "You must accept the Terms and Conditions.",
         });
       }
-
+  
       // Check membership limit (example limit of 5)
       const userMemberships = await db.groupMembership.count({
         where: {
           userId: userId,
         },
       });
-
+  
       if (userMemberships >= 5) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -349,71 +350,115 @@ export const groupRouter = router({
             'You have reached the maximum number of groups you can join with your current plan.',
         });
       }
-
-      // Check if group exists
-      const group = await db.group.findUnique({
-        where: { id: input.groupId },
-        include: { groupMemberships: true },
-      });
-
-      if (!group) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Group not found',
+  
+      // Start a transaction to ensure atomicity
+      return await db.$transaction(async (tx) => {
+        // Check if group exists
+        const group = await tx.group.findUnique({
+          where: { id: input.groupId },
+          include: { groupMemberships: true },
         });
-      }
-
-      // Check for existing membership
-      const existingMembership = await db.groupMembership.findFirst({
-        where: {
-          groupId: input.groupId,
-          userId: userId,
-        },
-      });
-
-      if (existingMembership) {
-        if (existingMembership.status === MembershipStatus.Active) {
+  
+        if (!group) {
           throw new TRPCError({
-            code: 'CONFLICT',
-            message: 'You are already a member of this group',
+            code: 'NOT_FOUND',
+            message: 'Group not found',
           });
-        } else {
-          // If previously inactive, reactivate and set TOS acceptance time
-          const updatedMembership = await db.groupMembership.update({
-            where: { id: existingMembership.id },
-            data: {
-              status: MembershipStatus.Active,
-              acceptedTOSAt: new Date(),
-            },
-          });
-
-          return {
-            success: true,
-            membership: updatedMembership,
-            redirectUrl: `/groups/${group.id}`,
-          };
         }
-      }
-
-      // If not already a member, create a new membership
-      const membership = await db.groupMembership.create({
-        data: {
-          groupId: input.groupId,
-          userId: userId,
-          isAdmin: false,
-          payoutOrder: group.groupMemberships.length + 1,
-          status: MembershipStatus.Pending, 
-          acceptedTOSAt: new Date(),
-        },
+  
+        // Fetch the user's email to ensure it's a non-null string
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { email: true },
+        });
+  
+        if (!user || !user.email) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'User not found or email is missing.',
+          });
+        }
+  
+        const userEmail = user.email;
+  
+        // Check for existing membership
+        const existingMembership = await tx.groupMembership.findFirst({
+          where: {
+            groupId: input.groupId,
+            userId: userId,
+          },
+        });
+  
+        if (existingMembership) {
+          if (existingMembership.status === MembershipStatus.Active) {
+            throw new TRPCError({
+              code: 'CONFLICT',
+              message: 'You are already a member of this group',
+            });
+          } else {
+            // If previously inactive, reactivate and set TOS acceptance time
+            const updatedMembership = await tx.groupMembership.update({
+              where: { id: existingMembership.id },
+              data: {
+                status: MembershipStatus.Active,
+                acceptedTOSAt: new Date(),
+              },
+            });
+  
+            // Update the invitation status to 'ACCEPTED'
+            await tx.invitation.updateMany({
+              where: {
+                groupId: input.groupId,
+                email: userEmail, // Use the fetched non-null email
+                status: InvitationStatus.PENDING,
+              },
+              data: {
+                status: InvitationStatus.ACCEPTED,
+              },
+            });
+  
+            return {
+              success: true,
+              membership: updatedMembership,
+              redirectUrl: `/groups/${group.id}`,
+            };
+          }
+        }
+  
+        // If not already a member, create a new membership
+        const membership = await tx.groupMembership.create({
+          data: {
+            groupId: input.groupId,
+            userId: userId,
+            isAdmin: false,
+            payoutOrder: group.groupMemberships.length + 1,
+            status: MembershipStatus.Pending, 
+            // Set acceptedTOSAt to null to indicate TOS not yet accepted
+            acceptedTOSAt: null,
+          },
+        });
+  
+        // Update the invitation status to 'ACCEPTED'
+        await tx.invitation.updateMany({
+          where: {
+            groupId: input.groupId,
+            email: userEmail, // Use the fetched non-null email
+            status: InvitationStatus.PENDING,
+          },
+          data: {
+            status: InvitationStatus.ACCEPTED,
+          },
+        });
+  
+        return {
+          success: true,
+          membership,
+          requiresContract: true, // Frontend will use this to prompt for contract signing
+          redirectUrl: `/groups/${input.groupId}/contract`, // New contract signing page
+        };
       });
-
-      return {
-        success: true,
-        membership,
-        requiresContract: true, // Frontend will use this to prompt for contract signing
-        redirectUrl: `/groups/${input.groupId}/contract`, // New contract signing page
-      };
     }),
+  
 
 getGroupAnalytics: privateProcedure
   .input(z.object({ 
@@ -724,7 +769,7 @@ getGroupMessages: privateProcedure
     limit: z.number().min(1).max(100).default(50),
     cursor: z.string().optional()
   }))
-  .query(async ({ ctx, input }) => {
+  .query(async ({ ctx, input }) => { // Change from .query to .mutation
     const { userId } = ctx;
 
     // Verify membership
@@ -743,6 +788,7 @@ getGroupMessages: privateProcedure
       });
     }
 
+    // Fetch messages
     const messages = await db.message.findMany({
       where: { groupId: input.groupId },
       take: input.limit + 1,
@@ -751,7 +797,7 @@ getGroupMessages: privateProcedure
       include: {
         sender: {
           select: {
-            id: true, // Added this
+            id: true,
             firstName: true,
             lastName: true
           }
@@ -764,6 +810,12 @@ getGroupMessages: privateProcedure
       const nextItem = messages.pop();
       nextCursor = nextItem!.id;
     }
+
+    // Update lastReadAt to now
+    await db.groupMembership.update({
+      where: { id: membership.id },
+      data: { lastReadAt: new Date() }
+    });
 
     return {
       messages: messages.map(message => ({
@@ -779,6 +831,52 @@ getGroupMessages: privateProcedure
       nextCursor
     };
   }),
+
+  getNewMessagesCount: privateProcedure.query(async ({ ctx }) => {
+    const { userId } = ctx;
+  
+    try {
+      // Fetch all active group memberships with lastReadAt
+      const memberships = await db.groupMembership.findMany({
+        where: {
+          userId,
+          status: MembershipStatus.Active,
+        },
+        include: {
+          group: true,
+        },
+      });
+  
+      // For each group, count messages after lastReadAt
+      const newMessagesCounts = await Promise.all(
+        memberships.map(async (membership) => {
+          const count = await db.message.count({
+            where: {
+              groupId: membership.groupId,
+              createdAt: {
+                gt: membership.lastReadAt ?? new Date(0), // If lastReadAt is null, count all messages
+              },
+            },
+          });
+  
+          return {
+            groupId: membership.groupId,
+            groupName: membership.group.name,
+            newMessageCount: count,
+          };
+        })
+      );
+  
+      return newMessagesCounts.filter(item => item.newMessageCount > 0); // Return only groups with new messages
+    } catch (error) {
+      console.error('Failed to fetch new messages count:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to fetch new messages count',
+      });
+    }
+  }),
+  
 
   getGroupMembersSetupStatus: privateProcedure
   .input(z.object({ groupId: z.string() }))

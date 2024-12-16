@@ -1,30 +1,30 @@
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 import { TRPCError, initTRPC } from '@trpc/server';
-import { CreateNextContextOptions } from '@trpc/server/adapters/next';
+import { db } from '@/src/db';
 
-// Update Context type to remove IP
+// Updated Context type without NextApiRequest/Response
 export type Context = {
   userId?: string;
   user?: any;
-  req?: CreateNextContextOptions['req'];
-  res?: CreateNextContextOptions['res'];
+  db: typeof db;
+  headers?: Headers;
 };
 
-// Add context creator
-export async function createContext({ req, res }: CreateNextContextOptions): Promise<Context> {
+// Updated createContext to accept a Request
+export async function createContext(opts: { headers?: Headers } = {}): Promise<Context> {
   const { getUser } = getKindeServerSession();
   const user = await getUser();
 
   return {
-    req,
-    res,
     userId: user?.id,
     user,
+    db,
+    headers: opts.headers,
   };
 }
 
 export const t = initTRPC.context<Context>().create();
-export const middleware = t.middleware; // Export middleware
+export const middleware = t.middleware;
 
 const isAuth = middleware(async (opts) => {
   const { getUser } = getKindeServerSession();
@@ -39,6 +39,7 @@ const isAuth = middleware(async (opts) => {
       ...opts.ctx,
       userId: user.id,
       user,
+      db: opts.ctx.db,
     },
   });
 });

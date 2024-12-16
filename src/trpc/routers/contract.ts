@@ -100,16 +100,16 @@ export const contractRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
-
+  
       if (!userId) {
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'User ID is required',
         });
       }
-
+  
       const { groupId, fullName } = input;
-
+  
       // Fetch group, user, and membership details
       const [group, user, membership] = await Promise.all([
         db.group.findUnique({ where: { id: groupId } }),
@@ -122,19 +122,19 @@ export const contractRouter = router({
           },
         }),
       ]);
-
+  
       if (!group || !user || !membership) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Group, user, or membership not found',
         });
       }
-
+  
       // Ensure a contract template exists, create default if missing
       let template = await db.contractTemplate.findFirst({
         orderBy: { effectiveDate: 'desc' },
       });
-
+  
       if (!template) {
         try {
           console.log('Attempting to create a default template...');
@@ -143,14 +143,14 @@ export const contractRouter = router({
               version: 'v1',
               content: `
                 HIVEPAY ROSCA GROUP CONTRACT TEMPLATE:
-      
+  
                 TERMS AND CONDITIONS:
-      
+  
                 1. The member agrees to contribute [CONTRIBUTION_AMOUNT] on a [PAYOUT_FREQUENCY] basis.
                 2. The member acknowledges that failure to make contributions may result in legal action.
                 3. The member agrees not to withdraw from the group after receiving their payout.
                 4. The member understands that this is a legally binding agreement.
-      
+  
                 Electronically signed by: [USER_NAME]
                 Date: [DATE]
               `,
@@ -166,14 +166,14 @@ export const contractRouter = router({
           });
         }
       }
-
+  
       // Generate contract content
       const contractContent = template.content
         .replace('[CONTRIBUTION_AMOUNT]', group.contributionAmount?.toString() || '0')
         .replace('[PAYOUT_FREQUENCY]', group.payoutFrequency || 'Monthly')
         .replace('[USER_NAME]', fullName)
         .replace('[DATE]', new Date().toISOString());
-
+  
       // Construct the complete ContractData object
       const contractData: ContractData = {
         groupName: group.name,
@@ -182,10 +182,10 @@ export const contractRouter = router({
         payoutFrequency: group.payoutFrequency || 'Monthly',
         signedAt: new Date(),
       };
-
+  
       // Generate contract PDF
       const pdfBuffer = await generateContractPDF(contractData);
-
+  
       // Use transaction for consistency
       const result = await db.$transaction(async (tx) => {
         const contract = await tx.contract.create({
@@ -199,23 +199,27 @@ export const contractRouter = router({
             fullName,
           },
         });
-
+  
         const updatedMembership = await tx.groupMembership.update({
           where: { id: membership.id },
-          data: { status: MembershipStatus.Active },
+          data: { 
+            status: MembershipStatus.Active,
+            acceptedTOSAt: new Date(), // Set acceptedTOSAt upon signing the contract
+          },
         });
-
+  
         return { contract, membership: updatedMembership };
       });
-
+  
       // Send email with the generated PDF using the same contractData
       await sendContractEmail(user.email, fullName, Buffer.from(pdfBuffer), contractData);
-
+  
       return {
         success: true,
         contractId: result.contract.id,
         redirectUrl: `/groups/${groupId}`,
       };
     }),
+  
 
 });

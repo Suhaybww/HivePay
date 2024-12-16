@@ -79,7 +79,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
           <p className="text-xs text-center md:text-left text-gray-600 dark:text-gray-400">
-            © {currentYear} HivePay. All rights reserved.
+            © {currentYear} HivePay Pty Ltd (ACN: 683 103 808). All rights reserved.
           </p>
         </div>
       </div>

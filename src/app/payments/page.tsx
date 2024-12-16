@@ -168,11 +168,6 @@ export default function PaymentsPage() {
                 </SelectContent>
               </Select>
             </div>
-
-            <Button variant="outline" size="sm" className="w-full sm:w-auto">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
           </div>
 
           {isLoadingTransactions ? (

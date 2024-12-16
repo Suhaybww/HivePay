@@ -212,3 +212,61 @@ export async function sendContributionReminderEmail({
     throw error;
   }
 }
+
+
+export async function sendInvitationEmail(
+  email: string,
+  groupId: string,
+  groupName: string,
+  inviterName: string
+): Promise<void> {
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
+
+  const htmlContent = `
+    <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
+      <div style="background-color: #FFF7ED; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <h2 style="color: ${headingColor}; margin: 0; font-size: 24px;">You're Invited!</h2>
+        <p style="color: #78350F; margin-top: 8px; font-size: 16px;">To join ${groupName} on HivePay</p>
+      </div>
+
+      <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: ${textColor}; font-size: 16px;">
+          ${inviterName} has invited you to join their savings group "${groupName}" on HivePay.
+        </p>
+      </div>
+
+      <div style="background-color: #ECFDF5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="color: #065F46; margin: 0; font-size: 14px;">
+          <strong>Group ID: ${groupId}</strong>
+        </p>
+      </div>
+
+      <div style="text-align: center; margin: 30px 0;">
+        <p style="color: ${textColor}; font-size: 16px;">
+          To join the group, please navigate to the 
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">Dashboard</a> 
+          or 
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/groups" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">Groups</a> 
+          page in the HivePay app and click "Join Group". Enter the Group ID provided above to join.
+        </p>
+      </div>
+
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
+        <p style="color: ${footerColor}; font-size: 12px; margin: 0;">Best regards,<br>${senderName} Team</p>
+      </div>
+    </div>
+  `;
+
+  sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+  sendSmtpEmail.to = [{ email }];
+  sendSmtpEmail.subject = `Join ${groupName} on HivePay`;
+  sendSmtpEmail.htmlContent = htmlContent;
+
+  try {
+    await brevoClient.sendTransacEmail(sendSmtpEmail);
+    console.log(`Invitation email sent to ${email} for group ${groupName}`);
+  } catch (error) {
+    console.error(`Failed to send invitation email to ${email}:`, error);
+    throw error;
+  }
+}
