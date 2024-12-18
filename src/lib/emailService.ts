@@ -8,6 +8,13 @@ brevoClient.setApiKey(
   process.env.BREVO_API_KEY || ''
 );
 
+interface GroupDeletionEmailParams {
+  groupName: string;
+  adminName: string;
+  recipient: GroupMemberInfo;
+}
+
+
 interface GroupMemberInfo {
   email: string;
   firstName: string;
@@ -268,5 +275,60 @@ export async function sendInvitationEmail(
   } catch (error) {
     console.error(`Failed to send invitation email to ${email}:`, error);
     throw error;
+  }
+}
+
+export async function sendGroupDeletionEmail({
+  groupName,
+  adminName,
+  recipient,
+}: GroupDeletionEmailParams): Promise<void> {
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
+
+  const htmlContent = `
+    <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
+      <div style="background-color: #FEE2E2; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <h2 style="color: ${headingColor}; margin: 0; font-size: 24px;">Group Deleted</h2>
+        <p style="color: #991B1B; margin-top: 8px; font-size: 16px;">${groupName}</p>
+      </div>
+
+      <p style="color: ${textColor}; font-size: 16px;">Hi ${recipient.firstName},</p>
+
+      <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; color: ${textColor}; font-size: 16px;">
+          This is to inform you that the group "${groupName}" has been deleted by ${adminName}.
+        </p>
+      </div>
+
+      <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="color: ${headingColor}; margin-top: 0; font-size: 18px;">What This Means:</h3>
+        <ul style="color: ${textColor}; font-size: 14px; margin-bottom: 0; padding-left: 20px;">
+          <li style="margin-bottom: 8px;">All group data has been permanently removed</li>
+          <li style="margin-bottom: 8px;">Any pending contributions or payouts have been cancelled</li>
+          <li>You can create or join other groups from your dashboard</li>
+        </ul>
+      </div>
+
+      <p style="color: ${textColor}; font-size: 14px;">
+        If you have any questions or concerns, please don't hesitate to contact our support team.
+      </p>
+
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
+        <p style="color: ${footerColor}; font-size: 12px; margin: 0;">Best regards,<br>${senderName} Team</p>
+      </div>
+    </div>
+  `;
+
+  sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+  sendSmtpEmail.to = [{ email: recipient.email, name: `${recipient.firstName} ${recipient.lastName}` }];
+  sendSmtpEmail.subject = `Group Deleted: ${groupName}`;
+  sendSmtpEmail.htmlContent = htmlContent;
+
+  try {
+    await brevoClient.sendTransacEmail(sendSmtpEmail);
+    console.log(`Group deletion email sent to ${recipient.email}`);
+  } catch (error) {
+    console.error(`Failed to send group deletion email to ${recipient.email}:`, error);
+    // Don't throw error to allow the deletion process to continue
   }
 }

@@ -25,7 +25,10 @@ import { trpc } from "../app/_trpc/client";
 import TermsOfService from '@/src/components/TermsOfService';
 
 const frequencyOptions = ["Daily", "Weekly", "BiWeekly", "Monthly", "Custom"] as const;
-const payoutOrderOptions = ["Admin_Selected", "First_Come_First_Serve"] as const;
+
+interface GroupModalsProps {
+  onGroupCreated?: () => void;
+}
 
 const newGroupSchema = z.object({
   name: z.string().min(3, "Group name must be at least 3 characters"),
@@ -35,7 +38,6 @@ const newGroupSchema = z.object({
   }),
   contributionFrequency: z.enum(frequencyOptions),
   payoutFrequency: z.enum(frequencyOptions),
-  payoutOrderMethod: z.enum(payoutOrderOptions),
   acceptedTOS: z.boolean().refine((val) => val === true, {
     message: "You must accept the Terms and Conditions to proceed.",
   }),
@@ -69,7 +71,7 @@ const toastStyles = {
   duration: 3000,
 };
 
-export const GroupModals = () => {
+export const GroupModals = ({ onGroupCreated }: GroupModalsProps) => {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -108,6 +110,7 @@ export const GroupModals = () => {
       });
       setShowOwnerContract(false);
       utils.group.getAllGroups.invalidate();
+      onGroupCreated?.();
       if (newGroupData?.group?.id) {
         router.push(`/groups/${newGroupData.group.id}`);
       }
@@ -135,6 +138,7 @@ export const GroupModals = () => {
         });
         setJoinOpen(false);
         utils.group.getAllGroups.invalidate();
+        onGroupCreated?.();
         router.push(`/groups/${data.membership.groupId}`);
       }
     },
@@ -157,6 +161,7 @@ export const GroupModals = () => {
       });
       setShowContract(false);
       utils.group.getAllGroups.invalidate();
+      onGroupCreated?.();
       if (selectedGroupId) {
         router.push(`/groups/${selectedGroupId}`);
       }
@@ -384,31 +389,7 @@ export const GroupModals = () => {
                     <p className="text-sm text-red-500 mt-1">{newGroupErrors.payoutFrequency.message}</p>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="payoutOrderMethod">Payout Order Method</Label>
-                  <Controller
-                    control={newGroupControl}
-                    name="payoutOrderMethod"
-                    defaultValue={undefined}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue placeholder="Select method" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {payoutOrderOptions.map((method) => (
-                            <SelectItem key={method} value={method}>
-                              {method.replace('_', ' ')}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {newGroupErrors.payoutOrderMethod && (
-                    <p className="text-sm text-red-500 mt-1">{newGroupErrors.payoutOrderMethod.message}</p>
-                  )}
-                </div>
+               
                 <div>
                   <Label htmlFor="acceptedTOS" className="mt-4">
                     <div className="flex items-start gap-3">

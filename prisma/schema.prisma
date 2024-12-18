@@ -81,7 +81,6 @@ model Group {
   name                  String
   description           String?
   createdById           String
-  payoutOrderMethod     PayoutOrderMethod
   contributionAmount    Decimal?          @db.Decimal(10, 2)
   contributionFrequency Frequency?
   payoutFrequency       Frequency?
@@ -98,8 +97,7 @@ model Group {
   transactions          Transaction[]
   messages              Message[]
   contracts             Contract[]
-  invitations     Invitation[]
-
+  invitations          Invitation[]
 }
 
 model GroupMembership {
@@ -284,11 +282,6 @@ enum SubscriptionStatus {
 enum GroupStatus {
   Active
   Paused
-}
-
-enum PayoutOrderMethod {
-  Admin_Selected
-  First_Come_First_Serve
 }
 
 enum MembershipStatus {

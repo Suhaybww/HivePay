@@ -36,6 +36,7 @@ import type { GroupWithStats } from '@/src/types/groups';
 export default function GroupsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const utils = trpc.useContext();
 
   const { data: groups, isLoading, isError } = trpc.group.getAllGroups.useQuery(undefined, {
     onError: (error) => {
@@ -46,6 +47,11 @@ export default function GroupsPage() {
       });
     },
   });
+
+  // Function to refresh groups data
+  const refreshGroups = () => {
+    utils.group.getAllGroups.invalidate();
+  };
 
   const formatCurrency = (amount: string) => {
     return new Intl.NumberFormat('en-US', {
@@ -147,7 +153,7 @@ export default function GroupsPage() {
             Manage your savings circles
           </p>
         </div>
-        <GroupModals />
+        <GroupModals onGroupCreated={refreshGroups} />
       </div>
 
       {isLoading ? (

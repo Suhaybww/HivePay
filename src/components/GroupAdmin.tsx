@@ -2,6 +2,18 @@
 
 import React, { useState } from 'react';
 import { GroupWithStats, GroupMember } from '../types/groups';
+import { useRouter } from 'next/navigation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/src/components/ui/alert-dialog"
 import { useToast } from '@/src/components/ui/use-toast';
 import { Input } from '@/src/components/ui/input';
 import { Textarea } from './ui/text-area';
@@ -24,12 +36,14 @@ import {
 import { AdminInviteSection } from './AdminInviteSection';
 
 
+
 interface GroupAdminProps {
   group: GroupWithStats;
   onGroupUpdate: () => void;
 }
 
 const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
+  const router = useRouter();
   const { toast } = useToast();
   const utils = trpc.useContext();
 
@@ -178,6 +192,35 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
     });
     onGroupUpdate();
   };
+  
+   // Add new delete mutation
+   const deleteGroupMutation = trpc.group.deleteGroup.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Group Deleted',
+        description: 'The group has been successfully deleted.',
+      });
+      router.push('/dashboard'); // Redirect to dashboard after deletion
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Add delete handler
+  const handleDeleteGroup = async () => {
+    try {
+      await deleteGroupMutation.mutateAsync({
+        groupId: group.id
+      });
+    } catch (error) {
+      console.error('Failed to delete group:', error);
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-6">
@@ -191,7 +234,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
             Manage your group preferences and members
           </CardDescription>
         </CardHeader>
-
+  
         <CardContent className="space-y-8">
           {/* Basic Settings */}
           <div className="space-y-6">
@@ -204,7 +247,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                 className="w-full text-lg"
               />
             </div>
-
+  
             <div className="space-y-2">
               <label className="text-base font-medium">Description</label>
               <Textarea
@@ -214,16 +257,16 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                 className="w-full min-h-[120px] text-lg"
               />
             </div>
-
+  
             <div className="flex justify-end">
               <Button onClick={handleSave} size="lg" className="px-8">
                 Save Changes
               </Button>
             </div>
           </div>
-
+  
           <Separator className="my-8" />
-
+  
           {/* Invitation and Member Management Section */}
           {!cycleStarted && (
             <>
@@ -232,10 +275,10 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                   <Users className="h-6 w-6 text-primary" />
                   <span>Manage Members</span>
                 </h3>
-
+  
                 {/* Invitations Section */}
                 <AdminInviteSection groupId={group.id} />
-
+  
                 {/* Member Management */}
                 <Alert className="bg-background">
                   <Users className="h-5 w-5" />
@@ -243,7 +286,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                     Drag members to reorder them. Use the remove button to remove a member from the group.
                   </AlertDescription>
                 </Alert>
-
+  
                 <DragDropContext onDragEnd={onDragEnd}>
                   <Droppable droppableId="members">
                     {(provided) => (
@@ -280,7 +323,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                                       </div>
                                     )}
                                   </div>
-
+  
                                   <div className="flex items-center gap-2">
                                     {!member.isAdmin && (
                                       <Button
@@ -305,18 +348,18 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                   </Droppable>
                 </DragDropContext>
               </div>
-
+  
               <Separator className="my-8" />
             </>
           )}
-
+  
           {/* Admin Transfer Section */}
           <div className="space-y-4">
             <h3 className="text-xl font-medium flex items-center gap-2">
               <Crown className="h-6 w-6 text-yellow-500" />
               <span>Transfer Admin Role</span>
             </h3>
-
+  
             <div className="flex gap-4 items-end">
               <div className="flex-1 space-y-2">
                 <label className="text-base font-medium">Select New Admin</label>
@@ -338,12 +381,12 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                   </SelectContent>
                 </Select>
               </div>
-
+  
               <Button onClick={handleTransferAdmin} size="lg" className="px-8">
                 Transfer Role
               </Button>
             </div>
-
+  
             <Alert>
               <AlertTriangle className="h-5 w-5" />
               <AlertTitle className="text-base font-medium">Note</AlertTitle>
@@ -353,6 +396,70 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
               </AlertDescription>
             </Alert>
           </div>
+
+{/* Delete Group Section */}
+{!cycleStarted && (
+  <>
+    <Separator className="my-8" />
+    
+    <div className="space-y-4">
+      <h3 className="text-xl font-medium flex items-center gap-2 text-red-600">
+        <Trash2 className="h-6 w-6" />
+        <span>Delete Group</span>
+      </h3>
+
+      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 space-y-2">
+        <div className="flex items-center gap-2 text-red-700">
+          <AlertTriangle className="h-5 w-5" />
+          <h4 className="font-medium">Warning</h4>
+        </div>
+        <p className="text-red-700">
+          Deleting the group will permanently remove all group data, including member information,
+          payment history, and messages. This action cannot be undone.
+        </p>
+      </div>
+
+      <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button 
+          variant="destructive" 
+          size="lg" 
+          className="w-full bg-rose-500 hover:bg-rose-600 transition-colors"
+        >
+          <Trash2 className="h-5 w-5 mr-2" />
+          Delete Group
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-red-600">Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <p className="mb-2 text-gray-700">
+              This will permanently delete the group &ldquo;{group.name}&rdquo; and remove all associated data.
+              This action cannot be undone.
+            </p>
+            <p className="font-medium text-gray-900">
+              All members will be notified of this deletion.
+            </p>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDeleteGroup}
+            className="bg-rose-500 hover:bg-rose-600 transition-colors text-white"
+          >
+            Yes, Delete Group
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+        <p className="text-sm text-gray-600 mt-2">
+          Note: Groups can only be deleted before the savings cycle has started.
+        </p>
+      </div>
+    </>
+  )}
         </CardContent>
       </Card>
     </div>
