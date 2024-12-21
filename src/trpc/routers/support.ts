@@ -58,11 +58,11 @@ export const supportRouter = router({
         
         sendSmtpEmail.sender = {
           name: 'HivePay Support',
-          email: 'support@hivepayapp.com'
+          email: 'support@hivepay.com.au'
         };
         
         sendSmtpEmail.to = [{
-          email: 'support@hivepayapp.com',
+          email: 'support@hivepay.com.au',
           name: 'HivePay Support Team'
         }];
 
@@ -612,7 +612,7 @@ getTicketResponses: privateProcedure
       
       sendSmtpEmail.sender = {
         name: 'HivePay Support',
-        email: 'support@hivepayapp.com'
+        email: 'support@hivepay.com.au'
       };
       
       sendSmtpEmail.to = [{

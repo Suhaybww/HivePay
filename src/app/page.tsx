@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unescaped-entities */
 import Hero from '../components/Hero';
 import Introduction from '../components/Introduction';
 import GettingStarted from '../components/GettingStarted';

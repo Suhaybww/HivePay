@@ -167,10 +167,10 @@ export default function ContactPage() {
           <p>
             Alternatively, email us at{" "}
             <a
-              href="mailto:support@hivepayapp.com"
+              href="mailto:support@hivepay.com.au"
               className="text-yellow-400 hover:underline"
             >
-              support@hivepayapp.com
+              support@hivepay.com.au
             </a>
           </p>
         </div>

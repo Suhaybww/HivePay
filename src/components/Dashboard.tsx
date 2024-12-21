@@ -19,7 +19,7 @@ import { Skeleton } from '@/src/components/ui/skeleton';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import * as Pusher from 'pusher-js'; 
-
+import { MembershipStatus } from '@prisma/client';
 interface DashboardProps {
   user: {
     firstName?: string;
@@ -57,22 +57,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
     }).format(amount);
   };
 
-// Get next contribution from groups
-const getNextContribution = () => {
-  if (!groups?.length) return null;
+  // Get next contribution from groups
+  const getNextContribution = () => {
+    if (!groups?.length) return null;
 
-  const upcomingContributions = groups
-    .filter(group => group.nextContributionDate)
-    .sort((a, b) => {
-      const dateA = a.nextContributionDate ? new Date(a.nextContributionDate) : new Date();
-      const dateB = b.nextContributionDate ? new Date(b.nextContributionDate) : new Date();
-      return dateA.getTime() - dateB.getTime();
-    });
+    const upcomingContributions = groups
+      .filter(group => group.nextContributionDate)
+      .sort((a, b) => {
+        const dateA = a.nextContributionDate ? new Date(a.nextContributionDate) : new Date();
+        const dateB = b.nextContributionDate ? new Date(b.nextContributionDate) : new Date();
+        return dateA.getTime() - dateB.getTime();
+      });
 
-  return upcomingContributions[0];
-};
+    return upcomingContributions[0];
+  };
 
   const nextContribution = getNextContribution();
+
+  // Calculate total members across all groups using the members array
+  const totalMembers = groups.reduce((sum, group) => sum + (group.members?.length || 0), 0);
 
   // Set up real-time updates using Pusher
   useEffect(() => {
@@ -99,7 +102,7 @@ const getNextContribution = () => {
       subscribeToGroup(group.id);
     });
 
-    // Clean up function to unsubscribe from all channels on component unmount or when groups change
+    // Clean up function to unsubscribe from all channels
     return () => {
       pusherChannelsRef.current.forEach((channel) => {
         pusher.unsubscribe(channel.name);
@@ -127,11 +130,11 @@ const getNextContribution = () => {
           </div>
         </div>
       </div>
-
+  
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Active Groups */}
+          {/* Active Groups Card */}
           <Card className="p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Active Groups</h2>
@@ -156,7 +159,7 @@ const getNextContribution = () => {
                         <div>
                           <h3 className="font-medium text-gray-900">{group.name}</h3>
                           <p className="text-sm text-gray-500">
-                            {group._count?.groupMemberships || 0} members
+                            {group.members?.length || 0} members
                           </p>
                         </div>
                         <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -167,7 +170,7 @@ const getNextContribution = () => {
               )}
             </div>
           </Card>
-
+  
           {/* Next Contribution */}
           <Card className="p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
@@ -194,62 +197,95 @@ const getNextContribution = () => {
               )}
             </div>
           </Card>
-
-          {/* Recent Activity */}
-          <Card className="p-6 shadow-sm">
-  <div className="flex items-center justify-between mb-6">
-    <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-    <Bell className="w-5 h-5 text-yellow-400" />
-  </div>
-  <div className="space-y-4">
-    {activityLoading ? (
-      <div className="space-y-3">
-        <Skeleton className="h-14 w-full" />
-        <Skeleton className="h-14 w-full" />
+  
+    {/* Recent Activity */}
+    <Card className="p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+        <Bell className="w-5 h-5 text-yellow-400" />
       </div>
-    ) : recentActivity && recentActivity.length > 0 ? (
-      recentActivity.map((activity) => (
-        <div key={activity.id} className="flex items-start gap-3">
-          <div className="p-2 rounded-full bg-yellow-100">
-            <Wallet className="w-4 h-4 text-yellow-600" />
+      <div className="space-y-4">
+        {activityLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
           </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">
-              {activity.description || 'Transaction'}
-            </p>
-            <p className="text-sm text-gray-500">
-              {formatCurrency(Number(activity.amount))} in {activity.group.name}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              {format(new Date(activity.createdAt), 'PPp')}
-            </p>
+        ) : recentActivity && recentActivity.length > 0 ? (
+          recentActivity.map((activity) => {
+            const activityDate = new Date(activity.createdAt);
+            const now = new Date();
+            const diffInHours = Math.floor((now.getTime() - activityDate.getTime()) / (1000 * 60 * 60));
+            
+            let timeDisplay;
+            if (diffInHours < 1) {
+              timeDisplay = 'Just now';
+            } else if (diffInHours < 24) {
+              timeDisplay = `${diffInHours}h ago`;
+            } else if (diffInHours < 48) {
+              timeDisplay = 'Yesterday';
+            } else {
+              timeDisplay = format(activityDate, 'MMM d');
+            }
+
+            let Icon = Bell;
+            let bgColor = 'bg-gray-100';
+            let iconColor = 'text-gray-600';
+            
+            if (activity.type === 'PAYOUT') {
+              Icon = CircleDollarSign;
+              bgColor = 'bg-green-100';
+              iconColor = 'text-green-600';
+            } else if (activity.type === 'MEMBERSHIP') {
+              Icon = Users;
+              bgColor = 'bg-blue-100';
+              iconColor = 'text-blue-600';
+            } else if (activity.type === 'MESSAGE') {
+              Icon = MessageSquare;
+              bgColor = 'bg-yellow-100';
+              iconColor = 'text-yellow-600';
+            }
+
+            // Get activity message
+            let activityMessage = '';
+            if (activity.type === 'PAYOUT') {
+              activityMessage = `Payout: ${formatCurrency(Number(activity.amount))}`;
+            } else if (activity.type === 'MEMBERSHIP') {
+              activityMessage = activity.status === MembershipStatus.Active ? 
+                'New member joined' : 
+                'Member left';
+            } else if (activity.type === 'MESSAGE') {
+              activityMessage = 'New message';
+            }
+
+            return (
+              <div key={activity.id} className="flex items-start gap-3">
+                <div className={`p-2 rounded-full ${bgColor} shrink-0`}>
+                  <Icon className={`w-4 h-4 ${iconColor}`} />
+                </div>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex justify-between items-start gap-2">
+                    <p className="text-sm font-medium text-gray-900 truncate max-w-[150px]">
+                      {activity.groupName}
+                    </p>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {timeDisplay}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500 truncate">
+                    {activityMessage}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-center py-6">
+            <p className="text-gray-500 text-sm">No recent activity</p>
           </div>
-        </div>
-      ))
-    ) : newMessages && newMessages.length > 0 ? (
-      newMessages.map((msg: NewMessage) => (
-        <div key={msg.groupId} className="flex items-start gap-3">
-          <div className="p-2 rounded-full bg-blue-100">
-            <MessageSquare className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900">
-              +{msg.newMessageCount} new message{msg.newMessageCount > 1 ? 's' : ''} in{' '}
-              {msg.groupName}
-            </p>
-            {/* <p className="text-xs text-gray-400 mt-1">Just now</p> */}
-          </div>
-        </div>
-      ))
-    ) : (
-      <div className="text-center py-6">
-        <p className="text-gray-500 text-sm">No recent activity</p>
+        )}
       </div>
-    )}
-  </div>
-</Card>
-
-
+    </Card>
+  
           {/* Savings Overview */}
           <Card className="p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
@@ -279,8 +315,8 @@ const getNextContribution = () => {
               )}
             </div>
           </Card>
-
-          {/* Group Stats */}
+  
+          {/* Group Stats Card */}
           <Card className="p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900">Group Stats</h2>
@@ -293,9 +329,7 @@ const getNextContribution = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Members</span>
-                <span className="font-medium text-gray-900">
-                  {groups.reduce((sum, group) => sum + (group._count?.groupMemberships || 0), 0)}
-                </span>
+                <span className="font-medium text-gray-900">{totalMembers}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Success Rate</span>
@@ -305,7 +339,7 @@ const getNextContribution = () => {
               </div>
             </div>
           </Card>
-
+  
           {/* Payment History Card */}
           <Card className="p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">

@@ -431,9 +431,9 @@ return (
       <Button 
         variant="link" 
         className="text-yellow-600 hover:text-yellow-700 p-0 h-auto font-normal"
-        onClick={() => window.location.href = 'mailto:support@hivepayapp.com'}
+        onClick={() => window.location.href = 'mailto:support@hivepay.com.au'}
       >
-        support@hivepayapp.com
+        support@hivepay.com.au
       </Button>
     </p>
   </div>

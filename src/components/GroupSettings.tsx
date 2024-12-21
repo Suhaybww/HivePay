@@ -10,16 +10,17 @@ import {
   CircleDollarSign,
   CreditCard,
   CheckCircle,
-  XCircle,
+  AlertCircle,
   Loader2,
 } from 'lucide-react';
 import { trpc } from '../app/_trpc/client';
 import { Badge } from '@/src/components/ui/badge';
-import { Elements, PaymentElement } from '@stripe/react-stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/dialog';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/src/components/ui/select';
+import { StripeElementsOptions } from '@stripe/stripe-js';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
@@ -29,6 +30,104 @@ interface GroupSettingsProps {
   onGroupUpdate: () => void;
 }
 
+// BECS Form Component
+const BECSForm = ({ 
+  clientSecret, 
+  onSuccess, 
+  isUpdate 
+}: { 
+  clientSecret: string;
+  onSuccess: () => void;
+  isUpdate: boolean;
+}) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const { error: submitError } = await elements.submit();
+      if (submitError) throw submitError;
+
+      const element = elements.getElement(PaymentElement);
+      if (!element) throw new Error('Payment element not found');
+
+      // Use confirmSetup without return_url
+      const result = await stripe.confirmSetup({
+        elements,
+        redirect: 'if_required', // Prevents automatic redirect
+      });
+
+      if (result.error) throw result.error;
+
+      toast({
+        title: isUpdate ? 'Payment Method Updated' : 'Payment Method Added',
+        description: 'Your bank account has been successfully set up for direct debit.',
+      });
+
+      onSuccess();
+    } catch (err: any) {
+      console.error('BECS setup error:', err);
+      setError(err.message || 'An error occurred during setup.');
+      toast({
+        variant: 'destructive',
+        title: 'Setup Failed',
+        description: err.message || 'Failed to set up direct debit.',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <PaymentElement 
+        options={{
+          layout: 'tabs',
+          defaultValues: {
+            billingDetails: {
+              name: '',
+              email: ''
+            }
+          }
+        }}
+      />
+
+      <Button 
+        type="submit" 
+        disabled={!stripe || isProcessing}
+        className="w-full bg-yellow-400 hover:bg-yellow-500 text-white"
+      >
+        {isProcessing ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <CreditCard className="mr-2 h-4 w-4" />
+            {isUpdate ? 'Update Payment Method' : 'Set Up Direct Debit'}
+          </>
+        )}
+      </Button>
+    </form>
+  );
+};
 const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGroupUpdate }) => {
   const { toast } = useToast();
   const utils = trpc.useContext();
@@ -37,8 +136,6 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
 
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [newAdminId, setNewAdminId] = useState<string>('');
-
-  // New State Variables for Payment Setup Status
   const [isConnectingBank, setIsConnectingBank] = useState(false);
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [showBECSSetupDialog, setShowBECSSetupDialog] = useState(false);
@@ -65,7 +162,6 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
     },
   });
 
-  // Payment Setup Mutations
   const createStripeAccount = trpc.auth.createStripeConnectAccount.useMutation({
     onSuccess: (data) => {
       if (data.url) {
@@ -86,16 +182,16 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
       setSetupIntentClientSecret(data.setupIntentClientSecret);
       setShowBECSSetupDialog(true);
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to initiate BECS setup. Please try again.',
+        description: error.message || 'Failed to initiate BECS setup.',
       });
     },
   });
 
-  // Payment Setup Handlers
+  // Handlers
   const handleStripeOnboarding = async () => {
     setIsConnectingBank(true);
     try {
@@ -109,14 +205,17 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
     setIsAddingPayment(true);
     try {
       await setupBECSMutation.mutateAsync();
+    } catch (error) {
+      console.error('BECS setup error:', error);
     } finally {
       setIsAddingPayment(false);
     }
   };
 
-  const handleBECSSetupDone = () => {
+  const handleBECSSetupDone = async () => {
     setShowBECSSetupDialog(false);
-    utils.user.getUserSetupStatus.invalidate();
+    setSetupIntentClientSecret(null);
+    await utils.user.getUserSetupStatus.invalidate();
   };
 
   const handleLeaveGroup = async () => {
@@ -228,29 +327,29 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Add a payment method for your recurring contributions to the group
+                {userSetupStatus?.becsSetupStatus === 'Completed'
+                  ? 'Your bank account is connected for automatic payments'
+                  : 'Set up your bank account for automatic contributions'}
               </p>
-              {userSetupStatus?.becsSetupStatus !== 'Completed' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleBECSSetup}
-                  disabled={isAddingPayment}
-                  className="mt-2.5"
-                >
-                  {isAddingPayment ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin text-yellow-400" />
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Add Payment Method
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleBECSSetup}
+                disabled={isAddingPayment}
+                className="mt-2.5"
+              >
+                {isAddingPayment ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin text-yellow-400" />
+                    {userSetupStatus?.becsSetupStatus === 'Completed' ? 'Updating...' : 'Adding...'}
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    {userSetupStatus?.becsSetupStatus === 'Completed' ? 'Update Payment Method' : 'Add Payment Method'}
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -258,23 +357,34 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
 
       {/* BECS Setup Dialog */}
       {setupIntentClientSecret && (
-        <Elements stripe={stripePromise} options={{ clientSecret: setupIntentClientSecret }}>
-          <Dialog open={showBECSSetupDialog} onOpenChange={setShowBECSSetupDialog}>
-            <DialogContent className="max-w-lg">
-              <div className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Set Up BECS Direct Debit</h2>
-                <PaymentElement />
-                <Button
-                  className="mt-6 w-full bg-yellow-400 hover:bg-yellow-500 text-white"
-                  onClick={handleBECSSetupDone}
-                >
-                  Done
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </Elements>
-      )}
+      <Elements 
+        stripe={stripePromise} 
+        options={{
+          clientSecret: setupIntentClientSecret,
+          appearance: { theme: 'stripe' },
+          loader: 'auto',
+        } as StripeElementsOptions}
+      >
+        <Dialog open={showBECSSetupDialog} onOpenChange={setShowBECSSetupDialog}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {userSetupStatus?.becsSetupStatus === 'Completed'
+                  ? 'Update Payment Method'
+                  : 'Set Up Direct Debit'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="p-6">
+              <BECSForm 
+                clientSecret={setupIntentClientSecret}
+                onSuccess={handleBECSSetupDone}
+                isUpdate={userSetupStatus?.becsSetupStatus === 'Completed'}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      </Elements>
+    )}
 
       {/* Leave Group Section */}
       <Card className="w-full">
@@ -305,7 +415,7 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
               <DialogHeader>
                 <DialogTitle className="text-xl">Leave Group</DialogTitle>
                 <DialogDescription className="text-base pt-2">
-                  Are you sure you want to leave this group? This action cannot be undone.
+                Are you sure you want to leave this group? This action cannot be undone.
                 </DialogDescription>
               </DialogHeader>
 
@@ -340,7 +450,11 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
                 >
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={handleLeaveGroup} className="text-base px-8">
+                <Button 
+                  variant="destructive" 
+                  onClick={handleLeaveGroup} 
+                  className="text-base px-8"
+                >
                   Leave Group
                 </Button>
               </DialogFooter>

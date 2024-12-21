@@ -1,16 +1,66 @@
-import { privateProcedure, router } from '../trpc';
+import { privateProcedure, publicProcedure, router } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../db';
-import { MembershipStatus, PaymentStatus, GroupStatus, SubscriptionStatus, OnboardingStatus } from '@prisma/client';
+import { 
+  MembershipStatus, 
+  PaymentStatus, 
+  GroupStatus, 
+  SubscriptionStatus, 
+  OnboardingStatus 
+} from '@prisma/client';
 import { z } from "zod";
 import { stripe } from '../../lib/stripe';
 
+import { 
+  Activity, 
+  MembershipActivity, 
+  PayoutActivity, 
+  MessageActivity 
+} from '@/src/types/activity';
+import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
+
+
 export const userRouter = router({
-  getRecentActivity: privateProcedure.query(async ({ ctx }) => {
+  getRecentActivity: privateProcedure.query(async ({ ctx }): Promise<Activity[]> => {
     const { userId } = ctx;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     try {
-      const recentActivity = await db.transaction.findMany({
+      // Get membership changes
+      const membershipChanges = await db.groupMembership.findMany({
+        where: {
+          group: {
+            groupMemberships: {
+              some: {
+                userId,
+                status: MembershipStatus.Active,
+              },
+            },
+          },
+          createdAt: {
+            gte: sevenDaysAgo,
+          },
+        },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+            }
+          },
+          group: {
+            select: {
+              name: true,
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // Get completed payouts
+      const payouts = await db.payout.findMany({
         where: {
           OR: [
             { userId },
@@ -20,23 +70,96 @@ export const userRouter = router({
                   some: {
                     userId,
                     status: MembershipStatus.Active,
-                  },
-                },
-              },
-            },
+                  }
+                }
+              }
+            }
           ],
+          status: 'Completed',
+          createdAt: {
+            gte: sevenDaysAgo,
+          },
+        },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+            }
+          },
+          group: {
+            select: {
+              name: true,
+            }
+          }
         },
         orderBy: {
           createdAt: 'desc',
         },
-        take: 5,
+      });
+
+      // Get recent messages
+      const messages = await db.message.findMany({
+        where: {
+          group: {
+            groupMemberships: {
+              some: {
+                userId,
+                status: MembershipStatus.Active,
+              }
+            }
+          },
+          createdAt: {
+            gte: sevenDaysAgo,
+          },
+        },
         include: {
-          user: true,
-          group: true,
+          sender: {
+            select: {
+              firstName: true,
+              lastName: true,
+            }
+          },
+          group: {
+            select: {
+              name: true,
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc',
         },
       });
 
-      return recentActivity;
+    // In your user router
+    const allActivities: Activity[] = [
+      ...membershipChanges.map((membership): MembershipActivity => ({
+        id: membership.id,
+        type: 'MEMBERSHIP' as const, // use const assertion
+        createdAt: membership.createdAt,
+        groupName: membership.group.name,
+        status: membership.status,
+        user: membership.user,
+      })),
+      ...payouts.map((payout): PayoutActivity => ({
+        id: payout.id,
+        type: 'PAYOUT' as const, // use const assertion
+        createdAt: payout.createdAt,
+        groupName: payout.group.name,
+        amount: payout.amount,
+        user: payout.user,
+      })),
+      ...messages.map((message): MessageActivity => ({
+        id: message.id,
+        type: 'MESSAGE' as const, // use const assertion
+        createdAt: message.createdAt,
+        groupName: message.group.name,
+        sender: message.sender,
+      })),
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 5);
+
+      return allActivities;
     } catch (error) {
       console.error('Failed to fetch recent activity:', error);
       throw new TRPCError({
@@ -545,7 +668,162 @@ updateProfile: privateProcedure
       message: 'Failed to update profile',
     });
   }
-})
+}),
+
+updateUserDetails: publicProcedure
+.input(
+  z.object({
+    phoneNumber: z.string(),
+    age: z.number().min(18).max(120).optional(),
+    gender: z.enum(['Male', 'Female']).optional(),
+    onboardingStatus: z.enum(['Pending', 'Completed', 'Failed']).optional(),
+    onboardingDate: z.string().datetime().optional(),
+  })
+)
+.mutation(async ({ input }) => {
+  const { getUser } = getKindeServerSession();
+  const user = await getUser();
+
+  if (!user?.id) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+
+  try {
+    const updatedUser = await db.user.update({
+      where: { id: user.id },
+      data: {
+        phoneNumber: input.phoneNumber,
+        age: input.age,
+        gender: input.gender,
+      },
+    });
+
+    return { success: true, user: updatedUser };
+  } catch (error) {
+    console.error('Failed to update user:', error);
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Failed to update user details',
+    });
+  }
+}),
+
+getUser: privateProcedure.query(async ({ ctx }) => {
+  const { userId } = ctx;
+
+  try {
+    const dbUser = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phoneNumber: true,
+        age: true,
+        gender: true,
+        subscriptionStatus: true,
+        stripeSubscriptionId: true,
+        stripeCurrentPeriodEnd: true,
+        isDeleted: true,
+        deletedAt: true,
+      },
+    });
+
+    if (!dbUser) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'User not found in database',
+      });
+    }
+
+    // Check if this is a deleted user trying to reactivate within 30 days
+    if (dbUser.isDeleted && dbUser.deletedAt) {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      if (dbUser.deletedAt > thirtyDaysAgo) {
+        // Extract original email from the deleted_timestamp_email format
+        const emailMatch = dbUser.email.match(/^deleted_\d+_(.+)$/);
+        const originalEmail = emailMatch ? emailMatch[1] : dbUser.email;
+
+        // Reactivate the account
+        const updatedUser = await db.user.update({
+          where: { id: userId },
+          data: {
+            isDeleted: false,
+            deletedAt: null,
+            email: originalEmail,
+            subscriptionStatus: SubscriptionStatus.Inactive,
+            onboardingStatus: OnboardingStatus.Completed,
+            // Reset all stripe-related fields
+            stripeCustomerId: null,
+            stripeAccountId: null,
+            stripeSubscriptionId: null,
+            stripePriceId: null,
+            stripeSetupIntentId: null,
+            stripeBecsPaymentMethodId: null,
+            stripeMandateId: null,
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phoneNumber: true,
+            age: true,
+            gender: true,
+            subscriptionStatus: true,
+            stripeSubscriptionId: true,
+            stripeCurrentPeriodEnd: true,
+          },
+        });
+
+        return {
+          ...updatedUser,
+          wasReactivated: true,
+        };
+      } else {
+        throw new TRPCError({ 
+          code: 'FORBIDDEN', 
+          message: 'Account permanently deleted. Please create a new account.' 
+        });
+      }
+    }
+
+    return dbUser;
+  } catch (error) {
+    console.error('Error in getUser:', error);
+    if (error instanceof TRPCError) {
+      throw error;
+    }
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Failed to fetch user',
+    });
+  }
+}),
+
+getUserStatus: privateProcedure.query(async ({ ctx }) => {
+const { userId } = ctx;
+
+const dbUser = await db.user.findUnique({
+  where: { id: userId },
+  select: {
+    onboardingStatus: true,
+    stripeAccountId: true,
+  },
+});
+
+if (!dbUser) {
+  throw new TRPCError({
+    code: 'NOT_FOUND',
+    message: 'User not found',
+  });
+}
+
+return dbUser;
+}),
 
 });
 

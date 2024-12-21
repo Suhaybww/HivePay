@@ -117,8 +117,8 @@ const TermsOfService: React.FC = () => {
             <p className="text-lg text-gray-700 leading-relaxed">
               If you have any questions or concerns regarding these Terms, please contact us
               at{' '}
-              <a href="mailto:support@hivepayapp.com" className="text-yellow-400 underline">
-                support@hivepayapp.com
+              <a href="mailto:support@hivepay.com.au" className="text-yellow-400 underline">
+              support@hivepay.com.au
               </a>
               .
             </p>

@@ -1,5 +1,3 @@
-// src/components/AdminInviteSection.tsx
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Button } from "@/src/components/ui/button";

@@ -49,11 +49,11 @@ export async function sendContactFormEmails({ name, email, message }: ContactFor
     
     supportEmail.sender = {
       name: 'HivePay Contact Form',
-      email: 'support@hivepayapp.com'
+      email: 'support@hivepay.com.au'
     };
     
     supportEmail.to = [{
-      email: 'support@hivepayapp.com',
+      email: 'support@hivepay.com.au',
       name: 'HivePay Support Team'
     }];
 
@@ -84,7 +84,7 @@ export async function sendContactFormEmails({ name, email, message }: ContactFor
     
     userEmail.sender = {
       name: 'HivePay Support',
-      email: 'support@hivepayapp.com'
+      email: 'support@hivepay.com.au'
     };
     
     userEmail.to = [{

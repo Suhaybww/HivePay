@@ -40,3 +40,21 @@ export interface GroupWithStats {
     stripeAccountId: string | null;
   }[];
 }
+
+export interface ScheduledEvent {
+  id: string;
+  scheduledFor: Date;
+}
+
+export interface GroupSchedule {
+  currentSchedule: {
+    nextContributionDate: Date | null;
+    nextPayoutDate: Date | null;
+    contributionFrequency: string | null;
+    payoutFrequency: string | null;
+    status: string;
+    cycleStarted: boolean;
+  };
+  upcomingContributions: ScheduledEvent[];
+  upcomingPayouts: ScheduledEvent[];
+}

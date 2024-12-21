@@ -12,7 +12,7 @@ import {
   MembershipStatus,
   GroupStatus
 } from '@prisma/client';
-import { sendGroupPausedEmail, sendCancellationReminderEmail } from '@/src/lib/emailService';
+import { sendGroupPausedEmail } from '@/src/lib/emailService';
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -178,128 +178,6 @@ export async function POST(request: Request) {
         break;
       }
 
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
-        console.log('Processing subscription deletion:', {
-          subscriptionId: subscription.id,
-          customerId: subscription.customer
-        });
-      
-        await db.$transaction(async (tx) => {
-          // First find the user with minimal information
-          const user = await tx.user.findFirst({
-            where: { 
-              stripeCustomerId: subscription.customer as string 
-            },
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-            },
-          });
-      
-          if (!user) {
-            console.log('No user found for customer:', subscription.customer);
-            return;
-          }
-      
-          // Get active group memberships with their groups
-          const memberships = await tx.groupMembership.findMany({
-            where: {
-              userId: user.id,
-              status: MembershipStatus.Active,
-            },
-            select: {
-              id: true,
-              groupId: true,
-              group: {
-                select: {
-                  id: true,
-                  name: true,
-                  status: true,
-                },
-              },
-            },
-          });
-      
-          // Filter out memberships with no group data
-          const validMemberships = memberships.filter(
-            (membership): membership is typeof membership & { group: NonNullable<typeof membership.group> } => 
-            membership.group !== null
-          );
-      
-          // Update user subscription status
-          await tx.user.update({
-            where: { id: user.id },
-            data: {
-              subscriptionStatus: SubscriptionStatus.Canceled,
-              stripeSubscriptionId: null,
-              stripePriceId: null,
-              stripeCurrentPeriodEnd: null,
-            },
-          });
-      
-          // Process each valid membership
-          for (const membership of validMemberships) {
-            // Get all members' subscription status for this group
-            const groupMembers = await tx.groupMembership.findMany({
-              where: {
-                groupId: membership.groupId,
-                status: MembershipStatus.Active,
-              },
-              select: {
-                id: true,
-                user: {
-                  select: {
-                    id: true,
-                    email: true,
-                    firstName: true,
-                    lastName: true,
-                    subscriptionStatus: true,
-                  },
-                },
-              },
-            });
-      
-            const allMembersActive = groupMembers.every(
-              (m) => m.user?.subscriptionStatus === SubscriptionStatus.Active
-            );
-      
-            if (!allMembersActive && membership.group.status !== GroupStatus.Paused) {
-              // Update group status
-              await tx.group.update({
-                where: { id: membership.groupId },
-                data: { status: GroupStatus.Paused }
-              });
-      
-              // Collect inactive members for email
-              const inactiveMembers = groupMembers
-                .filter(m => m.user?.subscriptionStatus !== SubscriptionStatus.Active)
-                .map(m => m.user ? `${m.user.firstName} ${m.user.lastName}` : '')
-                .filter(Boolean);
-      
-              // Send emails to all group members
-              const emailPromises = groupMembers
-                .filter(m => m.user?.email)
-                .map(m => m.user ? sendGroupPausedEmail({
-                  groupName: membership.group.name,
-                  inactiveMembers,
-                  recipient: {
-                    email: m.user.email,
-                    firstName: m.user.firstName,
-                    lastName: m.user.lastName
-                  }
-                }) : Promise.resolve());
-      
-              await Promise.allSettled(emailPromises);
-            }
-          }
-        });
-      
-        console.log('Successfully processed subscription deletion');
-        break;
-      }
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
@@ -312,88 +190,108 @@ export async function POST(request: Request) {
         });
       
         try {
-          // Send cancellation reminder email only once
-          if (subscription.cancel_at_period_end && subscription.status === 'active') {
-            const userForEmail = await db.user.findUnique({
-              where: { stripeCustomerId: subscription.customer as string },
-              select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                stripeCurrentPeriodEnd: true,
+          const userForEmail = await db.user.findUnique({
+            where: { stripeCustomerId: subscription.customer as string },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              stripeCurrentPeriodEnd: true,
+              groupMemberships: {
+                where: {
+                  status: MembershipStatus.Active,
+                },
+                select: {
+                  groupId: true,
+                },
               },
-            });
+            },
+          });
       
-            if (userForEmail?.email && userForEmail.stripeCurrentPeriodEnd) {
-              try {
-                await sendCancellationReminderEmail({
-                  email: userForEmail.email,
-                  firstName: userForEmail.firstName,
-                  lastName: userForEmail.lastName,
-                  periodEnd: userForEmail.stripeCurrentPeriodEnd,
-                });
-                console.log(`Cancellation reminder email sent to ${userForEmail.email}`);
+          if (!userForEmail) {
+            console.log('No user found for customer:', subscription.customer);
+            break;
+          }
       
-                // Get all groups the user is a member of
-                const groups = await db.group.findMany({
-                  where: {
-                    groupMemberships: {
-                      some: {
-                        userId: userForEmail.id,
-                        status: MembershipStatus.Active,
-                      }
-                    },
-                    status: GroupStatus.Paused,
-                  },
+          // Update user's subscription status
+          let newStatus: SubscriptionStatus;
+          if (subscription.status === 'active') {
+            newStatus = subscription.cancel_at_period_end ? 
+              SubscriptionStatus.PendingCancel : 
+              SubscriptionStatus.Active;
+          } else {
+            newStatus = SubscriptionStatus.Inactive;
+          }
+      
+          await db.user.update({
+            where: { id: userForEmail.id },
+            data: {
+              subscriptionStatus: newStatus,
+              stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            },
+          });
+      
+          // Check groups for potential status changes
+          for (const membership of userForEmail.groupMemberships) {
+            const group = await db.group.findUnique({
+              where: { id: membership.groupId },
+              include: {
+                groupMemberships: {
                   include: {
-                    groupMemberships: {
-                      include: {
-                        user: {
-                          select: {
-                            id: true,
-                            subscriptionStatus: true,
-                          },
-                        },
+                    user: {
+                      select: {
+                        id: true,
+                        email: true,
+                        firstName: true,
+                        lastName: true,
+                        subscriptionStatus: true,
+                        stripeCurrentPeriodEnd: true,
                       },
                     },
                   },
-                });
+                },
+              },
+            });
       
-                console.log(`Found ${groups.length} paused groups for user`);
+            if (!group) continue;
       
-                // Process each group
-                for (const group of groups) {
-                  const allMembersActive = group.groupMemberships.every(
-                    (m) => m.user?.subscriptionStatus === SubscriptionStatus.Active
-                  );
+            const inactiveMembers = group.groupMemberships.filter(m => {
+              const user = m.user;
+              const currentDate = new Date();
+              return (
+                user.subscriptionStatus === SubscriptionStatus.Canceled ||
+                user.subscriptionStatus === SubscriptionStatus.Inactive ||
+                (user.subscriptionStatus === SubscriptionStatus.PendingCancel &&
+                 user.stripeCurrentPeriodEnd &&
+                 currentDate > new Date(user.stripeCurrentPeriodEnd))
+              );
+            });
       
-                  if (allMembersActive) {
-                    // Reactivate group
-                    await db.group.update({
-                      where: { id: group.id },
-                      data: { status: GroupStatus.Active },
-                    });
+            // If there are inactive members and group is active, pause it
+            if (inactiveMembers.length > 0 && group.status === GroupStatus.Active) {
+              await db.group.update({
+                where: { id: group.id },
+                data: { status: GroupStatus.Paused },
+              });
       
-                    console.log(`Group ${group.id} reactivated`);
+              // Send pause notifications to all members
+              const inactiveMemberNames = inactiveMembers
+                .map(m => `${m.user.firstName} ${m.user.lastName}`);
       
-                    // Create notifications for all members
-                    const notificationPromises = group.groupMemberships.map(m => 
-                      db.notification.create({
-                        data: {
-                          userId: m.user.id,
-                          content: `Group "${group.name}" has been reactivated.`,
-                        },
-                      })
-                    );
+              const emailPromises = group.groupMemberships.map(m =>
+                sendGroupPausedEmail({
+                  groupName: group.name,
+                  inactiveMembers: inactiveMemberNames,
+                  recipient: {
+                    email: m.user.email,
+                    firstName: m.user.firstName,
+                    lastName: m.user.lastName,
+                  },
+                })
+              );
       
-                    await Promise.all(notificationPromises);
-                    console.log(`Notifications sent for group ${group.id}`);
-                  }
-                }
-              } catch (emailError) {
-                console.error('Error in email process:', emailError);
-              }
+              await Promise.allSettled(emailPromises);
             }
           }
         } catch (error) {
@@ -402,6 +300,106 @@ export async function POST(request: Request) {
         }
         break;
       }
+
+case 'customer.subscription.deleted': {
+  const subscription = event.data.object as Stripe.Subscription;
+  console.log('Processing subscription deletion:', {
+    subscriptionId: subscription.id,
+    customerId: subscription.customer
+  });
+
+  await db.$transaction(async (tx) => {
+    const user = await tx.user.findFirst({
+      where: { 
+        stripeCustomerId: subscription.customer as string 
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        groupMemberships: {
+          where: {
+            status: MembershipStatus.Active,
+          },
+          select: {
+            groupId: true,
+            group: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                groupMemberships: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        email: true,
+                        firstName: true,
+                        lastName: true,
+                        subscriptionStatus: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      console.log('No user found for customer:', subscription.customer);
+      return;
+    }
+
+    // Update user subscription status
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        subscriptionStatus: SubscriptionStatus.Canceled,
+        stripeSubscriptionId: null,
+        stripePriceId: null,
+        stripeCurrentPeriodEnd: null,
+      },
+    });
+
+    // Process each group the user is a member of
+    for (const membership of user.groupMemberships) {
+      const group = membership.group;
+      if (!group || group.status === GroupStatus.Paused) continue;
+
+      // Pause group and notify members
+      await tx.group.update({
+        where: { id: group.id },
+        data: { status: GroupStatus.Paused }
+      });
+
+      const inactiveMembers = group.groupMemberships
+        .filter(m => m.user?.subscriptionStatus !== SubscriptionStatus.Active)
+        .map(m => m.user ? `${m.user.firstName} ${m.user.lastName}` : '')
+        .filter(Boolean);
+
+      const emailPromises = group.groupMemberships
+        .filter(m => m.user?.email)
+        .map(m => m.user && sendGroupPausedEmail({
+          groupName: group.name,
+          inactiveMembers,
+          recipient: {
+            email: m.user.email,
+            firstName: m.user.firstName,
+            lastName: m.user.lastName
+          }
+        }));
+
+      await Promise.allSettled(emailPromises);
+    }
+  });
+
+  console.log('Successfully processed subscription deletion');
+  break;
+}
 
       // ====== BECS Direct Debit Events ======
       case 'setup_intent.succeeded': {
@@ -536,67 +534,6 @@ export async function POST(request: Request) {
         });
 
         console.log(`User with subscription ${invoice.subscription} set to Inactive due to payment failure.`);
-        break;
-      }
-
-      // ====== Cancellation Reminder ======
-      case 'invoice.created': {
-        const invoice = event.data.object as Stripe.Invoice;
-        console.log('Processing invoice created:', {
-          invoiceId: invoice.id,
-          subscriptionId: invoice.subscription,
-          customerId: invoice.customer
-        });
-
-        if (!invoice.subscription) {
-          console.log('No subscription ID in invoice');
-          break;
-        }
-
-        // Retrieve the subscription to check if it's set to cancel at period end
-        const subscription = await stripe.subscriptions.retrieve(
-          invoice.subscription as string
-        );
-
-        if (subscription.cancel_at_period_end) {
-          // Find the user associated with this subscription
-          const user = await db.user.findUnique({
-            where: { stripeSubscriptionId: subscription.id },
-            select: {
-              email: true,
-              firstName: true,
-              lastName: true,
-              stripeCurrentPeriodEnd: true,
-            },
-          });
-
-          if (user && user.email && user.stripeCurrentPeriodEnd) {
-            const currentDate = new Date();
-            const periodEndDate = new Date(subscription.current_period_end * 1000);
-            const timeDifference = periodEndDate.getTime() - currentDate.getTime();
-            const daysDifference = Math.ceil(timeDifference / (1000 * 3600 * 24));
-
-            // Send reminder email 7 days before period end
-            if (daysDifference === 7) {
-              try {
-                await sendCancellationReminderEmail({
-                  email: user.email,
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                  periodEnd: periodEndDate,
-                });
-                console.log(`Cancellation reminder email sent to ${user.email}`);
-              } catch (error) {
-                console.error(`Failed to send cancellation reminder email to ${user.email}:`, error);
-              }
-            } else {
-              console.log(`No reminder email sent. Days until period end: ${daysDifference}`);
-            }
-          } else {
-            console.log(`User not found or missing email/period end for subscription ${subscription.id}`);
-          }
-        }
-
         break;
       }
 
@@ -744,101 +681,34 @@ export async function POST(request: Request) {
         console.log(`User ${user.id} onboarding status updated to ${newStatus}.`);
         break;
       }
+// ====== Transfer Events ======
+case 'transfer.reversed': {
+  const transfer = event.data.object as Stripe.Transfer;
 
-      // ====== Transfer Events ======
-      case 'transfer.reversed': {
-        const transfer = event.data.object as Stripe.Transfer;
+  await db.payout.updateMany({
+    where: { stripeTransferId: transfer.id },
+    data: { status: PayoutStatus.Failed },
+  });
 
-        // Update the payout status to 'Failed' when transfer is reversed
-        await db.payout.updateMany({
-          where: { stripeTransferId: transfer.id },
-          data: { status: PayoutStatus.Failed },
-        });
+  console.log(`Payout with Transfer ID ${transfer.id} marked as Failed.`);
+  break;
+}
 
-        console.log(`Payout with Transfer ID ${transfer.id} marked as Failed.`);
+default:
+  console.log(`Unhandled event type ${event.type}`);
+  break;
+}
 
-        // Optionally, notify the user about the failed payout
-        // You can implement a notification system here
-
-        break;
-      }
-
-      // ====== Cancellation Reminder ======
-      case 'invoice.created': {
-        const invoice = event.data.object as Stripe.Invoice;
-        console.log('Processing invoice created:', {
-          invoiceId: invoice.id,
-          subscriptionId: invoice.subscription,
-          customerId: invoice.customer
-        });
-
-        if (!invoice.subscription) {
-          console.log('No subscription ID in invoice');
-          break;
-        }
-
-        // Retrieve the subscription to check if it's set to cancel at period end
-        const subscription = await stripe.subscriptions.retrieve(
-          invoice.subscription as string
-        );
-
-        if (subscription.cancel_at_period_end) {
-          // Find the user associated with this subscription
-          const user = await db.user.findUnique({
-            where: { stripeSubscriptionId: subscription.id },
-            select: {
-              email: true,
-              firstName: true,
-              lastName: true,
-              stripeCurrentPeriodEnd: true,
-            },
-          });
-
-          if (user && user.email && user.stripeCurrentPeriodEnd) {
-            const currentDate = new Date();
-            const periodEndDate = new Date(subscription.current_period_end * 1000);
-            const timeDifference = periodEndDate.getTime() - currentDate.getTime();
-            const daysDifference = Math.ceil(timeDifference / (1000 * 3600 * 24));
-
-            // Send reminder email 7 days before period end
-            if (daysDifference === 7) {
-              try {
-                await sendCancellationReminderEmail({
-                  email: user.email,
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                  periodEnd: periodEndDate,
-                });
-                console.log(`Cancellation reminder email sent to ${user.email}`);
-              } catch (error) {
-                console.error(`Failed to send cancellation reminder email to ${user.email}:`, error);
-              }
-            } else {
-              console.log(`No reminder email sent. Days until period end: ${daysDifference}`);
-            }
-          } else {
-            console.log(`User not found or missing email/period end for subscription ${subscription.id}`);
-          }
-        }
-
-        break;
-      }
-
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-        break;
-    }
-
-    return new NextResponse(null, { status: 200 });
-  } catch (error) {
-    console.error('Error processing webhook:', error);
-    if (error instanceof Error) {
-      console.error('Error details:', error.message);
-      console.error('Error stack:', error.stack);
-    }
-    return new NextResponse(
-      `Webhook Error: ${error instanceof Error ? error.message : 'Unknown Error'}`,
-      { status: 500 }
-    );
-  }
+return new NextResponse(null, { status: 200 });
+} catch (error) {
+console.error('Error processing webhook:', error);
+if (error instanceof Error) {
+console.error('Error details:', error.message);
+console.error('Error stack:', error.stack);
+}
+return new NextResponse(
+`Webhook Error: ${error instanceof Error ? error.message : 'Unknown Error'}`,
+{ status: 500 }
+);
+}
 }

@@ -486,7 +486,7 @@ export async function sendContractEmail(
   sendSmtpEmail.to = [{ email: userEmail, name: userName }];
   
   // **Retain the original sender email**
-  sendSmtpEmail.sender = { email: 'support@hivepayapp.com', name: 'HivePay Contracts' };
+  sendSmtpEmail.sender = { email: 'support@hivepay.com.au', name: 'HivePay Contracts' };
   
   sendSmtpEmail.subject = 'Your HivePay ROSCA Group Contract';
   
@@ -500,7 +500,7 @@ export async function sendContractEmail(
       <li><strong>Obligations:</strong> Continued contributions until the completion of the ROSCA cycle.</li>
       <li><strong>Legal Compliance:</strong> Governed by Australian laws with provisions for dispute resolution.</li>
     </ul>
-    <p>Please review the attached contract carefully. If you have any questions or require further clarification, do not hesitate to <a href="mailto:support@hivepayapp.com">contact our support team</a>.</p>
+    <p>Please review the attached contract carefully. If you have any questions or require further clarification, do not hesitate to <a href="mailto:support@hivepay.com.au">contact our support team</a>.</p>
     <p>Thank you for your participation.</p>
     <p>Best regards,<br/>HivePay Contracts Team</p>
   `;

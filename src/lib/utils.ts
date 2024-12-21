@@ -73,3 +73,15 @@ export function constructMetadata({
     })
   }
 }
+
+// src/lib/utils.ts
+// Add this to your existing utils file
+
+/**
+ * Utility function to pause execution for a specified duration
+ * @param ms Number of milliseconds to sleep
+ * @returns Promise that resolves after the specified duration
+ */
+export const sleep = (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};

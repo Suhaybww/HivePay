@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ProfileSettings } from "@/src/components/settings/ProfileSettings";
 import { AccountSettings } from "@/src/components/settings/AccountSettings";
 import { BillingSettings } from "@/src/components/settings/BillingSettings";
 import { trpc } from "../_trpc/client";
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState('profile');
-  const { data: user } = trpc.auth.getUser.useQuery();
+  const { data: user } = trpc.user.getUser.useQuery();
+
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section && ['profile', 'billing', 'account'].includes(section)) {
+      setActiveSection(section);
+    }
+  }, [searchParams]);
 
   if (!user) return null;
 

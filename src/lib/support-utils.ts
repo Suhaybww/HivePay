@@ -231,7 +231,7 @@ export async function sendTicketEmail(
     
     sendSmtpEmail.sender = {
       name: 'HivePay Support',
-      email: 'support@hivepayapp.com'
+      email: 'support@hivepay.com.au'
     };
     
     sendSmtpEmail.to = [{
@@ -289,11 +289,11 @@ export async function notifySupportTeam(
     
     sendSmtpEmail.sender = {
       name: 'HivePay Support',
-      email: 'support@hivepayapp.com'
+      email: 'support@hivepay.com.au'
     };
     
     sendSmtpEmail.to = [{
-      email: 'support@hivepayapp.com',
+      email: 'support@hivepay.com.au',
       name: 'HivePay Support Team'
     }];
 

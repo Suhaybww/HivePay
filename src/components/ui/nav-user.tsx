@@ -3,14 +3,10 @@
 import React from 'react'
 import Link from 'next/link'
 import {
-  BadgeCheck,
-  Bell,
   ChevronsUpDown,
-  CreditCard,
   LogOut,
   Gem,
   Settings,
-  LayoutDashboard,
   WalletCards,
 } from "lucide-react"
 import { LogoutLink } from '@kinde-oss/kinde-auth-nextjs'
@@ -95,33 +91,29 @@ const NavUser: React.FC<NavUserProps> = ({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link
-                  href={
-                    subscriptionStatus === 'Active' ? '/billing' : '/pricing'
-                  }
-                  className="flex items-center gap-2 p-2"
-                >
-                  {subscriptionStatus === 'Active' ? (
-                    <>
-                      <WalletCards className="h-4 w-4" />
-                      Manage Subscription
-                    </>
-                  ) : (
-                    <>
-                      <Gem className="h-4 w-4 text-yellow-400" />
-                      Upgrade to Pro
-                    </>
-                  )}
-                </Link>
+              <Link
+              href={
+                subscriptionStatus === 'Active' ? '/settings?section=billing' : '/pricing'
+              }
+              className="flex items-center gap-2 p-2"
+            >
+              {subscriptionStatus === 'Active' ? (
+                <>
+                  <WalletCards className="h-4 w-4" />
+                  Manage Subscription
+                </>
+              ) : (
+                <>
+                  <Gem className="h-4 w-4 text-yellow-400" />
+                  Upgrade to Pro
+                </>
+              )}
+            </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link href="/settings" className="flex items-center gap-2 p-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
               </DropdownMenuItem>

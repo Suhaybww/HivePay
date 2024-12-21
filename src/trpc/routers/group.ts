@@ -7,6 +7,7 @@ import {
   MembershipStatus,
   Frequency,
   InvitationStatus,
+  TransactionType,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import type { GroupWithStats } from '../../types/groups';
@@ -305,116 +306,127 @@ getGroupById: privateProcedure
     }),
 
     joinGroup: privateProcedure
-    .input(joinGroupSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx;
+.input(joinGroupSchema)
+.mutation(async ({ ctx, input }) => {
+  const { userId } = ctx;
 
-      if (!userId) {
-        throw new TRPCError({ code: 'UNAUTHORIZED' });
+  if (!userId) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+
+  return await db.$transaction(async (tx) => {
+    // Check if group exists
+    const group = await tx.group.findUnique({
+      where: { id: input.groupId },
+      include: { 
+        groupMemberships: {
+          orderBy: {
+            payoutOrder: 'desc'
+          },
+          take: 1
+        }
+      },
+    });
+
+    if (!group) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Group not found',
+      });
+    }
+
+    // Get user's email
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
+    if (!user || !user.email) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'User not found or email is missing.',
+      });
+    }
+
+    // Check for existing membership
+    const existingMembership = await tx.groupMembership.findFirst({
+      where: {
+        groupId: input.groupId,
+        userId: userId,
+      },
+    });
+
+    // Calculate next payout order
+    const nextPayoutOrder = group.groupMemberships[0]?.payoutOrder 
+      ? group.groupMemberships[0].payoutOrder + 1 
+      : 1;
+
+    let membership;
+
+    if (existingMembership) {
+      if (existingMembership.status === MembershipStatus.Active) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'You are already a member of this group',
+        });
       }
 
-      // Check membership limit
-      const userMemberships = await db.groupMembership.count({
+      // Update existing membership
+      membership = await tx.groupMembership.update({
         where: {
-          userId: userId,
+          id: existingMembership.id
+        },
+        data: {
+          status: MembershipStatus.Pending,
+          acceptedTOSAt: null,
+          payoutOrder: nextPayoutOrder // Update payout order for rejoining member
         },
       });
-
-      if (userMemberships >= 5) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You have reached the maximum number of groups you can join with your current plan.',
-        });
-      }
-
-      return await db.$transaction(async (tx) => {
-        // Check if group exists
-        const group = await tx.group.findUnique({
-          where: { id: input.groupId },
-          include: { 
-            groupMemberships: {
-              orderBy: {
-                payoutOrder: 'desc'
-              },
-              take: 1
-            }
-          },
-        });
-
-        if (!group) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Group not found',
-          });
-        }
-
-        // Get user's email
-        const user = await tx.user.findUnique({
-          where: { id: userId },
-          select: { email: true },
-        });
-
-        if (!user || !user.email) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'User not found or email is missing.',
-          });
-        }
-
-        // Check for existing membership
-        const existingMembership = await tx.groupMembership.findFirst({
-          where: {
-            groupId: input.groupId,
-            userId: userId,
-          },
-        });
-
-        if (existingMembership) {
-          if (existingMembership.status === MembershipStatus.Active) {
-            throw new TRPCError({
-              code: 'CONFLICT',
-              message: 'You are already a member of this group',
-            });
-          }
-        }
-
-        // Calculate next payout order (first-come-first-serve)
-        const nextPayoutOrder = group.groupMemberships[0]?.payoutOrder 
-          ? group.groupMemberships[0].payoutOrder + 1 
-          : 1;
-
-        // Create new membership with next available payout order
-        const membership = await tx.groupMembership.create({
-          data: {
-            groupId: input.groupId,
-            userId: userId,
-            isAdmin: false,
-            payoutOrder: nextPayoutOrder,
-            status: MembershipStatus.Pending,
-            acceptedTOSAt: null,
-          },
-        });
-
-        // Update invitation status
-        await tx.invitation.updateMany({
-          where: {
-            groupId: input.groupId,
-            email: user.email,
-            status: InvitationStatus.PENDING,
-          },
-          data: {
-            status: InvitationStatus.ACCEPTED,
-          },
-        });
-
-        return {
-          success: true,
-          membership,
-          requiresContract: true,
-          redirectUrl: `/groups/${input.groupId}/contract`,
-        };
+    } else {
+      // Create new membership
+      membership = await tx.groupMembership.create({
+        data: {
+          groupId: input.groupId,
+          userId: userId,
+          isAdmin: false,
+          payoutOrder: nextPayoutOrder,
+          status: MembershipStatus.Pending,
+          acceptedTOSAt: null,
+        },
       });
-    }),
+    }
+
+    // Update invitation status
+    await tx.invitation.updateMany({
+      where: {
+        groupId: input.groupId,
+        email: user.email,
+        status: InvitationStatus.PENDING,
+      },
+      data: {
+        status: InvitationStatus.ACCEPTED,
+      },
+    });
+
+    // Create transaction record for rejoining/joining
+    await tx.transaction.create({
+      data: {
+        userId,
+        groupId: input.groupId,
+        amount: new Prisma.Decimal(0),
+        transactionType: TransactionType.Credit,
+        description: existingMembership ? 'Member rejoined group' : 'Member joined group'
+      }
+    });
+
+    return {
+      success: true,
+      membership,
+      requiresContract: true,
+      redirectUrl: `/groups/${input.groupId}/contract`,
+    };
+  });
+}),
   
 
 getGroupAnalytics: privateProcedure
@@ -918,7 +930,6 @@ getGroupMessages: privateProcedure
   }),
 
 // Get Group Details by ID
-// Update getGroupDetails method
 getGroupDetails: privateProcedure
 .input(z.object({ groupId: z.string() }))
 .query(async ({ input, ctx }) => {
@@ -1248,7 +1259,7 @@ updateGroupDates: privateProcedure
       return { success: true };
     }),
   
-  leaveGroup: privateProcedure
+    leaveGroup: privateProcedure
     .input(z.object({
       groupId: z.string(),
       newAdminId: z.string().optional(),
@@ -1281,48 +1292,64 @@ updateGroupDates: privateProcedure
         });
       }
   
-      // If user is admin, handle admin transfer
-      if (membership.isAdmin) {
-        if (!input.newAdminId) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Must specify new admin when leaving as admin',
+      return await db.$transaction(async (tx) => {
+        // If user is admin, handle admin transfer
+        if (membership.isAdmin) {
+          if (!input.newAdminId) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Must specify new admin when leaving as admin',
+            });
+          }
+  
+          const newAdminMembership = await tx.groupMembership.findFirst({
+            where: {
+              groupId: input.groupId,
+              userId: input.newAdminId,
+            },
+          });
+  
+          if (!newAdminMembership) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'New admin not found in group',
+            });
+          }
+  
+          // Transfer admin role
+          await tx.groupMembership.update({
+            where: {
+              id: newAdminMembership.id
+            },
+            data: {
+              isAdmin: true,
+            },
           });
         }
   
-        const newAdminMembership = await db.groupMembership.findFirst({
+        // Update membership status to inactive
+        await tx.groupMembership.update({
           where: {
-            groupId: input.groupId,
-            userId: input.newAdminId,
-          },
-        });
-  
-        if (!newAdminMembership) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'New admin not found in group',
-          });
-        }
-  
-        // Transfer admin role
-        await db.groupMembership.update({
-          where: {
-            id: newAdminMembership.id
+            id: membership.id
           },
           data: {
-            isAdmin: true,
+            status: MembershipStatus.Inactive,
           },
         });
-      }
   
-      // Remove user's membership
-      await db.groupMembership.delete({
-        where: {
-          id: membership.id
-        },
+        // Create a transaction record
+        await tx.transaction.create({
+          data: {
+            userId,
+            groupId: input.groupId,
+            amount: new Prisma.Decimal(0),
+            transactionType: TransactionType.Credit,
+            description: 'Member left the group'
+          }
+        });
+  
+        return { success: true };
       });
-  
-      return { success: true };
     }),
 
     updatePayoutOrder: privateProcedure
@@ -1405,7 +1432,6 @@ updateGroupDates: privateProcedure
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
   
-      // Start a transaction to handle all deletion operations
       return await db.$transaction(async (tx) => {
         // Get group with all memberships and member details
         const group = await tx.group.findUnique({
@@ -1453,13 +1479,38 @@ updateGroupDates: privateProcedure
           });
         }
   
-        // Check if cycle has started
         if (group.cycleStarted) {
           throw new TRPCError({
             code: 'FORBIDDEN',
             message: 'Cannot delete group after cycle has started'
           });
         }
+  
+        // Update all memberships to inactive
+        await tx.groupMembership.updateMany({
+          where: { 
+            groupId: input.groupId,
+            status: MembershipStatus.Active
+          },
+          data: {
+            status: MembershipStatus.Inactive
+          }
+        });
+  
+        // Create transaction records for all members
+        await Promise.all(
+          group.groupMemberships.map(membership => 
+            tx.transaction.create({
+              data: {
+                userId: membership.user.id,
+                groupId: input.groupId,
+                amount: new Prisma.Decimal(0),
+                transactionType: TransactionType.Credit,
+                description: 'Group was deleted by admin'
+              }
+            })
+          )
+        );
   
         // Delete all related records
         await tx.invitation.deleteMany({
@@ -1474,10 +1525,6 @@ updateGroupDates: privateProcedure
           where: { groupId: input.groupId }
         });
   
-        await tx.transaction.deleteMany({
-          where: { groupId: input.groupId }
-        });
-  
         await tx.payment.deleteMany({
           where: { groupId: input.groupId }
         });
@@ -1486,15 +1533,12 @@ updateGroupDates: privateProcedure
           where: { groupId: input.groupId }
         });
   
-        await tx.groupMembership.deleteMany({
-          where: { groupId: input.groupId }
-        });
-  
+        // Delete the group
         await tx.group.delete({
           where: { id: input.groupId }
         });
   
-        // Create in-app notifications
+        // Create notifications for all members
         await tx.notification.createMany({
           data: group.groupMemberships.map(membership => ({
             userId: membership.user.id,
@@ -1502,7 +1546,7 @@ updateGroupDates: privateProcedure
           }))
         });
   
-        // Send email notifications using the email service
+        // Send email notifications
         const adminName = `${group.createdBy.firstName} ${group.createdBy.lastName}`;
         
         const emailPromises = group.groupMemberships.map(membership => 
@@ -1517,7 +1561,6 @@ updateGroupDates: privateProcedure
           })
         );
   
-        // Wait for all emails to be sent, but don't fail if some emails fail
         await Promise.allSettled(emailPromises);
   
         return {

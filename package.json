@@ -15,7 +15,9 @@
     "test:deletion": "npm run seed:test-deletion && npm run test:cron",
     "seed:contribution-test": "ts-node -T prisma/seed.ts",
     "test:contribution-reminder": "curl -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/contribution-reminders",
-    "test:reminders": "npm run seed:contribution-test && npm run test:contribution-reminder"
+    "test:reminders": "npm run seed:contribution-test && npm run test:contribution-reminder",
+    "seed:schedule-test": "ts-node -r tsconfig-paths/register prisma/seed-schedule-test.ts",
+    "test:scheduling": "npm run seed:schedule-test"
   },
   "prisma": {
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
@@ -49,6 +51,7 @@
     "@react-three/drei": "^9.115.0",
     "@react-three/fiber": "^8.17.10",
     "@stripe/react-stripe-js": "^2.8.1",
+    "@stripe/stripe-js": "^5.4.0",
     "@tabler/icons-react": "^3.21.0",
     "@tailwindcss/typography": "^0.5.15",
     "@tanstack/react-query": "^4.36.1",
@@ -57,6 +60,7 @@
     "@trpc/react-query": "^10.45.1",
     "@trpc/server": "^10.45.1",
     "@types/react-datepicker": "^7.0.0",
+    "bull": "^4.16.5",
     "chart.js": "^4.4.6",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -96,6 +100,7 @@
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
+    "@types/bull": "^4.10.4",
     "@types/date-fns": "^2.6.3",
     "@types/node": "^20.17.6",
     "@types/nodemailer": "^6.4.16",
@@ -103,6 +108,8 @@
     "@types/react-beautiful-dnd": "^13.1.8",
     "@types/react-dom": "^18.2.7",
     "@types/stripe": "^8.0.417",
+    "@vitest/coverage-v8": "^1.3.1",
+    "@vitest/ui": "^2.1.8",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.46.0",
     "eslint-config-next": "13.4.12",
@@ -111,6 +118,8 @@
     "shadcn-ui": "^0.9.3",
     "tailwindcss": "^3.4.10",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.3"
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.6.3",
+    "vitest": "^1.6.0"
   }
 }

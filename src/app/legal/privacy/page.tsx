@@ -89,7 +89,7 @@ const PrivacyPage: React.FC = () => {
               <li>Request deletion of your personal information, subject to legal requirements.</li>
             </ul>
             <p className="text-lg text-gray-700 leading-relaxed">
-              For any of these requests, please contact us at <a href="mailto:support@hivepayapp.com" className="text-yellow-400 underline">support@hivepayapp.com</a>.
+              For any of these requests, please contact us at <a href="mailto:support@hivepay.com.au" className="text-yellow-400 underline">support@hivepay.com.au</a>.
             </p>
           </div>
 
