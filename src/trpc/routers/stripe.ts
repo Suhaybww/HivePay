@@ -7,79 +7,99 @@ import { z } from 'zod';
 import { stripe } from '../../lib/stripe';
 
 export const stripeRouter = router({
-    createStripeConnectAccount: privateProcedure
-    .mutation(async ({ ctx }) => {
-      const { userId } = ctx;
-  
-      if (!userId) {
-        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not authenticated' });
-      }
-  
-      // Fetch user data from the database
-      const dbUser = await db.user.findUnique({
-        where: { id: userId },
-        select: {
-          email: true,
-          firstName: true,
-          lastName: true,
-          stripeAccountId: true,
-        },
+  createStripeConnectAccount: privateProcedure.mutation(async ({ ctx }) => {
+    const { userId } = ctx;
+
+    if (!userId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not authenticated' });
+    }
+
+    // Fetch user data from the database
+    const dbUser = await db.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        firstName: true,
+        lastName: true,
+        stripeAccountId: true,
+      },
+    });
+
+    if (!dbUser) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'User not found',
       });
-  
-      if (!dbUser) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'User not found',
+    }
+
+    try {
+      let accountId = dbUser.stripeAccountId;
+
+      if (!accountId) {
+        // Create a new Express account with a 2-day delay schedule for payouts
+        // (If you prefer manual payouts, see alternative code block below.)
+        const account = await stripe.accounts.create({
+          type: 'express',
+          country: 'AU',
+          email: dbUser.email,
+          business_type: 'individual',
+          individual: {
+            first_name: dbUser.firstName,
+            last_name: dbUser.lastName,
+          },
+          capabilities: {
+            transfers: { requested: true },
+            card_payments: { requested: true },
+          },
+          settings: {
+            payouts: {
+              schedule: {
+                delay_days: 2, // <--- Stripe will hold funds for 2 days before depositing
+              },
+            },
+          },
+        });
+
+        // If you prefer "manual" payouts instead of a 2-day auto-delay:
+        // settings: {
+        //   payouts: {
+        //     schedule: {
+        //       interval: 'manual',
+        //     },
+        //   },
+        // }
+
+        accountId = account.id;
+
+        // Save to your DB
+        await db.user.update({
+          where: { id: userId },
+          data: {
+            stripeAccountId: accountId,
+            onboardingStatus: 'Pending',
+            onboardingDate: null,
+          },
         });
       }
-  
-      try {
-        let accountId = dbUser.stripeAccountId;
-  
-        if (!accountId) {
-          const account = await stripe.accounts.create({
-            type: 'express',
-            country: 'AU',
-            email: dbUser.email,
-            business_type: 'individual',
-            individual: {
-              first_name: dbUser.firstName,
-              last_name: dbUser.lastName,
-            },
-            capabilities: {
-              transfers: { requested: true },
-              card_payments: { requested: true },
-            },
-          });
-  
-          accountId = account.id;
-  
-          await db.user.update({
-            where: { id: userId },
-            data: {
-              stripeAccountId: accountId,
-              onboardingStatus: 'Pending', // Set to 'Pending' here
-              onboardingDate: null,        // Set to null initially
-            },
-          });
-        }
-  
-        const accountLink = await stripe.accountLinks.create({
-          account: accountId,
-          refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=failed`,
-          return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=completed`,
-          type: 'account_onboarding',
-        });
-  
-        return { url: accountLink.url };
-      } catch (error) {
-        console.error('Stripe Connect account creation error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create Stripe Connect account',
-        });
-      }
-    }),
+
+      // Generate an account link for Express onboarding
+      const accountLink = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=failed`,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=completed`,
+        type: 'account_onboarding',
+      });
+
+      return { url: accountLink.url };
+    } catch (error) {
+      console.error('Stripe Connect account creation error:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to create Stripe Connect account',
+      });
+    }
+  }),
+
 
     getStripeDashboardLink: privateProcedure
     .mutation(async ({ ctx }) => {  

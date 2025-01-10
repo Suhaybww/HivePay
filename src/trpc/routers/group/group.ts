@@ -1,15 +1,21 @@
-// src/trpc/routers/group/group.ts
-
 import { privateProcedure, router } from '../../trpc';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../../db';
 import { Decimal } from '@prisma/client/runtime/library';
-import { MembershipStatus } from '@prisma/client';
+import { MembershipStatus, GroupStatus } from '@prisma/client';
 import type { GroupWithStats } from '../../../types/groups';
 import { z } from 'zod';
 
+/**
+ * Example: single frequency is stored in `cycleFrequency`
+ * and single date is `nextCycleDate`.
+ * (No more separate `payoutFrequency` or `nextPayoutDate`).
+ */
 export const groupBaseRouter = router({
-  // getAllGroups: Retrieves all groups the user is a member of
+  /**
+   * getAllGroups
+   * Retrieves all groups the user is a member of
+   */
   getAllGroups: privateProcedure.query(async ({ ctx }) => {
     const { userId } = ctx;
     try {
@@ -46,21 +52,23 @@ export const groupBaseRouter = router({
         },
       });
 
-      const groupsWithStats = groups.map((group) => {
+      const groupsWithStats: GroupWithStats[] = groups.map((group) => {
+        // sum of all payments
         const totalContributions = group.payments.reduce(
           (sum: Decimal, payment) => sum.plus(payment.amount),
           new Decimal(0)
         );
-
+        // sum of all payouts
         const totalPayouts = group.payouts.reduce(
           (sum: Decimal, payout) => sum.plus(payout.amount),
           new Decimal(0)
         );
-
+        // current balance
         const currentBalance = totalContributions.minus(totalPayouts);
-        const validMemberships = group.groupMemberships.filter((membership) => membership.user !== null);
 
-        const members = validMemberships.map(membership => ({
+        // Build array of members
+        const validMemberships = group.groupMemberships.filter(m => m.user !== null);
+        const members = validMemberships.map((membership) => ({
           id: membership.user!.id,
           firstName: membership.user!.firstName,
           lastName: membership.user!.lastName,
@@ -77,15 +85,19 @@ export const groupBaseRouter = router({
           description: group.description,
           createdById: group.createdById,
           contributionAmount: group.contributionAmount?.toFixed(2) ?? null,
-          contributionFrequency: group.contributionFrequency,
-          payoutFrequency: group.payoutFrequency,
-          nextContributionDate: group.nextContributionDate?.toISOString() ?? null,
-          nextPayoutDate: group.nextPayoutDate?.toISOString() ?? null,
+          cycleFrequency: group.cycleFrequency,
+          nextCycleDate: group.nextCycleDate?.toISOString() ?? null,
+
           cycleStarted: group.cycleStarted,
           status: group.status,
-          _count: group._count,
+          pauseReason: group.pauseReason ?? null,
+
+          _count: {
+            groupMemberships: group._count.groupMemberships,
+          },
           totalContributions: totalContributions.toFixed(2),
           currentBalance: currentBalance.toFixed(2),
+
           isAdmin: group.createdById === userId,
           members,
         };
@@ -101,12 +113,14 @@ export const groupBaseRouter = router({
     }
   }),
 
-  // getGroupById: Retrieves a single group by ID with stats
+  /**
+   * getGroupById
+   * Retrieves a single group by ID with stats
+   */
   getGroupById: privateProcedure
     .input(z.object({ groupId: z.string() }))
     .query(async ({ ctx, input }) => {
       const { userId } = ctx;
-
       const group = await db.group.findUnique({
         where: { id: input.groupId },
         include: {
@@ -140,27 +154,28 @@ export const groupBaseRouter = router({
         });
       }
 
+      // Check membership
       const userMembership = group.groupMemberships.find(m => m.user?.id === userId);
-      if (!userMembership) {
+      if (!userMembership && group.createdById !== userId) {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: 'You are not a member of this group',
         });
       }
 
+      // Stats
       const totalContributions = group.payments.reduce(
         (sum: Decimal, payment) => sum.plus(payment.amount),
         new Decimal(0)
       );
-
       const totalPayouts = group.payouts.reduce(
         (sum: Decimal, payout) => sum.plus(payout.amount),
         new Decimal(0)
       );
+      const currentBalance = totalContributions.minus(totalPayouts);
 
-      const validMemberships = group.groupMemberships.filter((membership) => membership.user !== null);
-
-      const members = validMemberships.map(membership => ({
+      const validMemberships = group.groupMemberships.filter((m) => m.user !== null);
+      const members = validMemberships.map((membership) => ({
         id: membership.user!.id,
         firstName: membership.user!.firstName,
         lastName: membership.user!.lastName,
@@ -176,32 +191,37 @@ export const groupBaseRouter = router({
         name: group.name,
         description: group.description,
         createdById: group.createdById,
+
         contributionAmount: group.contributionAmount?.toString() || null,
-        contributionFrequency: group.contributionFrequency,
-        payoutFrequency: group.payoutFrequency,
-        nextContributionDate: group.nextContributionDate?.toISOString() || null,
-        nextPayoutDate: group.nextPayoutDate?.toISOString() || null,
+        cycleFrequency: group.cycleFrequency,
+        nextCycleDate: group.nextCycleDate?.toISOString() || null,
+
         cycleStarted: group.cycleStarted,
         status: group.status,
+        pauseReason: group.pauseReason ?? null,
+
         _count: {
           groupMemberships: group._count.groupMemberships,
         },
         totalContributions: totalContributions.toString(),
-        currentBalance: totalContributions.minus(totalPayouts).toString(),
-        isAdmin: userMembership.isAdmin,
+        currentBalance: currentBalance.toString(),
+
+        isAdmin: userMembership?.isAdmin || (group.createdById === userId),
         members,
       };
 
       return groupWithStats;
     }),
 
-  // getGroupDetails: Fetches detailed group info
+  /**
+   * getGroupDetails
+   * Another approach to fetch group with stats
+   */
   getGroupDetails: privateProcedure
     .input(z.object({ groupId: z.string() }))
     .query(async ({ input, ctx }) => {
       const { groupId } = input;
       const { userId } = ctx;
-
       try {
         const group = await db.group.findUnique({
           where: { id: groupId },
@@ -211,17 +231,17 @@ export const groupBaseRouter = router({
             payouts: { select: { amount: true } },
             createdBy: { select: { id: true } },
             groupMemberships: {
-              where: { status: 'Active' },
+              where: { status: MembershipStatus.Active },
               include: {
                 user: { 
                   select: { 
-                    id: true, 
-                    firstName: true, 
-                    lastName: true, 
-                    email: true, 
-                    gender: true, 
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    gender: true,
                     stripeAccountId: true 
-                  } 
+                  }
                 },
               },
               orderBy: { payoutOrder: 'asc' },
@@ -236,8 +256,10 @@ export const groupBaseRouter = router({
           });
         }
 
-        const isMember = group.groupMemberships.some((membership) => membership.user.id === userId);
-        if (!isMember && group.createdBy.id !== userId) {
+        // Must be the owner or an active member
+        const isMember = group.groupMemberships.some(m => m.user.id === userId);
+        const isOwner = (group.createdBy.id === userId);
+        if (!isMember && !isOwner) {
           throw new TRPCError({
             code: 'FORBIDDEN',
             message: 'You do not have access to this group',
@@ -248,12 +270,10 @@ export const groupBaseRouter = router({
           (sum: Decimal, payment) => sum.plus(payment.amount),
           new Decimal(0)
         );
-
         const totalPayouts = group.payouts.reduce(
           (sum: Decimal, payout) => sum.plus(payout.amount),
           new Decimal(0)
         );
-
         const currentBalance = totalContributions.minus(totalPayouts);
 
         const members = group.groupMemberships.map((membership) => ({
@@ -272,17 +292,19 @@ export const groupBaseRouter = router({
           name: group.name,
           description: group.description,
           createdById: group.createdBy.id,
+
           contributionAmount: group.contributionAmount?.toFixed(2) ?? null,
-          contributionFrequency: group.contributionFrequency,
-          payoutFrequency: group.payoutFrequency,
-          nextContributionDate: group.nextContributionDate?.toISOString() ?? null,
-          nextPayoutDate: group.nextPayoutDate?.toISOString() ?? null,
+          cycleFrequency: group.cycleFrequency,
+          nextCycleDate: group.nextCycleDate?.toISOString() ?? null,
+
           cycleStarted: group.cycleStarted,
           status: group.status,
-          _count: group._count,
+          pauseReason: group.pauseReason ?? null,
+
+          _count: { groupMemberships: group._count.groupMemberships },
           totalContributions: totalContributions.toFixed(2),
           currentBalance: currentBalance.toFixed(2),
-          isAdmin: group.createdBy.id === userId,
+          isAdmin: isOwner,
           members,
         };
       } catch (error) {

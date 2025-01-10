@@ -24,7 +24,6 @@ import {
   SidebarMenuItem,
 } from "@/src/components/ui/sidebar";
 
-// Update UserProps to match your schema's SubscriptionStatus
 interface UserProps {
   firstName: string | null;
   lastName: string | null;

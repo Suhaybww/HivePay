@@ -1,5 +1,3 @@
-// src/trpc/routers/group/groupMembership.ts
-
 import { privateProcedure, router } from '../../trpc';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../../db';
@@ -11,15 +9,23 @@ import {
   TransactionType,
 } from '@prisma/client';
 
-// Schemas used for group creation and joining
+/**
+ * Single-frequency group creation schema:
+ * - `cycleFrequency` references your Prisma `Frequency` enum
+ * - There's no separate "payoutFrequency" anymore
+ */
 const newGroupSchema = z.object({
   name: z.string().min(3, "Group name must be at least 3 characters"),
   description: z.string().optional(),
-  contributionAmount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Please enter a valid amount",
-  }),
-  contributionFrequency: z.nativeEnum(require('@prisma/client').Frequency),
-  payoutFrequency: z.nativeEnum(require('@prisma/client').Frequency),
+  contributionAmount: z.string().refine(
+    (val) => !isNaN(Number(val)) && Number(val) > 0,
+    { message: "Please enter a valid amount" }
+  ),
+  // Single frequency field => cycleFrequency
+  cycleFrequency: z.nativeEnum(
+    // Import the Frequency enum from your Prisma client
+    require('@prisma/client').Frequency
+  ),
   acceptedTOS: z.boolean().refine((val) => val === true, {
     message: "You must accept the Terms and Conditions to proceed.",
   }),
@@ -33,21 +39,23 @@ const joinGroupSchema = z.object({
 });
 
 export const groupMembershipRouter = router({
-  // createGroup: Creates a new group
+  /**
+   * createGroup
+   * Creates a new group with:
+   *   - Single 'cycleFrequency'
+   *   - 'contributionAmount'
+   *   - initial membership => Admin (Pending)
+   */
   createGroup: privateProcedure
     .input(newGroupSchema)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
-
       if (!userId) {
         throw new TRPCError({ code: 'UNAUTHORIZED' });
       }
 
-      // Check group creation limit
-      const userGroups = await db.group.count({
-        where: { createdById: userId },
-      });
-
+      // Optionally check user’s plan limit, etc.
+      const userGroups = await db.group.count({ where: { createdById: userId } });
       if (userGroups >= 5) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -55,21 +63,23 @@ export const groupMembershipRouter = router({
         });
       }
 
+      // Create group
       try {
         const group = await db.group.create({
           data: {
             name: input.name,
             description: input.description,
             createdById: userId,
+
             contributionAmount: new Prisma.Decimal(input.contributionAmount),
-            contributionFrequency: input.contributionFrequency,
-            payoutFrequency: input.payoutFrequency,
+            cycleFrequency: input.cycleFrequency,
+
             groupMemberships: {
               create: {
                 userId,
                 isAdmin: true,
                 payoutOrder: 1,
-                status: MembershipStatus.Pending,
+                status: MembershipStatus.Pending, // admin might still need to sign contract
                 acceptedTOSAt: null,
               },
             },
@@ -80,6 +90,7 @@ export const groupMembershipRouter = router({
         return {
           success: true,
           group,
+          // Indicate to the front-end that the user may need to sign an owner contract
           requiresContract: true,
         };
       } catch (error) {
@@ -91,17 +102,20 @@ export const groupMembershipRouter = router({
       }
     }),
 
-  // joinGroup: Allows a user to join a group
+  /**
+   * joinGroup
+   * The user joins an existing group. Status becomes Pending until TOS/contract is accepted.
+   */
   joinGroup: privateProcedure
     .input(joinGroupSchema)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
-
       if (!userId) {
         throw new TRPCError({ code: 'UNAUTHORIZED' });
       }
 
       return await db.$transaction(async (tx) => {
+        // 1) Find group + figure out new payoutOrder
         const group = await tx.group.findUnique({
           where: { id: input.groupId },
           include: {
@@ -111,41 +125,42 @@ export const groupMembershipRouter = router({
             },
           },
         });
-
         if (!group) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' });
         }
 
+        // 2) Check user email
         const user = await tx.user.findUnique({
           where: { id: userId },
           select: { email: true },
         });
-
-        if (!user || !user.email) {
+        if (!user?.email) {
           throw new TRPCError({
             code: 'NOT_FOUND',
-            message: 'User not found or email is missing.',
+            message: 'User not found or missing email',
           });
         }
 
+        // 3) Check existing membership
         const existingMembership = await tx.groupMembership.findFirst({
           where: { groupId: input.groupId, userId },
         });
 
+        // Next payoutOrder is 1 beyond current max
         const nextPayoutOrder = group.groupMemberships[0]?.payoutOrder
           ? group.groupMemberships[0].payoutOrder + 1
           : 1;
 
         let membership;
-
         if (existingMembership) {
+          // Already active => can't rejoin
           if (existingMembership.status === MembershipStatus.Active) {
             throw new TRPCError({
               code: 'CONFLICT',
               message: 'You are already a member of this group',
             });
           }
-
+          // Update old record => set to Pending
           membership = await tx.groupMembership.update({
             where: { id: existingMembership.id },
             data: {
@@ -155,6 +170,7 @@ export const groupMembershipRouter = router({
             },
           });
         } else {
+          // No existing membership => create
           membership = await tx.groupMembership.create({
             data: {
               groupId: input.groupId,
@@ -167,7 +183,7 @@ export const groupMembershipRouter = router({
           });
         }
 
-        // Update invitation status
+        // 4) Mark invitation => accepted if it exists
         await tx.invitation.updateMany({
           where: {
             groupId: input.groupId,
@@ -177,14 +193,16 @@ export const groupMembershipRouter = router({
           data: { status: InvitationStatus.ACCEPTED },
         });
 
-        // Transaction record for joining
+        // 5) Log a transaction => user joined
         await tx.transaction.create({
           data: {
             userId,
             groupId: input.groupId,
             amount: new Prisma.Decimal(0),
             transactionType: TransactionType.Credit,
-            description: existingMembership ? 'Member rejoined group' : 'Member joined group',
+            description: existingMembership
+              ? 'Member rejoined group'
+              : 'Member joined group',
           },
         });
 
@@ -197,17 +215,20 @@ export const groupMembershipRouter = router({
       });
     }),
 
-  // transferAdminRole: Transfers admin privileges to another user
+  /**
+   * transferAdminRole
+   * Allows the current admin to appoint a new admin
+   */
   transferAdminRole: privateProcedure
     .input(z.object({ groupId: z.string(), newAdminId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
       const { groupId, newAdminId } = input;
 
+      // Must be the current admin
       const currentUserMembership = await db.groupMembership.findFirst({
         where: { groupId, userId, isAdmin: true },
       });
-
       if (!currentUserMembership) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -215,14 +236,14 @@ export const groupMembershipRouter = router({
         });
       }
 
+      // The new admin must be in the group
       const newAdminMembership = await db.groupMembership.findFirst({
         where: { groupId, userId: newAdminId },
       });
-
       if (!newAdminMembership) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'New admin not found in group',
+          message: 'New admin user not found in group',
         });
       }
 
@@ -240,22 +261,29 @@ export const groupMembershipRouter = router({
       return { success: true };
     }),
 
-  // removeMember: Removes a member from the group (before cycle starts)
+  /**
+   * removeMember
+   * Admin removes a user from the group if the cycle hasn't started
+   */
   removeMember: privateProcedure
     .input(z.object({ groupId: z.string(), memberId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx;
       const { groupId, memberId } = input;
 
+      // Must be an admin
       const membership = await db.groupMembership.findFirst({
         where: { groupId, userId, isAdmin: true },
         include: { group: true },
       });
-
       if (!membership) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only admins can remove members' });
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only admins can remove members',
+        });
       }
 
+      // If cycle started => can’t remove
       if (membership.group.cycleStarted) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -266,16 +294,22 @@ export const groupMembershipRouter = router({
       const membershipToRemove = await db.groupMembership.findFirst({
         where: { groupId, userId: memberId },
       });
-
       if (!membershipToRemove) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Member not found' });
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Member not found in group',
+        });
       }
 
       await db.groupMembership.delete({ where: { id: membershipToRemove.id } });
       return { success: true };
     }),
 
-  // leaveGroup: Allows a member to leave the group (if cycle not started)
+  /**
+   * leaveGroup
+   * A non-admin or admin can leave if cycle not started.
+   * If admin leaves, must appoint new admin.
+   */
   leaveGroup: privateProcedure
     .input(z.object({ groupId: z.string(), newAdminId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
@@ -286,7 +320,6 @@ export const groupMembershipRouter = router({
         where: { groupId, userId },
         include: { group: true },
       });
-
       if (!membership) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Membership not found' });
       }
@@ -303,29 +336,32 @@ export const groupMembershipRouter = router({
           if (!newAdminId) {
             throw new TRPCError({
               code: 'BAD_REQUEST',
-              message: 'Must specify new admin when leaving as admin',
+              message: 'Must specify new admin when an admin leaves',
             });
           }
-
           const newAdminMembership = await tx.groupMembership.findFirst({
             where: { groupId, userId: newAdminId },
           });
-
           if (!newAdminMembership) {
-            throw new TRPCError({ code: 'NOT_FOUND', message: 'New admin not found in group' });
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'New admin not found in group',
+            });
           }
-
+          // Transfer admin role
           await tx.groupMembership.update({
             where: { id: newAdminMembership.id },
             data: { isAdmin: true },
           });
         }
 
+        // Mark current user membership => Inactive
         await tx.groupMembership.update({
           where: { id: membership.id },
           data: { status: MembershipStatus.Inactive },
         });
 
+        // Log transaction
         await tx.transaction.create({
           data: {
             userId,
@@ -340,7 +376,10 @@ export const groupMembershipRouter = router({
       });
     }),
 
-  // updatePayoutOrder: Updates the payout order of group members before cycle starts
+  /**
+   * updatePayoutOrder
+   * Admin can reorder payouts before cycle starts
+   */
   updatePayoutOrder: privateProcedure
     .input(z.object({
       groupId: z.string(),
@@ -350,16 +389,19 @@ export const groupMembershipRouter = router({
       const { userId } = ctx;
       const { groupId, memberOrders } = input;
 
+      // Must be admin
       const membership = await db.groupMembership.findFirst({
         where: { groupId, userId, isAdmin: true },
       });
-
       if (!membership) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only admins can update payout order' });
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only admins can update payout order',
+        });
       }
 
+      // If cycle started => no reorder
       const group = await db.group.findUnique({ where: { id: groupId } });
-
       if (group?.cycleStarted) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -367,16 +409,18 @@ export const groupMembershipRouter = router({
         });
       }
 
+      // Find the relevant memberships
       const membershipsToUpdate = await db.groupMembership.findMany({
         where: {
           groupId,
-          userId: { in: memberOrders.map(m => m.memberId) },
+          userId: { in: memberOrders.map((m) => m.memberId) },
         },
       });
 
+      // Bulk update
       await db.$transaction(
         memberOrders.map(({ memberId, newOrder }) => {
-          const mem = membershipsToUpdate.find(m => m.userId === memberId);
+          const mem = membershipsToUpdate.find((m) => m.userId === memberId);
           if (!mem) {
             throw new TRPCError({
               code: 'NOT_FOUND',

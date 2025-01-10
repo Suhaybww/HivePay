@@ -63,7 +63,7 @@ export function constructMetadata({
       creator: "x"
     },
     icons,
-    metadataBase: new URL('https://hivepayapp.com'),
+    metadataBase: new URL('https://hivepay.com.au'),
     // themeColor: '#FFF',
     ...(noIndex && {
       robots: {

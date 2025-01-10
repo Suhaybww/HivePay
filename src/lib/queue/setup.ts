@@ -1,30 +1,29 @@
-import { contributionQueue, payoutQueue } from './config';
-import { processContributionCycle, processGroupPayout } from './processors';
+// src/lib/queue/setupQueues.ts
+import { contributionQueue } from './contributionQueue'; // or wherever you define
+import { paymentQueue } from './paymentQueue';
+import { processContributionCycle, retryFailedPayment } from './processors';
 
 export function setupQueues() {
-  // Process contribution cycles
+  // The "contribution" queue that handles "start-contribution" tasks
   contributionQueue.process('start-contribution', processContributionCycle);
 
-  // Process payouts
-  payoutQueue.process('process-payout', processGroupPayout);
+  // The separate "paymentQueue" or we can just use the same queue
+  paymentQueue.process('retry-failed-payment', retryFailedPayment);
 
-  // Error handling for queues
-  contributionQueue.on('error', (error) => {
-    console.error('Contribution queue error:', error);
-  });
-
-  payoutQueue.on('error', (error) => {
-    console.error('Payout queue error:', error);
-  });
-
-  // Job completion handling
+  // Set up events if desired
   contributionQueue.on('completed', (job) => {
     console.log(`Contribution cycle completed for group ${job.data.groupId}`);
   });
-
-  payoutQueue.on('completed', (job) => {
-    console.log(`Payout processed for group ${job.data.groupId}`);
+  contributionQueue.on('failed', (job, err) => {
+    console.error(`Contribution cycle failed for group ${job.data.groupId}`, err);
   });
 
-  console.log('Queue processors initialized');
+  paymentQueue.on('completed', (job) => {
+    console.log(`Payment retry job completed for payment ${job.data.paymentId}`);
+  });
+  paymentQueue.on('failed', (job, err) => {
+    console.error(`Payment retry job failed for payment ${job.data.paymentId}`, err);
+  });
+
+  console.log('All queues set up. Ready to process...');
 }

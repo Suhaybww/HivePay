@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { trpc } from '@/src/app/_trpc/client';
-import { Skeleton } from '@/src/components/ui/skeleton';
-import { useToast } from '@/src/components/ui/use-toast';
-import { GroupDetails } from '@/src/components/GroupDetails';
-import { GroupAnalytics } from '@/src/components/GroupAnalytics';
-import { GroupMessaging } from '@/src/components/GroupMessaging';
-import GroupSettings from '@/src/components/GroupSettings';
-import GroupAdmin from '@/src/components/GroupAdmin';
+import React, { useState, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { trpc } from "@/src/app/_trpc/client";
+import { Skeleton } from "@/src/components/ui/skeleton";
+import { useToast } from "@/src/components/ui/use-toast";
+import { GroupDetails } from "@/src/components/GroupDetails";
+import { GroupAnalytics } from "@/src/components/GroupAnalytics";
+import { GroupMessaging } from "@/src/components/GroupMessaging";
+import GroupSettings from "@/src/components/GroupSettings";
+import GroupAdmin from "@/src/components/GroupAdmin";
+
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/src/components/ui/alert";
+import { Button } from "@/src/components/ui/button";
 
 const defaultAnalyticsData = {
   contributions: [],
@@ -36,61 +40,72 @@ export default function GroupPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const [activeSection, setActiveSection] = useState('details');  // Changed from activeTab
+  const [activeSection, setActiveSection] = useState("details");
   const utils = trpc.useContext();
 
   const groupId = params?.groupId as string;
 
+  // Fetch the group data
   const { data: group, isLoading: isLoadingGroup } = trpc.group.getGroupById.useQuery(
     { groupId },
     {
       onError: (error) => {
         toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: error.message || 'Failed to fetch group data',
+          variant: "destructive",
+          title: "Error",
+          description: error.message || "Failed to fetch group data",
         });
-        router.push('/dashboard');
+        router.push("/dashboard");
       },
     }
   );
 
-  const { data: analyticsData, isLoading: isLoadingAnalytics } = trpc.group.getGroupAnalytics.useQuery(
-    { groupId },
-    {
-      enabled: activeSection === 'analytics',
-    }
-  );
+  // Fetch analytics data only when on the "analytics" tab
+  const { data: analyticsData, isLoading: isLoadingAnalytics } =
+    trpc.group.getGroupAnalytics.useQuery(
+      { groupId },
+      {
+        enabled: activeSection === "analytics",
+      }
+    );
 
-  const { data: messagesData, isLoading: isLoadingMessages } = trpc.group.getGroupMessages.useQuery(
-    { groupId, limit: 50 },
-    {
-      enabled: activeSection === 'messaging',
-    }
-  );
+  // Fetch messages only when on the "messaging" tab
+  const { data: messagesData, isLoading: isLoadingMessages } =
+    trpc.group.getGroupMessages.useQuery(
+      { groupId, limit: 50 },
+      {
+        enabled: activeSection === "messaging",
+      }
+    );
 
+  // Send message mutation
   const sendMessageMutation = trpc.group.sendMessage.useMutation({
     onError: (error) => {
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to send message',
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to send message",
       });
     },
   });
-
   const handleSendMessage = async (content: string) => {
     await sendMessageMutation.mutateAsync({ groupId, content });
   };
 
+  // Callback for leaving the group
   const handleLeaveGroup = useCallback(() => {
-    router.push('/dashboard');
+    router.push("/dashboard");
   }, [router]);
 
+  // Callback for refreshing group data after updates
   const handleGroupUpdate = useCallback(() => {
     utils.group.getGroupById.invalidate({ groupId });
   }, [utils, groupId]);
 
+  // Fetch user setup status (stripe, BECS)
+  const { data: userSetupStatus } = trpc.user.getUserSetupStatus.useQuery();
+
+  // If group is still loading
   if (isLoadingGroup) {
     return (
       <div className="p-6 space-y-4">
@@ -106,70 +121,106 @@ export default function GroupPage() {
 
   if (!group) return null;
 
+  // Determine if user is missing either receiving or payment setup
+  const isStripeIncomplete = userSetupStatus?.stripeOnboardingStatus !== "Completed";
+  const isBECsIncomplete = userSetupStatus?.becsSetupStatus !== "Completed";
+  const isAnySetupIncomplete = isStripeIncomplete || isBECsIncomplete;
+
   return (
     <div className="container mx-auto p-6 max-w-6xl">
       {/* Header Section */}
       <div className="flex justify-between items-start mb-8">
         <div className="space-y-2">
-          <h1 className="text-5xl font-bold text leading-tight">
-            {group.name}
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl">
-            {group.description}
-          </p>
+          <h1 className="text-5xl font-bold leading-tight">{group.name}</h1>
+          <p className="text-lg text-gray-600 max-w-2xl">{group.description}</p>
         </div>
       </div>
+
+      {/* If user hasn't set up everything, show a friendly alert */}
+      {isAnySetupIncomplete && (
+        <Alert
+          variant="destructive"
+          className="mb-6 bg-red-50 border border-red-200 text-red-900"
+        >
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          <div className="flex flex-col gap-1">
+            <AlertTitle className="font-semibold text-red-900">
+              Action Required
+            </AlertTitle>
+            <AlertDescription className="text-red-800">
+              You have not completed all payment setups. Please visit{" "}
+              <Button
+                variant="link"
+                className="p-0 h-auto inline-flex items-center font-semibold text-red-600 hover:text-red-700"
+                onClick={() => setActiveSection("settings")}
+              >
+                Settings
+              </Button>{" "}
+              to finalize your Stripe onboarding for payouts or BECS Direct Debit configuration.
+            </AlertDescription>
+          </div>
+        </Alert>
+      )}
 
       {/* Segmented Navigation */}
       <div className="border-b mb-8">
         <div className="flex flex-wrap -mb-px">
           <button
-            onClick={() => setActiveSection('details')}
+            onClick={() => setActiveSection("details")}
             className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
-              ${activeSection === 'details' 
-                ? 'border-yellow-400 text-black' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ${
+                activeSection === "details"
+                  ? "border-yellow-400 text-black"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
           >
             Details
           </button>
           <button
-            onClick={() => setActiveSection('analytics')}
+            onClick={() => setActiveSection("analytics")}
             className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
-              ${activeSection === 'analytics' 
-                ? 'border-yellow-400 text-black' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ${
+                activeSection === "analytics"
+                  ? "border-yellow-400 text-black"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
           >
             Analytics
           </button>
           <button
-            onClick={() => setActiveSection('messaging')}
+            onClick={() => setActiveSection("messaging")}
             className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
-              ${activeSection === 'messaging' 
-                ? 'border-yellow-400 text-black' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ${
+                activeSection === "messaging"
+                  ? "border-yellow-400 text-black"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
           >
             Messaging
           </button>
           <button
-            onClick={() => setActiveSection('settings')}
+            onClick={() => setActiveSection("settings")}
             className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
-              ${activeSection === 'settings' 
-                ? 'border-yellow-400 text-black' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ${
+                activeSection === "settings"
+                  ? "border-yellow-400 text-black"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
           >
             Settings
+            {/* If incomplete, show a red exclamation icon */}
+            {isAnySetupIncomplete && (
+              <AlertCircle className="ml-2 h-4 w-4 text-red-500" />
+            )}
           </button>
           {group.isAdmin && (
             <button
-              onClick={() => setActiveSection('admin')}
+              onClick={() => setActiveSection("admin")}
               className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
-                ${activeSection === 'admin' 
-                  ? 'border-yellow-400 text-black' 
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ${
+                  activeSection === "admin"
+                    ? "border-yellow-400 text-black"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
             >
               Admin
@@ -180,14 +231,11 @@ export default function GroupPage() {
 
       {/* Content Sections */}
       <div className="space-y-6">
-
-{/* Details Section */}
-{activeSection === 'details' && (
-          <GroupDetails group={group} />
-        )}
+        {/* Details Section */}
+        {activeSection === "details" && <GroupDetails group={group} />}
 
         {/* Analytics Section */}
-        {activeSection === 'analytics' && (
+        {activeSection === "analytics" && (
           <>
             {isLoadingAnalytics ? (
               <div className="space-y-4">
@@ -204,7 +252,7 @@ export default function GroupPage() {
         )}
 
         {/* Messaging Section */}
-        {activeSection === 'messaging' && (
+        {activeSection === "messaging" && (
           <>
             {isLoadingMessages ? (
               <Skeleton className="h-[600px] w-full" />
@@ -219,7 +267,7 @@ export default function GroupPage() {
         )}
 
         {/* Settings Section */}
-        {activeSection === 'settings' && group && (
+        {activeSection === "settings" && group && (
           <GroupSettings
             group={group}
             onLeaveGroup={handleLeaveGroup}
@@ -228,11 +276,8 @@ export default function GroupPage() {
         )}
 
         {/* Admin Section */}
-        {activeSection === 'admin' && group.isAdmin && (
-          <GroupAdmin
-            group={group}
-            onGroupUpdate={handleGroupUpdate}
-          />
+        {activeSection === "admin" && group.isAdmin && (
+          <GroupAdmin group={group} onGroupUpdate={handleGroupUpdate} />
         )}
       </div>
     </div>

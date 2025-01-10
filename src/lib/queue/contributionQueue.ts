@@ -1,11 +1,19 @@
-// src/lib/queue/config.ts
+// src/lib/queue/contributionQueue.ts
+
 import Bull from 'bull';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
+/**
+ * contributionQueue
+ * - Handles “start-contribution” jobs, i.e. when a group cycle starts.
+ */
 export const contributionQueue = new Bull('contribution-cycles', REDIS_URL);
 
-const defaultJobOptions = {
+/**
+ * Optional default job options for contribution cycles.
+ */
+export const contributionJobOptions = {
   attempts: 3,
   backoff: {
     type: 'exponential',
@@ -13,5 +21,3 @@ const defaultJobOptions = {
   },
   removeOnComplete: true,
 };
-
-export { defaultJobOptions };

@@ -1,154 +1,140 @@
+// src/lib/services/SchedulerService.ts
 import { db } from '@/src/db';
-import { contributionQueue, payoutQueue, defaultJobOptions } from '../queue/config';
+import { contributionQueue, defaultJobOptions } from '../queue/config';
 import { Frequency, GroupStatus } from '@prisma/client';
-import { addDays, addWeeks, addMonths } from 'date-fns';
+import { addWeeks, addMonths } from 'date-fns';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 
 export class SchedulerService {
-  // Calculate next date based on frequency
+  private static readonly TIMEZONE = 'Australia/Melbourne';
+
+  /**
+   * getNextDate
+   * Takes the current date & the Frequency => returns a new date in UTC
+   */
   private static getNextDate(currentDate: Date, frequency: Frequency): Date {
+    const melbourneDate = toZonedTime(currentDate, this.TIMEZONE);
+    let nextDate: Date;
+
     switch (frequency) {
-      case 'Daily':
-        return addDays(currentDate, 1);
       case 'Weekly':
-        return addWeeks(currentDate, 1);
+        nextDate = addWeeks(melbourneDate, 1);
+        break;
       case 'BiWeekly':
-        return addWeeks(currentDate, 2);
+        nextDate = addWeeks(melbourneDate, 2);
+        break;
       case 'Monthly':
-        return addMonths(currentDate, 1);
+        nextDate = addMonths(melbourneDate, 1);
+        break;
       default:
         throw new Error(`Unsupported frequency: ${frequency}`);
     }
+
+    // Convert back to UTC
+    return new Date(Date.UTC(
+      nextDate.getFullYear(),
+      nextDate.getMonth(),
+      nextDate.getDate(),
+      nextDate.getHours(),
+      nextDate.getMinutes(),
+      nextDate.getSeconds(),
+      nextDate.getMilliseconds()
+    ));
   }
 
-  // Schedule contribution cycle for a group
+  /**
+   * scheduleContributionCycle
+   * Called right away after scheduleGroupCycles, or after finishing a cycle,
+   * to queue up the next run of "start-contribution".
+   */
   static async scheduleContributionCycle(groupId: string): Promise<void> {
     const group = await db.group.findUnique({
       where: { id: groupId },
       select: {
-        contributionFrequency: true,
-        nextContributionDate: true,
-        status: true
-      }
+        cycleFrequency: true,
+        nextCycleDate: true,
+        status: true,
+      },
     });
 
-    if (!group || !group.contributionFrequency || group.status !== GroupStatus.Active) {
-      console.log(`Invalid group or inactive status for scheduling: ${groupId}`);
+    if (!group || !group.cycleFrequency || group.status !== GroupStatus.Active) {
+      console.log(`Invalid or inactive group for scheduling: ${groupId}`);
       return;
     }
 
-    const nextDate = group.nextContributionDate || new Date();
-    const delay = nextDate.getTime() - Date.now();
+    // If group.nextCycleDate is not set or is in the past, we do immediate or fix it
+    const nextDateInMelbourne = group.nextCycleDate
+      ? toZonedTime(group.nextCycleDate, this.TIMEZONE)
+      : toZonedTime(new Date(), this.TIMEZONE);
+
+    let nextDateUTC = new Date(Date.UTC(
+      nextDateInMelbourne.getFullYear(),
+      nextDateInMelbourne.getMonth(),
+      nextDateInMelbourne.getDate(),
+      nextDateInMelbourne.getHours(),
+      nextDateInMelbourne.getMinutes(),
+      nextDateInMelbourne.getSeconds()
+    ));
+
+    let delay = nextDateUTC.getTime() - Date.now();
 
     if (delay < 0) {
-      console.log(`Scheduled date is in the past for group ${groupId}, adjusting to next cycle`);
-      const adjustedDate = this.getNextDate(new Date(), group.contributionFrequency);
-      await this.updateGroupNextContributionDate(groupId, adjustedDate);
-      return this.scheduleContributionCycle(groupId);
+      console.log(`(TESTING) nextCycleDate is in the past. Forcing delay=0 immediately.`);
+      delay = 0;
     }
 
-    // Schedule the contribution job
+    // Add job => 'start-contribution'
     await contributionQueue.add(
       'start-contribution',
       { groupId },
       {
         ...defaultJobOptions,
         delay,
-        jobId: `contribution-${groupId}-${nextDate.getTime()}`
+        jobId: `contribution-${groupId}-${nextDateUTC.getTime()}`,
       }
     );
 
-    console.log(`Scheduled contribution cycle for group ${groupId} at ${nextDate}`);
-  }
-
-  // Schedule payout for a group
-  static async schedulePayoutProcessing(groupId: string): Promise<void> {
-    const group = await db.group.findUnique({
-      where: { id: groupId },
-      select: {
-        payoutFrequency: true,
-        nextPayoutDate: true,
-        status: true
-      }
-    });
-
-    if (!group || !group.payoutFrequency || group.status !== GroupStatus.Active) {
-      console.log(`Invalid group or inactive status for scheduling payout: ${groupId}`);
-      return;
-    }
-
-    const nextDate = group.nextPayoutDate || new Date();
-    const delay = nextDate.getTime() - Date.now();
-
-    if (delay < 0) {
-      console.log(`Scheduled payout date is in the past for group ${groupId}, adjusting to next cycle`);
-      const adjustedDate = this.getNextDate(new Date(), group.payoutFrequency);
-      await this.updateGroupNextPayoutDate(groupId, adjustedDate);
-      return this.schedulePayoutProcessing(groupId);
-    }
-
-    // Schedule the payout job
-    await payoutQueue.add(
-      'process-payout',
-      { groupId },
-      {
-        ...defaultJobOptions,
-        delay,
-        jobId: `payout-${groupId}-${nextDate.getTime()}`
-      }
+    console.log(
+      `Scheduled next cycle for group ${groupId} at`,
+      formatInTimeZone(nextDateUTC, this.TIMEZONE, 'yyyy-MM-dd HH:mm:ss zzz')
     );
-
-    console.log(`Scheduled payout for group ${groupId} at ${nextDate}`);
   }
 
-  // Update group's next contribution date
-  private static async updateGroupNextContributionDate(groupId: string, nextDate: Date): Promise<void> {
-    await db.group.update({
-      where: { id: groupId },
-      data: { nextContributionDate: nextDate }
-    });
-  }
-
-  // Update group's next payout date
-  private static async updateGroupNextPayoutDate(groupId: string, nextDate: Date): Promise<void> {
-    await db.group.update({
-      where: { id: groupId },
-      data: { nextPayoutDate: nextDate }
-    });
-  }
-
-  // Schedule next cycle after completion
+  /**
+   * scheduleNextCycle
+   * If the group is still active & started, we push nextCycleDate forward
+   * by 1 frequency interval => then re-schedule the queue.
+   */
   static async scheduleNextCycle(groupId: string): Promise<void> {
     const group = await db.group.findUnique({
       where: { id: groupId },
       select: {
-        contributionFrequency: true,
-        payoutFrequency: true,
-        nextContributionDate: true,
-        nextPayoutDate: true,
-        status: true
-      }
+        cycleFrequency: true,
+        nextCycleDate: true,
+        status: true,
+      },
+    });
+    if (!group || group.status !== GroupStatus.Active) {
+      return;
+    }
+
+    if (!group.cycleFrequency) {
+      console.log(`No cycleFrequency set for group ${groupId}; skipping next cycle scheduling.`);
+      return;
+    }
+
+    const nextCycleDate = group.nextCycleDate || new Date();
+
+    // Move it forward by 1 frequency cycle
+    const nextDateUTC = this.getNextDate(nextCycleDate, group.cycleFrequency);
+
+    await db.group.update({
+      where: { id: groupId },
+      data: {
+        nextCycleDate: nextDateUTC,
+      },
     });
 
-    if (!group || group.status !== GroupStatus.Active) return;
-
-    // Schedule next contribution cycle
-    if (group.contributionFrequency) {
-      const nextContributionDate = this.getNextDate(
-        group.nextContributionDate || new Date(),
-        group.contributionFrequency
-      );
-      await this.updateGroupNextContributionDate(groupId, nextContributionDate);
-      await this.scheduleContributionCycle(groupId);
-    }
-
-    // Schedule next payout
-    if (group.payoutFrequency) {
-      const nextPayoutDate = this.getNextDate(
-        group.nextPayoutDate || new Date(),
-        group.payoutFrequency
-      );
-      await this.updateGroupNextPayoutDate(groupId, nextPayoutDate);
-      await this.schedulePayoutProcessing(groupId);
-    }
+    await this.scheduleContributionCycle(groupId);
   }
 }

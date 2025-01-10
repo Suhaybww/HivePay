@@ -31,7 +31,9 @@ const Footer = () => {
                 width={96} 
                 height={96}
               />
-              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">HivePay</span>
+              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
+                HivePay
+              </span>
             </Link>
             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">
               Transforming traditional group savings into a seamless digital experience. Save and grow wealth together.
@@ -79,7 +81,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
           <p className="text-xs text-center md:text-left text-gray-600 dark:text-gray-400">
-            © {currentYear} HivePay Pty Ltd (ACN: 683 103 808). All rights reserved.
+            © {currentYear} HivePay Pty Ltd (ACN: 683 103 808, ABN: 56683103808). All rights reserved.
           </p>
         </div>
       </div>

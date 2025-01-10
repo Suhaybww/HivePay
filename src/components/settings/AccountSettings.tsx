@@ -34,6 +34,7 @@ export function AccountSettings({ user }: { user: any }) {
   const [deletionReason, setDeletionReason] = useState("");
   const utils = trpc.useContext();
 
+  // Query to check if user can delete their account (no active groups with started cycles, etc.)
   const { data: deleteStatus } = trpc.user.canDeleteAccount.useQuery();
 
   // Show reactivation toast if account was just reactivated
@@ -70,11 +71,15 @@ export function AccountSettings({ user }: { user: any }) {
   });
 
   const handleDeleteAccount = () => {
-    deleteAccount.mutate({ reason: deletionReason });
+    // If they truly can delete, proceed; otherwise do nothing extra here
+    if (deleteStatus?.canDelete) {
+      deleteAccount.mutate({ reason: deletionReason });
+    }
   };
 
   return (
     <div className="space-y-6">
+      {/* Reactivation banner */}
       {user?.wasReactivated && (
         <Alert>
           <RefreshCw className="h-4 w-4" />
@@ -110,12 +115,17 @@ export function AccountSettings({ user }: { user: any }) {
               </div>
             </div>
 
+            {/* 
+              We always allow the user to click the "Delete Account" button.
+              If they cannot delete (e.g., active groups with started cycles), 
+              show an error modal. Otherwise show the usual confirmation modal.
+            */}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button 
                   variant="destructive" 
                   size="sm" 
-                  disabled={!deleteStatus?.canDelete || isDeleting}
+                  disabled={isDeleting}
                   className="w-full sm:w-auto"
                 >
                   {isDeleting ? (
@@ -129,57 +139,67 @@ export function AccountSettings({ user }: { user: any }) {
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-4">
-                    <div className="space-y-3">
-                      <p className="font-medium text-red-600">
-                        Your account will be deactivated with a 30-day recovery period.
-                      </p>
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                        <p className="text-sm text-yellow-800 font-medium">
-                          You can reactivate your account by logging back in within 30 days.
-                        </p>
-                      </div>
-                      <ul className="list-disc list-inside space-y-1 text-sm">
-                        <li>Immediate deactivation of your account</li>
-                        <li>30-day window to change your mind</li>
-                        <li>Loss of access to groups and savings history</li>
-                        <li>Cancellation of pending payments or transfers</li>
-                        <li>Permanent deletion after 30 days</li>
-                      </ul>
-                    </div>
+                {/* If user CAN delete, show the confirmation. Otherwise, show the error. */}
+                {deleteStatus?.canDelete ? (
+                  <>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-4">
+                        <div className="space-y-3">
+                          <p className="font-medium text-red-600">
+                            Your account will be deactivated with a 30-day recovery period.
+                          </p>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                            <p className="text-sm text-yellow-800 font-medium">
+                              You can reactivate your account by logging back in within 30 days.
+                            </p>
+                          </div>
+                          <ul className="list-disc list-inside space-y-1 text-sm">
+                            <li>Immediate deactivation of your account</li>
+                            <li>30-day window to change your mind</li>
+                            <li>Loss of access to groups and savings history</li>
+                            <li>Cancellation of pending payments or transfers</li>
+                            <li>Permanent deletion after 30 days</li>
+                          </ul>
+                        </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        Please tell us why you&apos;re leaving (optional):
-                      </label>
-                      <Textarea
-                        value={deletionReason}
-                        onChange={(e) => setDeletionReason(e.target.value)}
-                        placeholder="Your feedback helps us improve our service"
-                        className="h-24"
-                      />
-                    </div>
-
-                    {!deleteStatus?.canDelete && (
-                      <p className="mt-4 text-sm font-medium text-red-600">
-                        You cannot delete your account while you have active groups with started cycles. 
-                        Please leave or close all groups first.
-                      </p>
-                    )}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteAccount}
-                    className="bg-red-500 hover:bg-red-600"
-                    disabled={!deleteStatus?.canDelete}
-                  >
-                    Deactivate Account
-                  </AlertDialogAction>
-                </AlertDialogFooter>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">
+                            Please tell us why you&apos;re leaving (optional):
+                          </label>
+                          <Textarea
+                            value={deletionReason}
+                            onChange={(e) => setDeletionReason(e.target.value)}
+                            placeholder="Your feedback helps us improve our service"
+                            className="h-24"
+                          />
+                        </div>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteAccount}
+                        className="bg-red-500 hover:bg-red-600"
+                      >
+                        Deactivate Account
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </>
+                ) : (
+                  <>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cannot Delete Your Account</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        You are currently in an active group that has a cycle started.
+                        Please leave or close all such groups before deleting your account.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Close</AlertDialogCancel>
+                    </AlertDialogFooter>
+                  </>
+                )}
               </AlertDialogContent>
             </AlertDialog>
           </div>

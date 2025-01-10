@@ -162,7 +162,7 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
     },
   });
 
-  const createStripeAccount = trpc.auth.createStripeConnectAccount.useMutation({
+  const createStripeAccount = trpc.stripe.createStripeConnectAccount.useMutation({
     onSuccess: (data) => {
       if (data.url) {
         window.location.href = data.url;
@@ -177,7 +177,7 @@ const GroupSettings: React.FC<GroupSettingsProps> = ({ group, onLeaveGroup, onGr
     },
   });
 
-  const setupBECSMutation = trpc.auth.setupBECSDirectDebit.useMutation({
+  const setupBECSMutation = trpc.stripe.setupBECSDirectDebit.useMutation({
     onSuccess: (data) => {
       setSetupIntentClientSecret(data.setupIntentClientSecret);
       setShowBECSSetupDialog(true);

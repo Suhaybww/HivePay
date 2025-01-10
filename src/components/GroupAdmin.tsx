@@ -34,11 +34,10 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { AdminInviteSection } from './AdminInviteSection';
-
-
+import { PauseReason } from "@prisma/client"
 
 interface GroupAdminProps {
-  group: GroupWithStats;
+  group: GroupWithStats;  // group now includes { pauseReason?: string; ... }
   onGroupUpdate: () => void;
 }
 
@@ -54,24 +53,26 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
 
   const cycleStarted = group.cycleStarted;
 
-  // TRPC Mutations
+  // 1) Save basic group settings
   const updateGroupMutation = trpc.group.updateGroupSettings.useMutation({
     onSuccess: () => {
       toast({
         title: 'Settings Saved',
         description: 'Your group settings have been updated successfully.',
       });
+      // Re-fetch group data
       utils.group.getGroupById.invalidate({ groupId: group.id });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to update group settings',
         variant: 'destructive',
       });
     },
   });
 
+  // 2) Transfer admin
   const transferAdminMutation = trpc.group.transferAdminRole.useMutation({
     onSuccess: () => {
       toast({
@@ -81,36 +82,37 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
       utils.group.getGroupById.invalidate({ groupId: group.id });
       setNewAdminId('');
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to transfer admin role',
         variant: 'destructive',
       });
     },
   });
 
+  // 3) Remove member
   const removeMemberMutation = trpc.group.removeMember.useMutation({
     onSuccess: () => {
       toast({
         title: 'Member Removed',
         description: 'The member has been removed from the group.',
       });
-      // Invalidate the query to refetch fresh data
       utils.group.getGroupById.invalidate({ groupId: group.id });
       onGroupUpdate();
     },
-    onError: (error: any) => {
-      // On error, revert the optimistic update
+    onError: (error) => {
+      // revert changes if error
       setMembers(group.members);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to remove member',
         variant: 'destructive',
       });
     },
   });
 
+  // 4) Reorder (drag & drop) payout order
   const updatePayoutOrderMutation = trpc.group.updatePayoutOrder.useMutation({
     onSuccess: () => {
       toast({
@@ -119,16 +121,53 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
       });
       utils.group.getGroupById.invalidate({ groupId: group.id });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to update payout order',
         variant: 'destructive',
       });
     },
   });
 
-  // Handlers
+  // 5) Retry all payments if paused due to payment failures/refund
+  const retryAllPaymentsMutation = trpc.cycle.retryAllPayments.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Retry Triggered',
+        description: 'Attempting to re-collect payments. Group is now Active.',
+      });
+      utils.group.getGroupById.invalidate({ groupId: group.id });
+      onGroupUpdate();
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to retry payments.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // 6) Delete group
+  const deleteGroupMutation = trpc.group.deleteGroup.useMutation({
+    onSuccess: () => {
+      toast({
+        title: 'Group Deleted',
+        description: 'The group has been successfully deleted.',
+      });
+      router.push('/dashboard');
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete group',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Handler: update group
   const handleSave = async () => {
     await updateGroupMutation.mutateAsync({
       groupId: group.id,
@@ -138,23 +177,14 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
     onGroupUpdate();
   };
 
+  // Handler: remove member
   const handleRemoveMember = async (memberId: string) => {
-    // Optimistically update the UI
-    setMembers(currentMembers => 
-      currentMembers.filter(member => member.id !== memberId)
-    );
-
-    try {
-      await removeMemberMutation.mutateAsync({
-        groupId: group.id,
-        memberId,
-      });
-    } catch (error) {
-      // Error handling is done in the mutation's onError callback
-      console.error('Failed to remove member:', error);
-    }
+    // optimistic
+    setMembers((curr) => curr.filter((m) => m.id !== memberId));
+    await removeMemberMutation.mutateAsync({ groupId: group.id, memberId });
   };
 
+  // Handler: transfer admin
   const handleTransferAdmin = async () => {
     if (!newAdminId) {
       toast({
@@ -164,62 +194,44 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
       });
       return;
     }
-
-    await transferAdminMutation.mutateAsync({
-      groupId: group.id,
-      newAdminId,
-    });
+    await transferAdminMutation.mutateAsync({ groupId: group.id, newAdminId });
     onGroupUpdate();
   };
 
+  // Handler: drag & drop reorder
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
-    const reorderedMembers = Array.from(members);
-    const [moved] = reorderedMembers.splice(result.source.index, 1);
-    reorderedMembers.splice(result.destination.index, 0, moved);
+    const reordered = Array.from(members);
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
 
-    setMembers(reorderedMembers);
+    setMembers(reordered);
 
-    const memberOrders = reorderedMembers.map((member, index) => ({
-      memberId: member.id,
-      newOrder: index + 1,
+    // now call mutation
+    const memberOrders = reordered.map((mem, idx) => ({
+      memberId: mem.id,
+      newOrder: idx + 1,
     }));
-
     await updatePayoutOrderMutation.mutateAsync({
       groupId: group.id,
       memberOrders,
     });
     onGroupUpdate();
   };
-  
-   // Add new delete mutation
-   const deleteGroupMutation = trpc.group.deleteGroup.useMutation({
-    onSuccess: () => {
-      toast({
-        title: 'Group Deleted',
-        description: 'The group has been successfully deleted.',
-      });
-      router.push('/dashboard'); // Redirect to dashboard after deletion
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
 
-  // Add delete handler
+  // Handler: delete group
   const handleDeleteGroup = async () => {
     try {
-      await deleteGroupMutation.mutateAsync({
-        groupId: group.id
-      });
-    } catch (error) {
-      console.error('Failed to delete group:', error);
+      await deleteGroupMutation.mutateAsync({ groupId: group.id });
+    } catch (err) {
+      console.error('Failed to delete group:', err);
     }
+  };
+
+  // Handler: retry all payments
+  const handleRetryPayments = () => {
+    retryAllPaymentsMutation.mutate({ groupId: group.id });
   };
 
   return (
@@ -234,9 +246,9 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
             Manage your group preferences and members
           </CardDescription>
         </CardHeader>
-  
+
         <CardContent className="space-y-8">
-          {/* Basic Settings */}
+          {/* 1) Basic Settings */}
           <div className="space-y-6">
             <div className="space-y-2">
               <label className="text-base font-medium">Group Name</label>
@@ -247,7 +259,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                 className="w-full text-lg"
               />
             </div>
-  
+
             <div className="space-y-2">
               <label className="text-base font-medium">Description</label>
               <Textarea
@@ -257,17 +269,17 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                 className="w-full min-h-[120px] text-lg"
               />
             </div>
-  
+
             <div className="flex justify-end">
               <Button onClick={handleSave} size="lg" className="px-8">
                 Save Changes
               </Button>
             </div>
           </div>
-  
+
           <Separator className="my-8" />
-  
-          {/* Invitation and Member Management Section */}
+
+          {/* 2) Invitation and Member Management (only if cycle not started) */}
           {!cycleStarted && (
             <>
               <div className="space-y-4">
@@ -275,10 +287,10 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                   <Users className="h-6 w-6 text-primary" />
                   <span>Manage Members</span>
                 </h3>
-  
-                {/* Invitations Section */}
+
+                {/* AdminInviteSection for inviting new members */}
                 <AdminInviteSection groupId={group.id} />
-  
+
                 {/* Member Management */}
                 <Alert className="bg-background">
                   <Users className="h-5 w-5" />
@@ -286,7 +298,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                     Drag members to reorder them. Use the remove button to remove a member from the group.
                   </AlertDescription>
                 </Alert>
-  
+
                 <DragDropContext onDragEnd={onDragEnd}>
                   <Droppable droppableId="members">
                     {(provided) => (
@@ -298,19 +310,20 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                         >
                           {members.map((member, index) => (
                             <Draggable key={member.id} draggableId={member.id} index={index}>
-                              {(provided, snapshot) => (
+                              {(dragProvided, snapshot) => (
                                 <li
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
                                   className={`group flex justify-between items-center p-4 rounded-lg border-2 transition-all duration-200 ${
                                     snapshot.isDragging
                                       ? 'bg-accent border-primary shadow-lg'
                                       : 'bg-background border-muted hover:border-primary/50'
                                   }`}
                                 >
+                                  {/* DRAG HANDLE */}
                                   <div className="flex items-center gap-4">
                                     <div
-                                      {...provided.dragHandleProps}
+                                      {...dragProvided.dragHandleProps}
                                       className="p-2 hover:bg-muted rounded-md transition-colors cursor-grab active:cursor-grabbing"
                                     >
                                       <GripVertical className="h-5 w-5 text-muted-foreground" />
@@ -323,7 +336,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                                       </div>
                                     )}
                                   </div>
-  
+
                                   <div className="flex items-center gap-2">
                                     {!member.isAdmin && (
                                       <Button
@@ -348,18 +361,18 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                   </Droppable>
                 </DragDropContext>
               </div>
-  
+
               <Separator className="my-8" />
             </>
           )}
-  
-          {/* Admin Transfer Section */}
+
+          {/* 3) Admin Transfer Section */}
           <div className="space-y-4">
             <h3 className="text-xl font-medium flex items-center gap-2">
               <Crown className="h-6 w-6 text-yellow-500" />
               <span>Transfer Admin Role</span>
             </h3>
-  
+
             <div className="flex gap-4 items-end">
               <div className="flex-1 space-y-2">
                 <label className="text-base font-medium">Select New Admin</label>
@@ -371,22 +384,22 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                     <SelectGroup>
                       <SelectLabel>Members</SelectLabel>
                       {members
-                        .filter((member) => !member.isAdmin)
-                        .map((member) => (
-                          <SelectItem key={member.id} value={member.id} className="text-base">
-                            {member.firstName}
+                        .filter((m) => !m.isAdmin)
+                        .map((m) => (
+                          <SelectItem key={m.id} value={m.id} className="text-base">
+                            {m.firstName}
                           </SelectItem>
                         ))}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
-  
+
               <Button onClick={handleTransferAdmin} size="lg" className="px-8">
                 Transfer Role
               </Button>
             </div>
-  
+
             <Alert>
               <AlertTriangle className="h-5 w-5" />
               <AlertTitle className="text-base font-medium">Note</AlertTitle>
@@ -397,69 +410,104 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
             </Alert>
           </div>
 
-{/* Delete Group Section */}
-{!cycleStarted && (
-  <>
-    <Separator className="my-8" />
-    
-    <div className="space-y-4">
-      <h3 className="text-xl font-medium flex items-center gap-2 text-red-600">
-        <Trash2 className="h-6 w-6" />
-        <span>Delete Group</span>
-      </h3>
+          {/*
+            4) "Retry Payments" button if:
+               group.status === 'Paused'
+               AND (group.pauseReason === 'PAYMENT_FAILURES' || group.pauseReason === 'REFUND_ALL')
+          */}
+          {group.status === 'Paused' &&
+            (group.pauseReason === 'PAYMENT_FAILURES' || group.pauseReason === 'REFUND_ALL') && (
+              <>
+                <Separator className="my-8" />
+                <div className="space-y-4">
+                  <h3 className="text-xl font-medium flex items-center gap-2">
+                    <AlertTriangle className="h-6 w-6 text-yellow-700" />
+                    <span>Group Paused</span>
+                  </h3>
+                  <Alert className="bg-yellow-50 border border-yellow-300">
+                    <AlertTriangle className="h-5 w-5 text-yellow-800" />
+                    <AlertTitle className="text-base font-medium">Group is Paused</AlertTitle>
+                    <AlertDescription className="text-sm text-yellow-800">
+                      Payments have failed or have been refunded. The group is currently paused.
+                      You can retry payments to attempt collection again.
+                    </AlertDescription>
+                  </Alert>
 
-      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 space-y-2">
-        <div className="flex items-center gap-2 text-red-700">
-          <AlertTriangle className="h-5 w-5" />
-          <h4 className="font-medium">Warning</h4>
-        </div>
-        <p className="text-red-700">
-          Deleting the group will permanently remove all group data, including member information,
-          payment history, and messages. This action cannot be undone.
-        </p>
-      </div>
+                  <Button
+                    onClick={handleRetryPayments}
+                    size="lg"
+                    variant="default"
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white transition-colors"
+                  >
+                    {retryAllPaymentsMutation.isLoading ? 'Retrying...' : 'Retry Payments'}
+                  </Button>
+                </div>
+              </>
+            )}
 
-      <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button 
-          variant="destructive" 
-          size="lg" 
-          className="w-full bg-rose-500 hover:bg-rose-600 transition-colors"
-        >
-          <Trash2 className="h-5 w-5 mr-2" />
-          Delete Group
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-red-600">Are you absolutely sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            <p className="mb-2 text-gray-700">
-              This will permanently delete the group &ldquo;{group.name}&rdquo; and remove all associated data.
-              This action cannot be undone.
-            </p>
-            <p className="font-medium text-gray-900">
-              All members will be notified of this deletion.
-            </p>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleDeleteGroup}
-            className="bg-rose-500 hover:bg-rose-600 transition-colors text-white"
-          >
-            Yes, Delete Group
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-        <p className="text-sm text-gray-600 mt-2">
-          Note: Groups can only be deleted before the savings cycle has started.
-        </p>
-      </div>
-    </>
-  )}
+          {/* 5) Delete Group Section (only if cycle not started) */}
+          {!cycleStarted && (
+            <>
+              <Separator className="my-8" />
+
+              <div className="space-y-4">
+                <h3 className="text-xl font-medium flex items-center gap-2 text-red-600">
+                  <Trash2 className="h-6 w-6" />
+                  <span>Delete Group</span>
+                </h3>
+
+                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <AlertTriangle className="h-5 w-5" />
+                    <h4 className="font-medium">Warning</h4>
+                  </div>
+                  <p className="text-red-700">
+                    Deleting the group will permanently remove all group data, including member information,
+                    payment history, and messages. This action cannot be undone.
+                  </p>
+                </div>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="lg"
+                      className="w-full bg-rose-500 hover:bg-rose-600 transition-colors"
+                    >
+                      <Trash2 className="h-5 w-5 mr-2" />
+                      Delete Group
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-red-600">Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        <p className="mb-2 text-gray-700">
+                          This will permanently delete the group &ldquo;{group.name}&rdquo; and remove all associated data.
+                          This action cannot be undone.
+                        </p>
+                        <p className="font-medium text-gray-900">
+                          All members will be notified of this deletion.
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteGroup}
+                        className="bg-rose-500 hover:bg-rose-600 transition-colors text-white"
+                      >
+                        Yes, Delete Group
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <p className="text-sm text-gray-600 mt-2">
+                  Note: Groups can only be deleted before the savings cycle has started.
+                </p>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

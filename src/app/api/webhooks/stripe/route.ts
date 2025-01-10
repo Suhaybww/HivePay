@@ -448,63 +448,70 @@ case 'customer.subscription.deleted': {
         break;
       }
 
-      // ====== Payment Intent Events ======
+     //==============================
+      // Payment Intents (Subscription or otherwise)
+      //==============================
       case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const pi = event.data.object as Stripe.PaymentIntent;
+        console.log(`PaymentIntent succeeded: ${pi.id}`);
 
+        // Mark local Payment as success
         await db.payment.updateMany({
-          where: {
-            stripePaymentIntentId: paymentIntent.id,
-          },
-          data: {
-            status: PaymentStatus.Successful,
-          },
+          where: { stripePaymentIntentId: pi.id },
+          data: { status: PaymentStatus.Successful },
         });
-
-        console.log(`PaymentIntent ${paymentIntent.id} marked as Successful.`);
         break;
       }
-
+      
       case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-
-        await db.payment.updateMany({
-          where: {
-            stripePaymentIntentId: paymentIntent.id,
-          },
-          data: {
-            status: PaymentStatus.Failed,
-          },
+        const pi = event.data.object as Stripe.PaymentIntent;
+        console.log(`PaymentIntent failed: ${pi.id}`);
+      
+        // 1) Mark local Payment(s) as failed & increment retryCount
+        const failedPayments = await db.payment.findMany({
+          where: { stripePaymentIntentId: pi.id },
         });
-
-        console.log(`PaymentIntent ${paymentIntent.id} marked as Failed.`);
-
-        // Additional: Set subscriptionStatus to Inactive
-        // To find the user, retrieve the customer from the paymentIntent
-        if (paymentIntent.customer) {
-          const customerId = paymentIntent.customer as string;
-          const user = await db.user.findUnique({
-            where: { stripeCustomerId: customerId },
-            select: { id: true },
+        for (const pay of failedPayments) {
+          const updated = await db.payment.update({
+            where: { id: pay.id },
+            data: {
+              status: PaymentStatus.Failed,
+              retryCount: { increment: 1 },
+            },
           });
-
+      
+          console.log(`Payment ${pay.id} is now Failed (retryCount=${updated.retryCount})`);
+      
+          // 2) If 3+ => pause group
+          if (updated.retryCount >= 3) {
+            console.log(`Pausing group ${updated.groupId} because Payment ${pay.id} exceeded retry limit...`);
+            await db.group.update({
+              where: { id: updated.groupId },
+              data: { status: GroupStatus.Paused },
+            });
+            // Optionally email group members about the pause
+          }
+        }
+      
+        // 3) (Optional) Also mark user sub inactive if needed
+        if (pi.customer) {
+          const custId = pi.customer as string;
+          const user = await db.user.findUnique({
+            where: { stripeCustomerId: custId },
+          });
           if (user) {
             await db.user.update({
               where: { id: user.id },
-              data: {
-                subscriptionStatus: SubscriptionStatus.Inactive,
-              },
+              data: { subscriptionStatus: SubscriptionStatus.Inactive },
             });
-            console.log(`User ${user.id} subscription status set to Inactive due to payment failure.`);
-          } else {
-            console.log(`User not found for customer ID: ${customerId}`);
+            console.log(`User ${user.id} sub is now Inactive due to PaymentIntent fail`);
           }
-        } else {
-          console.log('PaymentIntent missing customer ID.');
         }
-
+      
         break;
       }
+      
+      
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;

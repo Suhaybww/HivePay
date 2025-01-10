@@ -8,17 +8,16 @@ brevoClient.setApiKey(
   process.env.BREVO_API_KEY || ''
 );
 
-interface GroupDeletionEmailParams {
-  groupName: string;
-  adminName: string;
-  recipient: GroupMemberInfo;
-}
-
-
 interface GroupMemberInfo {
   email: string;
   firstName: string;
   lastName: string;
+}
+
+interface GroupDeletionEmailParams {
+  groupName: string;
+  adminName: string;
+  recipient: GroupMemberInfo;
 }
 
 interface GroupStatusEmailParams {
@@ -53,11 +52,19 @@ interface PayoutProcessedEmailParams {
   amount: string;
 }
 
-// Common sender details
+/**
+ * NEW: For group notifications, e.g. "cycle started" or "group paused".
+ */
+interface GroupNotificationParams {
+  groupName: string;
+  members: GroupMemberInfo[]; // all the group’s recipients
+  subject: string;
+  body: string;   // any custom message/HTML you want
+}
+
 const senderName = process.env.EMAIL_SENDER_NAME || 'HivePay';
 const senderEmail = process.env.EMAIL_SENDER_EMAIL || 'support@hivepay.com.au';
 
-// Common font and colors
 const fontFamily = "'Inter', Arial, sans-serif";
 const primaryColor = "#F59E0B";
 const textColor = "#374151";
@@ -65,6 +72,95 @@ const subtleBg = "#F9FAFB";
 const borderColor = "#E5E7EB";
 const headingColor = "#000000";
 const footerColor = "#6B7280";
+
+/**
+ * A general-purpose function to email multiple group members 
+ * about some event, e.g. "Group paused" or "Cycle started".
+ *
+ * You pass in the groupName, an array of `members`, 
+ * plus a `subject` and `body` message you want them to read.
+ */
+export async function sendGroupNotificationEmail(params: GroupNotificationParams): Promise<void> {
+  const { groupName, members, subject, body } = params;
+
+  // We send the same subject & body to each member
+  for (const mem of members) {
+    try {
+      const sendSmtpEmail = new brevo.SendSmtpEmail();
+      const htmlContent = `
+        <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
+          <h2 style="color: ${headingColor}; font-size: 24px; margin-bottom: 10px;">${subject}</h2>
+          <p style="color: ${textColor}; font-size: 16px;">Hi ${mem.firstName},</p>
+          <div style="background-color: ${subtleBg}; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px; color: ${textColor}; white-space: pre-line;">
+              ${body}
+            </p>
+          </div>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
+            <p style="color: ${footerColor}; font-size: 12px; margin: 0;">
+              Best regards,<br>${senderName} Team
+            </p>
+          </div>
+        </div>
+      `;
+
+      sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+      sendSmtpEmail.to = [{
+        email: mem.email,
+        name: `${mem.firstName} ${mem.lastName}`
+      }];
+      sendSmtpEmail.subject = `${subject} - ${groupName}`;
+      sendSmtpEmail.htmlContent = htmlContent;
+
+      await brevoClient.sendTransacEmail(sendSmtpEmail);
+      console.log(`Group notification (“${subject}”) sent to ${mem.email}`);
+    } catch (error) {
+      console.error(`Failed to send group notification to ${mem.email}:`, error);
+      // we can continue the loop or re-throw
+    }
+  }
+}
+
+/**
+ * Send an email if the group is paused for some reason 
+ * (repeated failures or a full refund, etc).
+ * 
+ * We'll build a default message, then call sendGroupNotificationEmail for each member.
+ */
+export async function sendGroupPausedNotificationEmail(groupName: string, members: GroupMemberInfo[], reason?: string): Promise<void> {
+  let subject = 'Group Paused';
+  let body = `Your group "${groupName}" has been paused.\n\n`;
+
+  if (reason) {
+    body += `Reason: ${reason}\n\n`;
+  }
+  body += 'No further contributions or payouts will occur until this group is reactivated. If you have questions, please contact your admin or support.';
+
+  await sendGroupNotificationEmail({
+    groupName,
+    members,
+    subject,
+    body,
+  });
+}
+
+/**
+ * Send an email to the entire group saying 
+ * “Cycle started for group X, contributions are now being collected…”
+ */
+export async function sendGroupCycleStartedEmail(groupName: string, members: GroupMemberInfo[]): Promise<void> {
+  const subject = 'A new cycle has started!';
+  let body = `A new contribution cycle for "${groupName}" just started.\n\n`;
+  body += 'Contributions will be automatically collected from all members, and the next payout will follow soon.\n\n';
+  body += 'Thank you for being part of HivePay!';
+
+  await sendGroupNotificationEmail({
+    groupName,
+    members,
+    subject,
+    body,
+  });
+}
 
 export async function sendGroupPausedEmail({
   groupName,
@@ -162,7 +258,7 @@ export async function sendContributionReminderEmail({
       <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
         <p style="margin: 0; color: ${textColor}; font-size: 16px;">
           Need to update your payment details or have questions? Visit your 
-          <a href="https://hivepayapp.com/dashboard" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">HivePay Dashboard</a> 
+          <a href="https://hivepay.com.au/dashboard" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">HivePay Dashboard</a> 
           or contact our support team.
         </p>
       </div>
