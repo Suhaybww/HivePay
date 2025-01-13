@@ -3,25 +3,44 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { trpc } from '../_trpc/client';
 import { Loader2 } from 'lucide-react';
+import { toast } from '@/src/components/ui/use-toast';
+import { useEffect } from 'react';
 
 const Page = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const origin = searchParams.get('origin');
 
-  trpc.auth.authCallback.useQuery(undefined, {
+  const { isError, error } = trpc.auth.authCallback.useQuery(undefined, {
     onSuccess: ({ success }) => {
       if (success) {
-        // Redirect to origin or dashboard
-        router.push(origin ? `/${origin}` : '/dashboard');
+        const redirectPath = origin ? `/${origin}` : '/dashboard';
+        window.location.href = redirectPath;
       }
     },
     onError: (err) => {
       if (err.data?.code === 'UNAUTHORIZED') {
         router.push('/api/auth/login');
+      } else if (err.data?.code === 'CONFLICT') {
+        toast({
+          title: "Account Already Exists",
+          description: "An account with this email already exists.",
+          variant: "destructive",
+        });
+        router.push('/');
+      } else {
+        toast({
+          title: "Error",
+          description: "Something went wrong. Please try again later.",
+          variant: "destructive",
+        });
+        router.push('/');
       }
     },
-    retry: true,
+    retry: (failureCount, error) => {
+      if (error.data?.code === 'CONFLICT') return false;
+      return failureCount < 3;
+    },
     retryDelay: 500,
   });
 

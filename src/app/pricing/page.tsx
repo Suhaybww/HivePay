@@ -36,56 +36,47 @@ const Page = () => {
   });
 
   const handlePlanSelect = (plan: typeof PLANS[number]) => {
+    if (!user) {
+      router.push('/api/auth/login');
+      return;
+    }
     setLoadingPlan(plan.slug);
     createStripeSession({ planSlug: plan.slug });
   };
 
-  // Filter out the free plan if user is logged in
-  const displayPlans = PLANS.filter(plan => 
-    !user?.id || plan.name !== 'Free'
-  );
+  // Filter to show only Pro plan
+  const displayPlans = PLANS.filter(plan => plan.name === 'Pro');
 
   return (
     <>
-      <div className="grainy min-h-screen pb-20">
+      <div className="bg-white min-h-screen pb-20">
         <MaxWidthWrapper className='pt-12'>
           <div className='mb-4'>
-            <span className='bg-purple-50 text-purple-600 px-3 py-1 rounded-md text-sm font-medium'>
-              PRICING
+            <span className='bg-yellow-50 text-yellow-400 px-3 py-1 rounded-md text-sm font-medium'>
+              PREMIUM ACCESS
             </span>
           </div>
           
-          <h1 className='text-6xl font-bold mb-4'>Choose your savings journey</h1>
+          <h1 className='text-6xl font-bold mb-4'>Unlock the Full Power of Group Savings</h1>
           <p className='text-gray-600 text-xl mb-16 max-w-3xl'>
-            Select a plan that matches your group&apos;s ambitions. From casual saving circles to 
-            large organizations, we&apos;ve got you covered.
+            Transform your saving goals with our premium features. Designed for groups serious about 
+            achieving their financial targets together.
           </p>
 
-          <div className='grid md:grid-cols-2 gap-8 max-w-4xl mx-auto'>
+          <div className='max-w-2xl mx-auto'>
             {displayPlans.map((plan) => {
               const price = plan.price.amount;
-              const isPopular = plan.name === 'Pro';
               const isLoading = loadingPlan === plan.slug;
 
               return (
                 <div key={plan.slug} className="relative">
-                  {isPopular ? (
-                    <div className='absolute -top-4 left-0 right-0 flex justify-center items-center gap-3'>
-                      <div className='h-px bg-purple-600 flex-1'></div>
-                      <span className='text-purple-600 text-sm font-medium whitespace-nowrap'>
-                        Most popular
-                      </span>
-                      <div className='h-px bg-purple-600 flex-1'></div>
-                    </div>
-                  ) : (
-                    <div className='absolute -top-4 left-0 right-0 flex justify-center items-center gap-3'>
-                      <div className='h-px bg-gray-200 flex-1'></div>
-                      <span className='text-gray-400 text-sm font-medium whitespace-nowrap'>
-                        Basic
-                      </span>
-                      <div className='h-px bg-gray-200 flex-1'></div>
-                    </div>
-                  )}
+                  <div className='absolute -top-4 left-0 right-0 flex justify-center items-center gap-3'>
+                    <div className='h-px bg-yellow-400 flex-1'></div>
+                    <span className='text-yellow-400 text-sm font-medium whitespace-nowrap'>
+                      Premium Plan
+                    </span>
+                    <div className='h-px bg-yellow-400 flex-1'></div>
+                  </div>
                   
                   <div className='p-8'>
                     <h3 className='text-2xl font-semibold mb-6'>{plan.name}</h3>
@@ -98,11 +89,7 @@ const Page = () => {
                     <motion.button
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.99 }}
-                      className={`w-full py-2.5 px-4 rounded-md text-sm font-medium transition-colors duration-200 ${
-                        isPopular
-                          ? 'bg-purple-600 text-white hover:bg-purple-700'
-                          : 'hover:bg-purple-50 border border-gray-200'
-                      }`}
+                      className="w-full py-2.5 px-4 rounded-md text-sm font-medium transition-colors duration-200 bg-yellow-400 text-white hover:bg-yellow-500"
                       onClick={() => handlePlanSelect(plan)}
                       disabled={isLoading}
                     >
@@ -112,14 +99,14 @@ const Page = () => {
                           <span>Processing...</span>
                         </div>
                       ) : (
-                        'Get started'
+                        'Get Premium Access'
                       )}
                     </motion.button>
 
                     <ul className='mt-8 space-y-4'>
                       {plan.features.map((feature) => (
                         <li key={feature} className='flex items-start gap-3'>
-                          <Check className='h-4 w-4 text-purple-600 mt-1 flex-shrink-0' />
+                          <Check className='h-4 w-4 text-yellow-400 mt-1 flex-shrink-0' />
                           <span className='text-gray-600 text-sm'>{feature}</span>
                         </li>
                       ))}

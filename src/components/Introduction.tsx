@@ -1,53 +1,55 @@
-import React from 'react';
-import MaxWidthWrapper from './MaxWidthWrapper';
-import Link from 'next/link';
-import { Button } from './ui/button';
-import Image from 'next/image';
+import React from "react";
+import MaxWidthWrapper from "./MaxWidthWrapper";
+import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import Image from "next/image";
 
 const Introduction = () => {
   return (
     <section className="py-48">
       <MaxWidthWrapper>
+        {/* 
+          Use flex-col on small devices and flex-row on larger screens,
+          center items vertically across all breakpoints 
+        */}
         <div className="flex flex-col lg:flex-row items-center gap-12">
           {/* Content */}
-          <div className="flex-1 space-y-6">
+          <div className="flex-1 space-y-6 text-center lg:text-left">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
               Modern Group Savings
-              <span className="block mt-2 text-purple-600">Made Simple</span>
+              <span className="block mt-2 text-yellow-400">Made Simple</span>
             </h2>
 
             <p className="text-gray-600 text-lg leading-relaxed">
-              Roundly reinvents the traditional ROSCA (Rotating Savings and Credit Association) 
-              with a seamless, digital platform. Enjoy an internet-free, peer-to-peer loan system, 
-              allowing you to save and lend with your trusted circle, 
-              without banks or intermediaries. Perfect for achieving financial goals together.
+              HivePay reinvents the traditional ROSCA (Rotating Savings and Credit Association)
+              with a seamless, digital platform. Enjoy an internet-free, peer-to-peer loan system,
+              allowing you to save and lend with your trusted circle, without banks or intermediaries.
+              Perfect for achieving financial goals together. All of this at{" "}
+              <strong className="text-yellow-400">0% interest</strong>.
             </p>
 
-            <Button
-              size="lg"
-              className="mt-2 bg-purple-500 text-white hover:bg-purple-700 transition-all"
-              asChild
-            >
-              <Link href="/how-it-works">
+            <div className="pt-4">
+              <RegisterLink
+                className="px-6 py-3 text-lg font-medium text-white bg-yellow-400 hover:bg-yellow-500 rounded-md transition-all"
+              >
                 Create an Account
-              </Link>
-            </Button>
+              </RegisterLink>
+            </div>
           </div>
 
-          {/* Image */}
-          <div className="flex-1">
-            <div className="relative w-full h-0 pb-[52.63%] overflow-hidden rounded-2xl">
+          {/* Responsive Image */}
+          <div className="flex-1 w-full">
+            {/* 
+              Remove the fixed aspect ratio so the entire illustration 
+              (including their feet) is visible. 
+            */}
+            <div className="relative w-full h-[600px] rounded-2xl overflow-hidden">
               <Image
-                src="/images/1.jpg"
+                src="/images/test.png"
                 alt="People managing their group savings"
                 fill
-                className="object-cover rounded-2xl"
+                className="object-contain rounded-2xl"
+                sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
-                style={{
-                  backgroundImage: `url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwBAMAAAClLOS0AAAAElBMVEUAAAD8/vz08vT09vT8+vzs7uxH16TeAAAAAXRSTlMAQObYZgAAAAlwSFlzAAAOxAAADsQBlSsOGwAAAuFJREFUOI0Vk+3NLiEIRG1B8ClAYAsQ2AIEt4D9ePtv5Xp/mZgYJ2fOFJKEfInkVWY2aglmQFkimRTV7MblYyVqD7HXyhKsSuPX12MeDhRHLtGvRG+P+B/S0Vu4OswR9tmvwNPyhdCDbVayJGads/WiUWcjCvCnruTBNHS9gmX2VzVbk7ZvB1gb1hkWFGl+A/n+/FowcO34U/XvKqZ/fHY+6vgRfU92XrOBUbGeeDfQmjWjdrK+frc6FdGReQhfSF5JvR29O2QrfNw1huTwlgsyXLo0u+5So82sgv7tsFZR2nxB6lXiquHrfD8nfYZ9SeT0LiuvSoVrxGY16pCNRZKqvwWsn5OHypPBELzohMCaRaa0ceTHYqe7X/gfJEEtKFbJpWoNqO+aS1cuTykGPpK5Ga48m6L3NefTr013KqYBQu929iP1oQ/7UwSR+i3zqruUmT84qmhzLpxyj7pr9kg7LKvqaXxZmdpn+6o8sHqSqojy02gU3U8q9PnpidiaLks0mbMYz+q2uVXsoBQ8bfURULYxRgZVYCHMv9F4OA7qxT2NPPpvGQ/sTDH2yznKh7E2AcErfcNsaIoN1izzbJiaY63x4QjUFdBSvDCvugPpu5xDny0jzEeuUQbcP1aGT9V90uixngTRLYNEIIZ6yOF1H8tm7rj2JxiefsVy53zGVy3ag5uuPsdufYOzYxLRxngKe7nhx3VAq54pmz/DK9/Q3aDam2Yt3hNXB4HuU87jKNd/CKZn77Qdn5QkXPfqSkhk7hGOXXB+7v09KbBbqdvxGqa0AqfK/atIrL2WXdAgXAJ43Wtwe/aIoacXezeGPMlhDOHDbSfHnaXsL2QzbT82GRwZuezdwcoWzx5pnOnGMUdHuiY7lhdyWzWiHnucLZQxYStMJbtcydHaQ6vtMbe0AcDbxG+QG14AL94xry4297xpy9Cpf1OoxZ740gHDfrK+gtsy0xabwJmfgtCeii79B6aj0SJeLbd7AAAAAElFTkSuQmCC)`,
-                  backgroundSize: 'cover',
-                  mixBlendMode: 'multiply',
-                }}
               />
             </div>
           </div>

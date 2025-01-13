@@ -1,21 +1,20 @@
 import React from 'react';
 import Link from 'next/link';
-import { Globe } from 'lucide-react';
+import Image from 'next/image';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
     product: [
-      { name: 'About', href: '/about' },
+      { name: 'About', href: '/company/about' },
       { name: 'Pricing', href: '/pricing' },
-      { name: 'FAQs', href: '/faqs' },
-      { name: 'Contact', href: '/contact' },
+      { name: 'FAQs', href: '/company/faqs' },
+      { name: 'Contact', href: '/company/contact' },
     ],
     legal: [
-      { name: 'Privacy Policy', href: '/privacy' },
-      { name: 'Terms of Service', href: '/terms' },
-      { name: 'Code of Conduct', href: '/code-of-conduct' },
+      { name: 'Privacy Policy', href: '/legal/privacy' },
+      { name: 'Terms of Service', href: '/legal/terms' },
     ],
   };
 
@@ -26,11 +25,18 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center">
-              <Globe className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">Roundly</span>
+              <Image 
+                src="/images/E.png" 
+                alt="HivePay Logo" 
+                width={96} 
+                height={96}
+              />
+              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
+                HivePay
+              </span>
             </Link>
             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">
-              Transforming traditional group savings into a seamless digital experience. Save and grow wealth together.
+            Transforming traditional group savings into a seamless, interest-free digital experience. Save and grow wealth together—without the burden of interest.
             </p>
           </div>
 
@@ -44,7 +50,7 @@ const Footer = () => {
                   <li key={link.name}>
                     <Link
                       href={link.href}
-                      className="text-sm text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+                      className="text-sm text-gray-600 hover:text-yellow-400 dark:text-gray-400 dark:hover:text-yellow-500 transition-colors"
                     >
                       {link.name}
                     </Link>
@@ -61,7 +67,7 @@ const Footer = () => {
                   <li key={link.name}>
                     <Link
                       href={link.href}
-                      className="text-sm text-gray-600 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 transition-colors"
+                      className="text-sm text-gray-600 hover:text-yellow-400 dark:text-gray-400 dark:hover:text-yellow-500 transition-colors"
                     >
                       {link.name}
                     </Link>
@@ -75,7 +81,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800">
           <p className="text-xs text-center md:text-left text-gray-600 dark:text-gray-400">
-            © {currentYear} Roundly. All rights reserved.
+            © {currentYear} HivePay Pty Ltd (ACN: 683 103 808, ABN: 56683103808). All rights reserved.
           </p>
         </div>
       </div>

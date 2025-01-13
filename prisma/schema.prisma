@@ -3,27 +3,34 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
   relationMode = "prisma"
 }
 
-// Enums
-
 enum SubscriptionStatus {
   Active
+  PendingCancel
   Inactive
   Canceled
 }
 
-enum PayoutOrderMethod {
-  Admin_Selected
-  First_Come_First_Serve
+enum GroupStatus {
+  Active
+  Paused
+}
+
+enum PauseReason {
+  PAYMENT_FAILURES
+  REFUND_ALL
+  INACTIVE_SUBSCRIPTION
+  OTHER
 }
 
 enum MembershipStatus {
   Active
   Inactive
+  Pending
 }
 
 enum PayoutStatus {
@@ -38,6 +45,13 @@ enum PaymentStatus {
   Failed
 }
 
+// CHANGED: Removed "Daily" and "Custom", leaving only Weekly, BiWeekly, Monthly
+enum Frequency {
+  Weekly
+  BiWeekly
+  Monthly
+}
+
 enum TransactionType {
   Debit
   Credit
@@ -48,85 +62,105 @@ enum Gender {
   Male
 }
 
-enum Frequency {
-  Daily
-  Weekly
-  BiWeekly
-  Monthly
-  Custom
-}
-
 enum OnboardingStatus {
   Pending
   Completed
   Failed
 }
 
-
-// Models
-
-
-model User {
-  id                      String              @id @unique //matches kinde user id
-  firstName               String
-  lastName                String
-  email                   String              @unique
-  phoneNumber             String
-  gender                  Gender?             // Optional field
-  age                     Int?
-
-  // Stripe Information
-  stripeCustomerId        String?             @unique @map(name: "stripe_customer_id")
-  stripeAccountId         String?             @unique
-  stripeSubscriptionId    String?             @unique @map(name: "stripe_subscription_id")
-  stripePriceId           String?             @map(name: "stripe_price_id")
-  stripeCurrentPeriodEnd  DateTime?           @map(name: "stripe_current_period_end")
-
-  // BECS Direct Debit Information
-  stripeSetupIntentId     String?             // Setup Intent ID for BECS setup
-  stripeBecsPaymentMethodId String?           // Payment Method ID for BECS direct debit
-  becsSetupStatus         String              @default("pending") // Setup status: pending, completed, or failed
-  stripeMandateId         String?             // Mandate ID for recurring authorization (optional)
-
-  subscriptionStatus      SubscriptionStatus
-  onboardingStatus        OnboardingStatus    @default(Pending) 
-  onboardingDate          DateTime?           
-
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
-
-  // Relations
-  subscriptions           Subscription[]      @relation("UserSubscriptions")
-  groupMemberships        GroupMembership[]
-  payments                Payment[]
-  payouts                 Payout[]
-  transactions            Transaction[]
-  groupsCreated           Group[]             @relation("UserGroupsCreated")
-  notifications           Notification[]
-  messagesSent            Message[]           @relation("MessagesSent")
+enum BECSSetupStatus {
+  Pending
+  Completed
+  Failed
 }
 
+enum TicketStatus {
+  Open
+  InProgress
+  Resolved
+  Closed
+}
 
+enum TicketPriority {
+  Low
+  Medium
+  High
+  Urgent
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+enum ContractStatus {
+  Pending
+  Signed
+  Rejected
+}
+
+model User {
+  id                        String             @id @unique
+  firstName                 String
+  lastName                  String
+  email                     String             @unique
+  phoneNumber               String
+  gender                    Gender?
+  age                       Int?
+  stripeCustomerId          String?            @unique @map("stripe_customer_id")
+  stripeAccountId           String?            @unique
+  stripeSubscriptionId      String?            @unique @map("stripe_subscription_id")
+  stripePriceId             String?            @map("stripe_price_id")
+  stripeCurrentPeriodEnd    DateTime?          @map("stripe_current_period_end")
+  stripeSetupIntentId       String?
+  stripeBecsPaymentMethodId String?
+  becsSetupStatus           BECSSetupStatus    @default(Pending)
+  stripeMandateId           String?
+  subscriptionStatus        SubscriptionStatus
+  onboardingStatus          OnboardingStatus   @default(Pending)
+  onboardingDate            DateTime?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  isDeleted                 Boolean            @default(false)
+  deletedAt                 DateTime?
+  deletionReason            String?
+
+  // relations
+  subscriptions             Subscription[]     @relation("UserSubscriptions")
+  groupMemberships          GroupMembership[]
+  payments                  Payment[]
+  payouts                   Payout[]
+  transactions              Transaction[]
+  groupsCreated             Group[]            @relation("UserGroupsCreated")
+  notifications             Notification[]
+  messagesSent              Message[]          @relation("MessagesSent")
+  supportTickets            SupportTicket[]
+  ticketResponses           TicketResponse[]
+  feedback                  Feedback[]
+  contracts                 Contract[]
+  invitationsSent           Invitation[]       @relation("UserInvitesSent")
+}
 
 model Plan {
-  id            String         @id @default(cuid())
-  name          String         @unique
-  price         Decimal        @db.Decimal(10, 2)
+  id            String      @id @default(cuid())
+  name          String      @unique
+  price         Decimal     @db.Decimal(10, 2)
   groupLimit    Int
   memberLimit   Int
   payoutCycles  Int
   features      String[]
-  subscriptions Subscription[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // relations
+  subscriptions Subscription[]
 }
 
 model Subscription {
   id                   String             @id @default(cuid())
-  user                 User               @relation("UserSubscriptions", fields: [userId], references: [id])
   userId               String
-  plan                 Plan?              @relation(fields: [planId], references: [id])
   planId               String?
   stripeSubscriptionId String
   status               SubscriptionStatus
@@ -134,113 +168,226 @@ model Subscription {
   endDate              DateTime?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
+
+  // relations
+  user                 User               @relation("UserSubscriptions", fields: [userId], references: [id])
+  plan                 Plan?              @relation(fields: [planId], references: [id])
 }
 
+// Single cycleFrequency + single nextCycleDate
 model Group {
   id                    String            @id @default(cuid())
   name                  String
   description           String?
-  createdBy             User              @relation("UserGroupsCreated", fields: [createdById], references: [id])
   createdById           String
-  payoutOrderMethod     PayoutOrderMethod
   contributionAmount    Decimal?          @db.Decimal(10, 2)
-  contributionFrequency Frequency?
-  payoutFrequency       Frequency?
-  nextContributionDate  DateTime?
-  nextPayoutDate        DateTime?
 
-  groupMemberships GroupMembership[]
-  payouts          Payout[]
-  payments         Payment[]
-  transactions     Transaction[]
-  messages         Message[]
+  cycleFrequency        Frequency?
+  nextCycleDate         DateTime?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  cycleStarted          Boolean           @default(false)
+  status                GroupStatus       @default(Active)
+  pauseReason           PauseReason?
+  futureCyclesJson      Json?
+
+  totalDebitedAmount    Decimal?  @default(0)
+  totalPendingAmount    Decimal?  @default(0)
+  totalSuccessAmount    Decimal?  @default(0)
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  // relations
+  createdBy             User              @relation("UserGroupsCreated", fields: [createdById], references: [id])
+  groupMemberships      GroupMembership[]
+  payouts               Payout[]
+  payments              Payment[]
+  transactions          Transaction[]
+  messages              Message[]
+  contracts             Contract[]
+  invitations           Invitation[]
 }
 
 model GroupMembership {
-  id          String           @id @default(cuid())
-  group       Group            @relation(fields: [groupId], references: [id])
-  groupId     String
-  user        User             @relation(fields: [userId], references: [id])
-  userId      String
-  joinDate    DateTime         @default(now())
-  payoutOrder Int
-  isAdmin     Boolean          @default(false)
-  status      MembershipStatus
+  id            String           @id @default(cuid())
+  groupId       String
+  userId        String
+  joinDate      DateTime         @default(now())
+  payoutOrder   Int
+  isAdmin       Boolean          @default(false)
+  status        MembershipStatus
+  acceptedTOSAt DateTime?
+  lastReadAt    DateTime?
+  hasBeenPaid   Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // relations
+  group         Group            @relation(fields: [groupId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+
+  @@unique([groupId, userId], name: "membershipIdentifier")
 }
 
 model Payment {
   id                    String        @id @default(cuid())
-  user                  User          @relation(fields: [userId], references: [id])
   userId                String
-  group                 Group         @relation(fields: [groupId], references: [id])
   groupId               String
   amount                Decimal       @db.Decimal(10, 2)
   paymentDate           DateTime      @default(now())
   status                PaymentStatus @default(Pending)
   stripePaymentIntentId String?       @unique
-  mandateId             String? // BECS Direct Debit Mandate ID
-  transactions          Transaction[]
+  mandateId             String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  retryCount            Int           @default(0)
+  cycleNumber           Int?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // relations
+  user                  User          @relation(fields: [userId], references: [id])
+  group                 Group         @relation(fields: [groupId], references: [id])
+  transactions          Transaction[]
 }
 
 model Payout {
   id                  String        @id @default(cuid())
-  group               Group         @relation(fields: [groupId], references: [id])
   groupId             String
-  user                User          @relation(fields: [userId], references: [id])
   userId              String
   scheduledPayoutDate DateTime
   amount              Decimal       @db.Decimal(10, 2)
   status              PayoutStatus  @default(Pending)
   stripeTransferId    String?       @unique
-  transactions        Transaction[]
+  payoutOrder         Int
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // relations
+  group               Group         @relation(fields: [groupId], references: [id])
+  user                User          @relation(fields: [userId], references: [id])
+  transactions        Transaction[]
 }
 
 model Transaction {
   id               String          @id @default(cuid())
-  user             User            @relation(fields: [userId], references: [id])
   userId           String
-  group            Group           @relation(fields: [groupId], references: [id])
   groupId          String
   amount           Decimal         @db.Decimal(10, 2)
   transactionType  TransactionType
   transactionDate  DateTime        @default(now())
   description      String?
-  relatedPayment   Payment?        @relation(fields: [relatedPaymentId], references: [id])
   relatedPaymentId String?
-  relatedPayout    Payout?         @relation(fields: [relatedPayoutId], references: [id])
   relatedPayoutId  String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user             User            @relation(fields: [userId], references: [id])
+  group            Group           @relation(fields: [groupId], references: [id])
+  relatedPayment   Payment?        @relation(fields: [relatedPaymentId], references: [id])
+  relatedPayout    Payout?         @relation(fields: [relatedPayoutId], references: [id])
 }
 
 model Notification {
   id        String   @id @default(cuid())
-  user      User     @relation(fields: [userId], references: [id])
   userId    String
   content   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Message {
   id        String   @id @default(cuid())
-  group     Group    @relation(fields: [groupId], references: [id])
   groupId   String
-  sender    User     @relation("MessagesSent", fields: [senderId], references: [id])
   senderId  String
   content   String
   createdAt DateTime @default(now())
+
+  group     Group    @relation(fields: [groupId], references: [id])
+  sender    User     @relation("MessagesSent", fields: [senderId], references: [id])
+}
+
+model SupportTicket {
+  id        String           @id @default(cuid())
+  subject   String
+  message   String
+  status    TicketStatus     @default(Open)
+  priority  TicketPriority   @default(Medium)
+  userId    String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user      User             @relation(fields: [userId], references: [id])
+  responses TicketResponse[]
+}
+
+model TicketResponse {
+  id         String        @id @default(cuid())
+  message    String
+  staffEmail String?
+  isStaff    Boolean       @default(false)
+  ticketId   String
+  userId     String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @default(now())
+
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id])
+  user       User?         @relation(fields: [userId], references: [id])
+}
+
+model Feedback {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  title       String
+  description String
+  rating      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model ContractTemplate {
+  id            String     @id @default(cuid())
+  version       String     @unique
+  content       String
+  effectiveDate DateTime
+  lastUpdated   DateTime   @updatedAt
+
+  contracts     Contract[]
+}
+
+model Contract {
+  id                 String           @id @default(cuid())
+  contractTemplateId String
+  groupId            String
+  userId             String
+  status             ContractStatus   @default(Pending)
+  signedContent      String
+  signedAt           DateTime?
+  fullName           String?
+  pdfUrl             String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @default(now())
+
+  contractTemplate   ContractTemplate @relation(fields: [contractTemplateId], references: [id])
+  group              Group            @relation(fields: [groupId], references: [id])
+  user               User             @relation(fields: [userId], references: [id])
+}
+
+model Invitation {
+  id           String           @id @default(cuid())
+  groupId      String
+  email        String
+  status       InvitationStatus @default(PENDING)
+  createdAt    DateTime         @default(now())
+  expiresAt    DateTime
+  invitedById  String
+
+  group        Group            @relation(fields: [groupId], references: [id])
+  invitedBy    User             @relation("UserInvitesSent", fields: [invitedById], references: [id])
+
+  @@index([groupId])
+  @@index([invitedById])
 }

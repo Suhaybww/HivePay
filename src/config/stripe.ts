@@ -1,40 +1,26 @@
 export const PLANS = [
   {
-    name: 'Free',
-    slug: 'free',
-    quota: 0,
-    description: 'For individuals starting their savings journey',
-    features: [
-      'Up to 5 users, 1 admin',
-      '1 savings group',
-      'Basic analytics',
-      'Standard support',
-      '250 payout cycle limit',
-    ],
-    price: {
-      amount: 0,
-      priceIds: {
-        test: '',
-        production: '',
-      },
-    },
-  },
-  {
     name: 'Pro',
     slug: 'pro',
     quota: 9.99,
-    description: 'For established savings groups that need more flexibility',
+    description: 'Everything you need for successful group savings with automated payments, secure transactions, and detailed analytics.',
     features: [
-      'Up to 30 users per group',
-      'Up to 5 savings groups',
-      'Advanced analytics',
-      'Priority support',
-      'Unlimited payout cycles',
+      'Create & Join Unlimited Groups',
+      'Smart Contract Generation',
+      'Group Chat & Messaging',
+      'Automated Payment Reminders',
+      'Direct Debit Integration',
+      'Automated Payouts',
+      'Bank-Grade Security',
+      'Real-time Progress Tracking',
+      'Advanced Analytics Dashboard',
+      'Custom Payment Schedules',
+      'Priority 24/7 Support',
     ],
     price: {
       amount: 9.99,
       priceIds: {
-        test: 'price_1QHKyPIaRDAV82OrDA5E2qAI',
+        test: 'price_1QTTk7D0Tog7VW7OCORkWMVH',
         production: 'price_prod_id_pro',
       },
     },

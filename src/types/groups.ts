@@ -1,36 +1,70 @@
+import { Frequency, Gender, GroupStatus } from "@prisma/client";
 
-import { PayoutOrderMethod, Frequency, Gender } from '@prisma/client';
-
-
+// Basic info for group members
 export type GroupMember = {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  gender: Gender | null;  // Use Prisma's Gender enum
+  gender: Gender | null;
   isAdmin: boolean;
-  payoutOrder: number;  
-  stripeAccountId: string | null;  // Changed from stripeCustomerId
-
+  payoutOrder: number;
+  stripeAccountId: string | null;
+  hasBeenPaid: boolean;
 };
 
-export type GroupWithStats = {
+// The main GroupWithStats shape
+export interface GroupWithStats {
   id: string;
   name: string;
-  description?: string | null;
+  description: string | null;
   createdById: string;
-  payoutOrderMethod: PayoutOrderMethod;
-  contributionAmount?: string | null; // Converted to string in backend
-  contributionFrequency?: Frequency | null;
-  payoutFrequency?: Frequency | null;
-  nextContributionDate?: string | null; // Converted to ISO string in backend
-  nextPayoutDate?: string | null; // Converted to ISO string in backend
+
+  // numeric fields as strings
+  contributionAmount: string | null;
+
+  cycleFrequency: Frequency | null;
+  nextCycleDate: string | null;
+
+  cycleStarted: boolean;
+  status: GroupStatus;
+  pauseReason?: string | null;
+
+  // group stats
   _count: {
     groupMemberships: number;
   };
   totalContributions: string;
   currentBalance: string;
-  isAdmin: boolean;
-  members: GroupMember[]; 
 
-};
+  // Admin
+  isAdmin: boolean;
+
+  // The active members in this group
+  members: GroupMember[];
+
+  // NEW Payment columns
+  totalDebitedAmount?: string | null;
+  totalPendingAmount?: string | null;
+  totalSuccessAmount?: string | null;
+}
+
+// For scheduled events
+export interface ScheduledEvent {
+  id: string;
+  scheduledFor: Date;
+}
+
+/**
+ * The shape returned by `getGroupSchedule`.
+ */
+export interface GroupSchedule {
+  futureCycleDates: string[];
+  currentSchedule: {
+    nextCycleDate: string | null;
+    cycleFrequency: Frequency | null;
+    contributionAmount: string | null;
+    status: GroupStatus;
+    cycleStarted: boolean;
+  };
+}

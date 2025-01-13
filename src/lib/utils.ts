@@ -19,11 +19,22 @@ export function classNames(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+export function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC'
+  }).format(date);
+}
+
 export function constructMetadata({
-  title = "Roundly",
-  description = "Roundly is a digital platform for secure and automated rotating savings. Whether saving with friends or family, our system ensures trust and transparency every step of the way.",
-  image = "/logo.jpg",
-  icons = "/logo.jpg",
+  title = "HivePay",
+  description = "HivePay is a digital platform for secure and automated rotating savings. Whether saving with friends or family, our system ensures trust and transparency every step of the way.",
+  image = "/E.png",
+  icons = "/E.png",
   noIndex = false
 }: {
   title?: string
@@ -52,7 +63,7 @@ export function constructMetadata({
       creator: "x"
     },
     icons,
-    metadataBase: new URL('https://sag-app-pi.vercel.app'),
+    metadataBase: new URL('https://hivepay.com.au'),
     // themeColor: '#FFF',
     ...(noIndex && {
       robots: {
@@ -62,3 +73,15 @@ export function constructMetadata({
     })
   }
 }
+
+// src/lib/utils.ts
+// Add this to your existing utils file
+
+/**
+ * Utility function to pause execution for a specified duration
+ * @param ms Number of milliseconds to sleep
+ * @returns Promise that resolves after the specified duration
+ */
+export const sleep = (ms: number): Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
