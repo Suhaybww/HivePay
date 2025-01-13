@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { trpc } from "@/src/app/_trpc/client";
 import { Skeleton } from "@/src/components/ui/skeleton";
@@ -44,7 +44,12 @@ export default function GroupPage() {
   const utils = trpc.useContext();
 
   const groupId = params?.groupId as string;
-  const validTabs = ["details", "analytics", "messaging", "settings", "admin"];
+
+  // 1) Wrap validTabs in useMemo so it never changes reference
+  const validTabs = useMemo(
+    () => ["details", "analytics", "messaging", "settings", "admin"],
+    []
+  );
 
   // Get the initial tab from the URL (or default to "details")
   const initialTab = searchParams.get("tab");
@@ -58,13 +63,13 @@ export default function GroupPage() {
     if (nextTab && validTabs.includes(nextTab) && nextTab !== activeSection) {
       setActiveSection(nextTab);
     }
-  }, [searchParams, activeSection]);
+  }, [searchParams, activeSection, validTabs]);
 
-  // Helper to switch tabs while also updating the query param (no 'shallow' option in next/navigation)
+  // Helper to switch tabs while also updating the query param
   const handleTabChange = useCallback(
     (tabName: string) => {
       setActiveSection(tabName);
-      router.replace(`/groups/${groupId}?tab=${tabName}`); // remove shallow
+      router.replace(`/groups/${groupId}?tab=${tabName}`);
     },
     [router, groupId]
   );
@@ -163,9 +168,7 @@ export default function GroupPage() {
         >
           <AlertCircle className="h-5 w-5 text-red-500" />
           <div className="flex flex-col gap-1">
-            <AlertTitle className="font-semibold text-red-900">
-              Action Required
-            </AlertTitle>
+            <AlertTitle className="font-semibold text-red-900">Action Required</AlertTitle>
             <AlertDescription className="text-red-800">
               You have not completed all payment setups. Please visit{" "}
               <Button
@@ -227,9 +230,7 @@ export default function GroupPage() {
               }`}
           >
             Settings
-            {isAnySetupIncomplete && (
-              <AlertCircle className="ml-2 h-4 w-4 text-red-500" />
-            )}
+            {isAnySetupIncomplete && <AlertCircle className="ml-2 h-4 w-4 text-red-500" />}
           </button>
           {group.isAdmin && (
             <button

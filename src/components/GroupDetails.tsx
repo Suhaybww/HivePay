@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
@@ -102,7 +102,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
       { refetchInterval: 30_000 }
     );
 
-  // 3) Periodically check group status if paused
+  // 3) groupStatusCheck mutation
   const groupStatusCheck = trpc.subscription.checkAndUpdateGroupStatus.useMutation({
     onSuccess: (res: GroupStatusResponse) => {
       if (res.status === "paused" && res.inactiveMembers) {
@@ -128,11 +128,20 @@ export function GroupDetails({ group }: GroupDetailsProps) {
     },
   });
 
-  const handleCheckStatus = () => {
+  // 4) We wrap handleCheckStatus in useCallback for stable reference
+  const handleCheckStatus = useCallback(() => {
     groupStatusCheck.mutate({ groupId: group.id });
-  };
+  }, [group.id, groupStatusCheck]);
 
-  // 4) Reactivate group
+  // If the group is paused, poll every 60 seconds
+  useEffect(() => {
+    if (group.status === "Paused") {
+      const intervalId = setInterval(handleCheckStatus, 60_000);
+      return () => clearInterval(intervalId);
+    }
+  }, [group.status, handleCheckStatus]);
+
+  // 5) Reactivate group
   const { mutate: reactivateGroup } = trpc.subscription.reactivateGroup.useMutation({
     onSuccess: () => {
       toast({
@@ -166,19 +175,12 @@ export function GroupDetails({ group }: GroupDetailsProps) {
     reactivateGroup({ groupId: group.id });
   };
 
-  useEffect(() => {
-    if (group.status === "Paused") {
-      const intervalId = setInterval(handleCheckStatus, 60_000);
-      return () => clearInterval(intervalId);
-    }
-  }, [group.status]);
-
-  // 5) For displaying how members are set up
+  // 6) For displaying how members are set up
   const { data: groupMembersSetupStatus } = trpc.group.getGroupMembersSetupStatus.useQuery({
     groupId: group.id,
   });
 
-  // 6) scheduleGroupCycles mutation
+  // 7) scheduleGroupCycles mutation
   const scheduleGroupCycles = trpc.cycle.scheduleGroupCycles.useMutation({
     onSuccess: () => {
       toast({
@@ -201,7 +203,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
     },
   });
 
-  // 7) React Hook Form => scheduling the first cycle
+  // 8) React Hook Form => scheduling the first cycle
   const {
     control,
     handleSubmit,
@@ -257,10 +259,14 @@ export function GroupDetails({ group }: GroupDetailsProps) {
       </div>
     );
   } else {
-    paymentFlowStatus = <div className="text-sm font-medium text-muted-foreground">No direct debits yet.</div>;
+    paymentFlowStatus = (
+      <div className="text-sm font-medium text-muted-foreground">
+        No direct debits yet.
+      </div>
+    );
   }
 
-  // The next in line => first membership without hasBeenPaid, by ascending payoutOrder
+  // Next in line => first membership without hasBeenPaid, sorted by payoutOrder
   const nextInLine = [...group.members]
     .filter((m) => !m.hasBeenPaid)
     .sort((a, b) => a.payoutOrder - b.payoutOrder)[0];
@@ -423,7 +429,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
             <ArrowUpRight className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            {(!nextInLine) ? (
+            {!nextInLine ? (
               <>
                 <div className="text-xl font-bold">Not Set</div>
                 <p className="text-xs text-muted-foreground">No members in queue</p>
@@ -448,7 +454,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
         </Card>
       </div>
 
-      {/* Next Contribution & Payout => from the first futureCycleDates item */}
+      {/* Next Contribution & Payout => from first futureCycleDates item */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -549,7 +555,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
                   key={member.id}
                   className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 rounded-lg border bg-card"
                 >
-                  {/* Left side: payout order, avatar, name, email */}
+                  {/* Left side */}
                   <div className="flex items-start gap-3">
                     <div className="flex flex-col items-center">
                       <Badge
@@ -581,7 +587,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
                     </div>
                   </div>
 
-                  {/* Right side: setup statuses */}
+                  {/* Right side */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
                     <div className="flex items-center space-x-1">
                       {member.onboardingStatus === "Completed" ? (
@@ -599,7 +605,6 @@ export function GroupDetails({ group }: GroupDetailsProps) {
                       )}
                       <span className="text-xs">Direct Debit Setup</span>
                     </div>
-                    {/* If needed, show if they've been paid */}
                     {member.hasBeenPaid && (
                       <Badge variant="secondary" className="text-xs">
                         Paid
