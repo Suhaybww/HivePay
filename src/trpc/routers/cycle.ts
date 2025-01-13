@@ -9,8 +9,7 @@ import { addWeeks, addMonths } from "date-fns";
 
 /**
  * buildFutureCycleDates
- * For an N-member ROSCA => build N future dates, one per user
- * (e.g. if there are 3 members, build [Jan 10, Feb 10, Mar 10]).
+ * - e.g. if activeCount=3 => we produce 3 future monthly dates
  */
 function buildFutureCycleDates(
   start: Date,
@@ -37,18 +36,10 @@ function buildFutureCycleDates(
         throw new Error(`Unsupported frequency: ${frequency}`);
     }
   }
-
   return result;
 }
 
 export const cycleRouter = router({
-  /**
-   * scheduleGroupCycles
-   *  1) Admin picks a date = 'cycleDate'
-   *  2) We build N future dates => store in futureCyclesJson
-   *  3) We set `cycleStarted = true`, `status=Active`, `pauseReason=null`.
-   *  4) We queue "start-contribution" immediately for the **first** date in the array.
-   */
   scheduleGroupCycles: privateProcedure
     .input(
       z.object({
@@ -71,7 +62,7 @@ export const cycleRouter = router({
         });
       }
 
-      // Grab the group
+      // fetch group
       const group = await db.group.findUnique({ where: { id: groupId } });
       if (!group) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Group not found" });
@@ -89,7 +80,7 @@ export const cycleRouter = router({
         });
       }
 
-      // If N=activeCount => produce N future cycles
+      // Count active members => produce that many future cycles
       const activeCount = await db.groupMembership.count({
         where: { groupId, status: MembershipStatus.Active },
       });
@@ -100,40 +91,43 @@ export const cycleRouter = router({
         });
       }
 
-      // Build array
-      const futureDates = buildFutureCycleDates(cycleDate, group.cycleFrequency, activeCount);
+      // 1) build array
+      const futureDates = buildFutureCycleDates(
+        cycleDate,
+        group.cycleFrequency,
+        activeCount
+      );
 
-      // Update the group => store array in futureCyclesJson, set cycleStarted= true, status=Active
+      // 2) set nextCycleDate to the first date => we’ll run the queue for that date
+      const firstCycleDate = futureDates[0];
+
+      // 3) store the entire array => futureCyclesJson
       await db.group.update({
         where: { id: groupId },
         data: {
           cycleStarted: true,
           status: GroupStatus.Active,
           pauseReason: null,
-          futureCyclesJson: futureDates,
-          // We remove nextCycleDate usage entirely => set it to null or remove from your schema
-          nextCycleDate: null, // or remove if you dropped from schema
+          nextCycleDate: firstCycleDate, // we use this date for the first run
+          futureCyclesJson: futureDates, // the entire set
         },
       });
 
-      // Now schedule the first cycle => we rely on the queue reading from futureCyclesJson
-      // We'll do an immediate "scheduleContributionCycle"
+      // 4) schedule the queue => picks up nextCycleDate
       await SchedulerService.scheduleContributionCycle(groupId);
 
       return {
         success: true,
         message: "Group cycles scheduled successfully",
-        firstDate: futureDates[0],
+        firstDate: firstCycleDate,
         futureDates,
       };
     }),
 
-  /**
-   * getGroupSchedule => returns the futureCyclesJson only.
-   */
   getGroupSchedule: privateProcedure
     .input(z.object({ groupId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // must be in group
       const membership = await db.groupMembership.findFirst({
         where: {
           groupId: input.groupId,
@@ -151,6 +145,7 @@ export const cycleRouter = router({
       const group = await db.group.findUnique({
         where: { id: input.groupId },
         select: {
+          nextCycleDate: true,
           cycleFrequency: true,
           contributionAmount: true,
           status: true,
@@ -165,13 +160,19 @@ export const cycleRouter = router({
       let futureCycles: string[] = [];
       if (Array.isArray(group.futureCyclesJson)) {
         futureCycles = group.futureCyclesJson
-          .map((val) => (typeof val === "string" ? new Date(val).toISOString() : null))
+          .map((val) =>
+            typeof val === "string" && val.trim() !== ""
+              ? new Date(val).toISOString()
+              : null
+          )
           .filter((x): x is string => !!x);
       }
 
       return {
         currentSchedule: {
-          // No nextCycleDate => we rely on futureCycles
+          nextCycleDate: group.nextCycleDate
+            ? group.nextCycleDate.toISOString()
+            : null,
           cycleFrequency: group.cycleFrequency,
           contributionAmount: group.contributionAmount?.toString() ?? null,
           status: group.status,
@@ -181,17 +182,11 @@ export const cycleRouter = router({
       };
     }),
 
-  /**
-   * retryAllPayments => unpause + re-schedule
-   */
   retryAllPayments: privateProcedure
     .input(z.object({ groupId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx;
-      const { groupId } = input;
-
       const membership = await db.groupMembership.findFirst({
-        where: { groupId, userId, isAdmin: true },
+        where: { groupId: input.groupId, userId: ctx.userId, isAdmin: true },
       });
       if (!membership) {
         throw new TRPCError({
@@ -201,7 +196,7 @@ export const cycleRouter = router({
       }
 
       try {
-        await retryAllPaymentsForGroup(groupId);
+        await retryAllPaymentsForGroup(input.groupId);
         return { success: true, message: "Retry triggered successfully" };
       } catch (error) {
         console.error("Failed to retry payments:", error);

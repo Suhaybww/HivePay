@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import MaxWidthWrapper from "./MaxWidthWrapper"; 
+import MaxWidthWrapper from "./MaxWidthWrapper";
 
 const PaymentFlow: React.FC = () => {
   const steps = [
@@ -40,7 +40,6 @@ const PaymentFlow: React.FC = () => {
 
   return (
     <section className="w-full py-16">
-      {/* Wrap content with MaxWidthWrapper */}
       <MaxWidthWrapper>
         {/* Heading */}
         <div className="text-center mb-12">
@@ -108,8 +107,8 @@ const PaymentFlow: React.FC = () => {
               </div>
             </div>
 
-            {/* Navigation Buttons */}
-            <div className="flex justify-start md:justify-end gap-4 mt-8">
+            {/* Navigation Buttons (centered) */}
+            <div className="flex justify-center gap-4 mt-8">
               <button
                 onClick={prevStep}
                 className="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-md hover:bg-gray-100 transition-colors"

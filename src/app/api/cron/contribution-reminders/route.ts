@@ -22,7 +22,7 @@ interface GroupWithMembers {
   id: string;
   name: string;
   contributionAmount: Prisma.Decimal | null;
-  nextContributionDate: Date | null;
+  nextCycleDate: Date | null;
   groupMemberships: MembershipWithUser[];
 }
 
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
       where: {
         status: GroupStatus.Active,
         cycleStarted: true,
-        nextContributionDate: {
+        nextCycleDate: {
           gte: startOfDay,
           lte: endOfDay,
         },
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
         id: true,
         name: true,
         contributionAmount: true,
-        nextContributionDate: true,
+        nextCycleDate: true,
       }
     });
 
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
     const emailErrors: Array<{ groupId: string; email: string; error: string }> = [];
 
     for (const group of groupsWithMembers) {
-      if (!group.contributionAmount || !group.nextContributionDate) continue;
+      if (!group.contributionAmount || !group.nextCycleDate) continue;
 
       for (const membership of group.groupMemberships) {
         const { user } = membership;
@@ -91,7 +91,7 @@ export async function GET(req: Request) {
           await sendContributionReminderEmail({
             groupName: group.name,
             contributionAmount: group.contributionAmount,
-            contributionDate: group.nextContributionDate,
+            contributionDate: group.nextCycleDate,
             recipient: {
               email: user.email,
               firstName: user.firstName,

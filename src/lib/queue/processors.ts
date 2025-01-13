@@ -20,7 +20,7 @@ import {
 import { paymentQueue } from "./paymentQueue";
 
 /**
- * Recompute group totals from Payment rows => update group.
+ * Recompute group totals from Payment rows => update the group columns.
  */
 async function updateGroupPaymentStats(
   tx: Prisma.TransactionClient,
@@ -55,12 +55,11 @@ async function updateGroupPaymentStats(
 
 /**
  * processContributionCycle
- *  - Figures out which cycle # we’re on by counting existing Payouts
- *  - Finds the payee (payoutOrder = nextCycleNumber)
- *  - Everyone else pays once (skipping duplicates)
- *  - Creates a Payout row
- *  - Marks the payee's membership as hasBeenPaid=true
- *  - Shifts futureCyclesJson => schedules next cycle
+ *  1) We figure out which cycle # we’re on by counting existing Payouts in that group.
+ *  2) The payee => membership with payoutOrder= that cycle #.
+ *  3) Everyone else pays => skip duplicates if Payment row exists for that cycle #.
+ *  4) We create a Payout row => set payee's membership hasBeenPaid=true.
+ *  5) We shift futureCyclesJson => pop the used date => if there's a next date => set nextCycleDate to that next item => re-schedule.
  */
 export async function processContributionCycle(job: Job) {
   const { groupId } = job.data;
@@ -68,43 +67,40 @@ export async function processContributionCycle(job: Job) {
 
   try {
     await db.$transaction(async (tx) => {
-      // 1) load group + memberships (excluding those who have already been paid)
+      // 1) load group
       const group = await tx.group.findUnique({
         where: { id: groupId },
         include: {
+          // only active & not paid
           groupMemberships: {
-            // We exclude hasBeenPaid===true so that once
-            // a user has had their payout, they won't remain “next in line.”
             where: {
               status: MembershipStatus.Active,
               hasBeenPaid: false,
             },
             include: { user: true },
           },
-          payouts: {
-            orderBy: { payoutOrder: "desc" },
-          },
+          payouts: { orderBy: { payoutOrder: "desc" } },
         },
       });
       if (!group || group.status !== GroupStatus.Active) {
-        throw new Error(`Group ${groupId} is not active/found`);
+        throw new Error(`Group ${groupId} is not active/found.`);
       }
       if (!group.contributionAmount || group.contributionAmount.lte(0)) {
-        throw new Error(`Invalid contributionAmount for group ${groupId}`);
+        throw new Error(`Invalid contributionAmount for group ${groupId}.`);
       }
 
-      const safeDecimal = group.contributionAmount; // e.g. 1000.00
+      const safeDecimal = group.contributionAmount; // e.g. 1000
       const baseAmount = safeDecimal.toNumber();
-      const activeMembers = group.groupMemberships; // these haven't been paid yet
+      const membersPending = group.groupMemberships; // not yet paid
 
-      // 2) figure out nextCycleNumber => (# of existing Payouts) + 1
+      // 2) nextCycleNumber => last payout’s order + 1
       let nextCycleNumber = 1;
       if (group.payouts.length > 0) {
         nextCycleNumber = group.payouts[0].payoutOrder + 1;
       }
 
-      // If nextCycleNumber > activeMembers.length => we’ve paid everyone
-      if (nextCycleNumber > activeMembers.length) {
+      // if nextCycleNumber > membersPending.length => done
+      if (nextCycleNumber > membersPending.length) {
         await tx.group.update({
           where: { id: group.id },
           data: {
@@ -113,9 +109,9 @@ export async function processContributionCycle(job: Job) {
             pauseReason: PauseReason.OTHER,
           },
         });
-        console.log(`All members have received a payout => group ${group.id} ended.`);
+        console.log(`All members have received payout => group ${group.id} ended.`);
 
-        const allEmails = activeMembers.map((m) => ({
+        const allEmails = membersPending.map((m) => ({
           email: m.user.email,
           firstName: m.user.firstName,
           lastName: m.user.lastName,
@@ -128,10 +124,10 @@ export async function processContributionCycle(job: Job) {
         return;
       }
 
-      // 3) payee => membership whose `payoutOrder = nextCycleNumber`
-      const payee = activeMembers.find((m) => m.payoutOrder === nextCycleNumber);
+      // 3) find payee => payoutOrder= nextCycleNumber
+      const payee = membersPending.find((m) => m.payoutOrder === nextCycleNumber);
       if (!payee) {
-        throw new Error(`No membership found for cycleNumber=${nextCycleNumber}`);
+        throw new Error(`No membership found => group=${groupId}, cycle#=${nextCycleNumber}`);
       }
 
       const payeeUser = await tx.user.findUnique({
@@ -143,33 +139,31 @@ export async function processContributionCycle(job: Job) {
       }
 
       // 4) Everyone else pays => skip duplicates
-      for (const membership of activeMembers) {
+      for (const membership of membersPending) {
         const user = membership.user;
         if (
           !user.stripeCustomerId ||
           !user.stripeBecsPaymentMethodId ||
           !user.stripeMandateId
         ) {
-          console.warn(`Skipping user ${user.id}, missing payment setup`);
+          console.warn(`User ${user.id} missing setup => skipping`);
           continue;
         }
 
-        // check if payment exists for that cycleNumber
-        const existingPay = await tx.payment.findFirst({
+        // check if Payment row already exists
+        const existing = await tx.payment.findFirst({
           where: {
             userId: user.id,
             groupId: group.id,
             cycleNumber: nextCycleNumber,
           },
         });
-        if (existingPay) {
-          console.log(
-            `Skipping existing Payment for user=${user.id}, cycle=${nextCycleNumber}`
-          );
+        if (existing) {
+          console.log(`Skipping Payment => user=${user.id}, cycle#=${nextCycleNumber} (exists)`);
           continue;
         }
 
-        // 1% + $0.30 => max $3.50
+        // 1% + $0.30, max $3.50
         let fee = baseAmount * 0.01 + 0.3;
         if (fee > 3.5) fee = 3.5;
 
@@ -178,7 +172,7 @@ export async function processContributionCycle(job: Job) {
         const feeInCents = Math.round(fee * 100);
 
         try {
-          // create PaymentIntent => money goes to payee's connected account
+          // PaymentIntent => money => payee
           const pi = await stripe.paymentIntents.create({
             amount: totalInCents,
             currency: "aud",
@@ -198,7 +192,7 @@ export async function processContributionCycle(job: Job) {
             },
           });
 
-          // record Payment => Pending
+          // record Payment => pending
           await tx.payment.create({
             data: {
               userId: user.id,
@@ -211,12 +205,8 @@ export async function processContributionCycle(job: Job) {
             },
           });
         } catch (err) {
-          console.error(
-            `PaymentIntent fail => user=${user.id}, cycle=${nextCycleNumber}`,
-            err
-          );
+          console.error(`PaymentIntent fail => user=${user.id}, cycle#=${nextCycleNumber}`, err);
 
-          // Payment => Failed
           const newPayment = await tx.payment.create({
             data: {
               userId: user.id,
@@ -228,7 +218,6 @@ export async function processContributionCycle(job: Job) {
             },
           });
 
-          // notify user
           await sendPaymentFailureEmail({
             recipient: {
               email: user.email,
@@ -239,16 +228,15 @@ export async function processContributionCycle(job: Job) {
             amount: safeDecimal.toString(),
           });
 
-          // if <3 => schedule retry
           if (newPayment.retryCount < 3) {
-            console.log(`Scheduling retry for Payment ${newPayment.id} in 2 days`);
+            console.log(`Scheduling retry => Payment ${newPayment.id} in 2 days`);
             await paymentQueue.add(
               "retry-failed-payment",
               { paymentId: newPayment.id },
               { delay: 2 * 86400000 }
             );
           } else {
-            // 3 => pause group
+            // pause group
             await tx.group.update({
               where: { id: group.id },
               data: {
@@ -258,47 +246,47 @@ export async function processContributionCycle(job: Job) {
             });
             console.log(`Group ${group.id} paused => repeated fails from user ${user.id}`);
 
-            const allActive = group.groupMemberships.map((m) => ({
+            const emailsAll = membersPending.map((m) => ({
               email: m.user.email,
               firstName: m.user.firstName,
               lastName: m.user.lastName,
             }));
             await sendGroupPausedNotificationEmail(
               group.name,
-              allActive,
+              emailsAll,
               `Payment failures by ${user.email}`
             );
           }
         }
       }
 
-      // 5) update group stats
+      // update totals
       await updateGroupPaymentStats(tx, group.id);
 
-      // 6) create Payout => payee
+      // create Payout => payee
       await tx.payout.create({
         data: {
           groupId: group.id,
           userId: payee.userId,
           scheduledPayoutDate: new Date(),
           amount: safeDecimal,
-          status: PaymentStatus.Pending, // or "Pending"
+          status: PaymentStatus.Pending,
           payoutOrder: nextCycleNumber,
         },
       });
       console.log(
-        `Payout #${nextCycleNumber} => userId=${payee.userId} amount=${safeDecimal}`
+        `Payout #${nextCycleNumber} => userId=${payee.userId}, amount=${safeDecimal}`
       );
 
-      // 7) Mark payee membership as hasBeenPaid=true so they're not "in line" next cycle
+      // mark payee => hasBeenPaid
       await tx.groupMembership.update({
         where: { id: payee.id },
         data: { hasBeenPaid: true },
       });
     });
 
-    // 8) If group is still active => shift from futureCyclesJson => schedule next
-    const updatedGroup = await db.group.findUnique({
+    // after transaction => shift from futureCyclesJson => schedule next
+    const latest = await db.group.findUnique({
       where: { id: groupId },
       select: {
         status: true,
@@ -306,27 +294,23 @@ export async function processContributionCycle(job: Job) {
         futureCyclesJson: true,
       },
     });
-    if (
-      !updatedGroup ||
-      updatedGroup.status !== GroupStatus.Active ||
-      !updatedGroup.cycleStarted
-    ) {
-      console.log(`Group ${groupId} is paused => no next scheduling.`);
+    if (!latest || latest.status !== GroupStatus.Active || !latest.cycleStarted) {
+      console.log(`Group ${groupId} is paused => skip next cycle schedule.`);
       return;
     }
 
-    // shift array => remove first date
-    let nextCycles = Array.isArray(updatedGroup.futureCyclesJson)
-      ? [...updatedGroup.futureCyclesJson]
+    let arr = Array.isArray(latest.futureCyclesJson)
+      ? [...latest.futureCyclesJson]
       : [];
-    nextCycles.shift(); // used the first date
+    arr.shift(); // remove the used date
 
-    if (nextCycles.length === 0) {
-      // no more dates => done
+    if (arr.length === 0) {
+      // no more => done
       await db.group.update({
         where: { id: groupId },
         data: {
           futureCyclesJson: [],
+          nextCycleDate: null, // done
           cycleStarted: false,
           status: GroupStatus.Paused,
           pauseReason: PauseReason.OTHER,
@@ -334,21 +318,42 @@ export async function processContributionCycle(job: Job) {
       });
       console.log(`No more cycle dates => group ${groupId} ended/paused.`);
     } else {
-      // store updated array, no nextCycleDate usage
-      await db.group.update({
-        where: { id: groupId },
-        data: {
-          futureCyclesJson: nextCycles,
-        },
-      });
+      // set nextCycleDate to arr[0]
+      const nextRaw = arr[0];
+      let nextDate: Date | null = null;
+      if (typeof nextRaw === "string" && nextRaw.trim() !== "") {
+        nextDate = new Date(nextRaw);
+      }
 
-      console.log(
-        `Group ${groupId} => scheduling next date from futureCyclesJson...`
-      );
-      await SchedulerService.scheduleNextCycle(groupId);
+      if (nextDate && !isNaN(nextDate.getTime())) {
+        await db.group.update({
+          where: { id: groupId },
+          data: {
+            futureCyclesJson: arr,
+            nextCycleDate: nextDate,
+          },
+        });
+        console.log(
+          `Group ${groupId} => nextCycleDate=${nextDate.toISOString()}, scheduling next cycle...`
+        );
+        await SchedulerService.scheduleNextCycle(groupId);
+      } else {
+        // invalid => end
+        console.warn(`Invalid next date => pausing group ${groupId}`);
+        await db.group.update({
+          where: { id: groupId },
+          data: {
+            futureCyclesJson: [],
+            nextCycleDate: null,
+            cycleStarted: false,
+            status: GroupStatus.Paused,
+            pauseReason: PauseReason.OTHER,
+          },
+        });
+      }
     }
 
-    // optionally notify group => "A new cycle started"
+    // optionally notify => “new cycle started”
     console.log(`=== processContributionCycle success for group=${groupId} ===\n`);
   } catch (error) {
     console.error(`Failed processContributionCycle for group ${groupId}:`, error);
@@ -357,8 +362,7 @@ export async function processContributionCycle(job: Job) {
 }
 
 /**
- * retryAllPaymentsForGroup
- * - unpause + set cycleStarted => schedule new job
+ * retryAllPaymentsForGroup => unpause & re-schedule from existing futureCyclesJson
  */
 export async function retryAllPaymentsForGroup(groupId: string): Promise<void> {
   console.log(`\n=== Admin retryAllPaymentsForGroup => group ${groupId} ===`);
@@ -371,13 +375,12 @@ export async function retryAllPaymentsForGroup(groupId: string): Promise<void> {
     },
   });
 
-  // we schedule again => it reads from the existing futureCyclesJson
   await SchedulerService.scheduleContributionCycle(groupId);
   console.log(`Group ${groupId} reactivated => PaymentIntents will be attempted.\n`);
 }
 
 /**
- * retryFailedPayment => same approach, but for a single Payment
+ * retryFailedPayment => single Payment re-attempt
  */
 export async function retryFailedPayment(job: Job) {
   const { paymentId } = job.data;
@@ -392,7 +395,7 @@ export async function retryFailedPayment(job: Job) {
     return;
   }
   if (!payment.group || payment.group.status !== GroupStatus.Active) {
-    console.log(`Group not active => skip Payment ${paymentId}`);
+    console.log(`Group paused or not active => skip Payment ${paymentId}`);
     return;
   }
   if (!payment.user?.stripeBecsPaymentMethodId || !payment.user.stripeMandateId) {
@@ -404,7 +407,8 @@ export async function retryFailedPayment(job: Job) {
     if (!payment.cycleNumber) {
       throw new Error(`Payment has no cycleNumber => can't find payee`);
     }
-    // find membership => payoutOrder = payment.cycleNumber
+
+    // find membership => payoutOrder= that cycleNumber
     const payeeMembership = await db.groupMembership.findFirst({
       where: {
         groupId: payment.groupId,
@@ -416,11 +420,11 @@ export async function retryFailedPayment(job: Job) {
     });
     if (!payeeMembership?.user?.stripeAccountId) {
       throw new Error(
-        `No membership found => groupId=${payment.groupId}, payoutOrder=${payment.cycleNumber}`
+        `No membership found => groupId=${payment.groupId}, cycleNumber=${payment.cycleNumber}`
       );
     }
 
-    let baseAmountNum = payment.amount.toNumber();
+    const baseAmountNum = payment.amount.toNumber();
     let fee = baseAmountNum * 0.01 + 0.3;
     if (fee > 3.5) fee = 3.5;
     if (payment.retryCount >= 1) {
@@ -448,12 +452,16 @@ export async function retryFailedPayment(job: Job) {
       },
     });
 
+    // mark Payment => Pending
     await db.payment.update({
       where: { id: payment.id },
-      data: { stripePaymentIntentId: pi.id, status: PaymentStatus.Pending },
+      data: {
+        stripePaymentIntentId: pi.id,
+        status: PaymentStatus.Pending,
+      },
     });
 
-    // recalc totals
+    // recalc group totals
     await updateGroupPaymentStats(db, payment.groupId);
     console.log(`Retry Payment ${paymentId} => PaymentIntent ${pi.id}`);
   } catch (error) {
@@ -464,6 +472,7 @@ export async function retryFailedPayment(job: Job) {
       data: { retryCount: { increment: 1 } },
     });
     if (updated.retryCount >= 3) {
+      // pause group
       await db.group.update({
         where: { id: payment.groupId },
         data: {
@@ -472,7 +481,6 @@ export async function retryFailedPayment(job: Job) {
         },
       });
       console.log(`Group ${payment.groupId} paused => Payment ${paymentId} failed 3 times`);
-      // you can email the group, etc.
     } else {
       console.log(`(retryCount=${updated.retryCount}) => next attempt if <3`);
     }

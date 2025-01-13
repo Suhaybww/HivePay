@@ -14,7 +14,6 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { db } from "@/src/db";
 import { headers } from "next/headers";
 import { Toaster } from "../components/ui/toaster";
-// Import the redirect helper
 import { redirect } from "next/navigation";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -66,10 +65,10 @@ export default async function RootLayout({
     pathname.startsWith(route)
   );
 
-  // If user is NOT logged in but is on a protected route, redirect to login
+  // If user is NOT logged in but is on a protected route, redirect to /auth-callback
   if (!user && isProtectedRoute) {
-    // Change "/kinde-auth/login" to whichever route triggers your Kinde login
-    redirect("/kinde-auth/login");
+    // If your actual login flow is somewhere else, adjust this path accordingly
+    redirect("/auth-callback");
   }
 
   return (

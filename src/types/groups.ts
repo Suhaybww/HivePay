@@ -10,6 +10,7 @@ export type GroupMember = {
   isAdmin: boolean;
   payoutOrder: number;
   stripeAccountId: string | null;
+  hasBeenPaid:  boolean;
 };
 
 // The main GroupWithStats shape

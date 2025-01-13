@@ -72,13 +72,7 @@ const StartCycleSchema = z.object({
 });
 
 // ====== Helper Avatars ======
-const InitialsAvatar = ({
-  firstName,
-  lastName,
-}: {
-  firstName: string;
-  lastName: string;
-}) => (
+const InitialsAvatar = ({ firstName, lastName }: { firstName: string; lastName: string }) => (
   <Avatar className="h-8 w-8 bg-yellow-400 text-black font-bold">
     <AvatarFallback>
       {`${firstName?.[0] || ""}${lastName?.[0] || ""}`}
@@ -123,7 +117,6 @@ export function GroupDetails({ group }: GroupDetailsProps) {
               : "Group paused due to inactive subscriptions.",
         });
       }
-      // Re-fetch group details
       utils.group.getGroupDetails.invalidate();
     },
     onError: (error) => {
@@ -208,7 +201,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
     },
   });
 
-  // 7) React Hook Form for starting a cycle
+  // 7) React Hook Form => scheduling the first cycle
   const {
     control,
     handleSubmit,
@@ -235,19 +228,19 @@ export function GroupDetails({ group }: GroupDetailsProps) {
   };
 
   // ====== Payment Tracking Logic ======
-  const totalDebited = typeof group.totalDebitedAmount === "number"
-    ? group.totalDebitedAmount
-    : parseFloat(group.totalDebitedAmount || "0");
+  const totalDebited =
+    typeof group.totalDebitedAmount === "number"
+      ? group.totalDebitedAmount
+      : parseFloat(group.totalDebitedAmount || "0");
+  const totalPending =
+    typeof group.totalPendingAmount === "number"
+      ? group.totalPendingAmount
+      : parseFloat(group.totalPendingAmount || "0");
+  const totalSuccess =
+    typeof group.totalSuccessAmount === "number"
+      ? group.totalSuccessAmount
+      : parseFloat(group.totalSuccessAmount || "0");
 
-  const totalPending = typeof group.totalPendingAmount === "number"
-    ? group.totalPendingAmount
-    : parseFloat(group.totalPendingAmount || "0");
-
-  const totalSuccess = typeof group.totalSuccessAmount === "number"
-    ? group.totalSuccessAmount
-    : parseFloat(group.totalSuccessAmount || "0");
-
-  // We'll only show *one* status at a time
   let paymentFlowStatus: React.ReactNode = null;
   if (totalPending > 0) {
     paymentFlowStatus = (
@@ -264,20 +257,15 @@ export function GroupDetails({ group }: GroupDetailsProps) {
       </div>
     );
   } else {
-    paymentFlowStatus = (
-      <div className="text-sm font-medium text-muted-foreground">
-        No direct debits yet.
-      </div>
-    );
+    paymentFlowStatus = <div className="text-sm font-medium text-muted-foreground">No direct debits yet.</div>;
   }
 
-  // Instead of the old "payoutOrder===1" approach, we find the first member who hasn't been paid,
-  // with the lowest payoutOrder:
+  // The next in line => first membership without hasBeenPaid, by ascending payoutOrder
   const nextInLine = [...group.members]
-    .filter((m) => !m.hasBeenPaid) // only those who haven't been paid
-    .sort((a, b) => a.payoutOrder - b.payoutOrder)[0]; // pick smallest payoutOrder
+    .filter((m) => !m.hasBeenPaid)
+    .sort((a, b) => a.payoutOrder - b.payoutOrder)[0];
 
-  // For the next contribution/payout date => from futureCycleDates
+  // Next cycle date => from schedule
   const { currentSchedule, futureCycleDates } = groupSchedule || {};
   let firstCycleDate: Date | null = null;
   if (futureCycleDates && futureCycleDates.length > 0) {
@@ -288,15 +276,14 @@ export function GroupDetails({ group }: GroupDetailsProps) {
     ? new Date(firstCycleDate.getTime() + 7 * 24 * 60 * 60 * 1000)
     : null;
 
-  // For total contributions progress
+  // total contributions => progress
   const totalContributionsNum = parseFloat(group.totalContributions || "0");
   const contributionAmountNum = parseFloat(group.contributionAmount || "0");
   const totalMembers = group._count.groupMemberships;
 
   let progressPercentage = 0;
   if (contributionAmountNum > 0 && totalMembers > 0) {
-    const ratio =
-      totalContributionsNum / (contributionAmountNum * totalMembers);
+    const ratio = totalContributionsNum / (contributionAmountNum * totalMembers);
     progressPercentage = Math.min(ratio * 100, 100);
   }
 
@@ -321,8 +308,8 @@ export function GroupDetails({ group }: GroupDetailsProps) {
                   className="bg-destructive text-destructive-foreground px-3 py-2 text-sm max-w-[300px]"
                 >
                   <p>
-                    This group is paused due to inactive subscriptions. All members need active
-                    subs to resume.
+                    This group is paused due to inactive subscriptions. All members need active subs
+                    to resume.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -373,7 +360,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
         )}
       </div>
 
-      {/* Paused Notice Banner */}
+      {/* Paused Notice */}
       {group.status === "Paused" && (
         <div className="mb-6 flex items-start space-x-2 bg-yellow-50 p-4 rounded-xl border border-yellow-200">
           <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
@@ -387,9 +374,9 @@ export function GroupDetails({ group }: GroupDetailsProps) {
         </div>
       )}
 
-      {/* Live Payment Flow Tracker */}
+      {/* Payment Flow Tracker */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* 1) Payment Flow Card */}
+        {/* Payment Flow */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Live Payment Flow</CardTitle>
@@ -410,7 +397,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
           </CardContent>
         </Card>
 
-        {/* 2) Contribution Amount Card */}
+        {/* Contribution Amount */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Contribution Amount</CardTitle>
@@ -429,44 +416,39 @@ export function GroupDetails({ group }: GroupDetailsProps) {
           </CardContent>
         </Card>
 
-        {/* 3) Next in line Card */}
+        {/* Next in line */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Next in line</CardTitle>
             <ArrowUpRight className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            {(() => {
-              if (!nextInLine) {
-                return (
-                  <>
-                    <div className="text-xl font-bold">Not Set</div>
-                    <p className="text-xs text-muted-foreground">No members in queue</p>
-                  </>
-                );
-              }
-              return (
-                <>
-                  <div className="flex items-center gap-2">
-                    <InitialsAvatar
-                      firstName={nextInLine.firstName}
-                      lastName={nextInLine.lastName}
-                    />
-                    <div className="text-xl font-bold truncate">
-                      {nextInLine.firstName} {nextInLine.lastName}
-                    </div>
+            {(!nextInLine) ? (
+              <>
+                <div className="text-xl font-bold">Not Set</div>
+                <p className="text-xs text-muted-foreground">No members in queue</p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <InitialsAvatar
+                    firstName={nextInLine.firstName}
+                    lastName={nextInLine.lastName}
+                  />
+                  <div className="text-xl font-bold truncate">
+                    {nextInLine.firstName} {nextInLine.lastName}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Who will receive the next payout
-                  </p>
-                </>
-              );
-            })()}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Who will receive the next payout
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Next Contribution & Payout => from first item in futureCycleDates */}
+      {/* Next Contribution & Payout => from the first futureCycleDates item */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -538,9 +520,8 @@ export function GroupDetails({ group }: GroupDetailsProps) {
               )}
 
               <div className="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md text-sm text-blue-700">
-                Please note that payouts typically occur about a week after the contribution date.
-                This allows enough time to process contributions and address potential
-                issues with failed payments.
+                Please note that payouts typically occur about a week after the contribution date,
+                allowing enough time to process contributions and address any potential payment issues.
               </div>
             </>
           )}

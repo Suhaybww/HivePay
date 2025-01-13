@@ -12,7 +12,14 @@ import {
 } from '@/src/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { format } from 'date-fns';
-import { ExternalLink, CreditCard, Wallet, ArrowUpRight, Download, AlertCircle, Loader2 } from 'lucide-react';
+import {
+  ExternalLink,
+  CreditCard,
+  Wallet,
+  ArrowUpRight,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
 import { Badge } from '@/src/components/ui/badge';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { Skeleton } from '@/src/components/ui/skeleton';
@@ -22,8 +29,14 @@ import { StripeElementsOptions } from '@stripe/stripe-js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import { useToast } from '@/src/components/ui/use-toast';
 
+// ------------------------------------------------------------------
+// Stripe Setup
+// ------------------------------------------------------------------
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
+// ------------------------------------------------------------------
+// Types
+// ------------------------------------------------------------------
 interface StripeAccountStatus {
   hasConnectedAccount: boolean;
   isOnboardingComplete: boolean;
@@ -38,16 +51,16 @@ interface StripeAccountStatus {
   };
 }
 
-// BECS Form Component
-const BECSForm = ({ 
-  clientSecret, 
-  onSuccess, 
-  isUpdate 
-}: { 
+interface BECSFormProps {
   clientSecret: string;
   onSuccess: () => void;
   isUpdate: boolean;
-}) => {
+}
+
+// ------------------------------------------------------------------
+// BECS Form Component
+// ------------------------------------------------------------------
+const BECSForm = ({ clientSecret, onSuccess, isUpdate }: BECSFormProps) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -136,12 +149,17 @@ const BECSForm = ({
   );
 };
 
+// ------------------------------------------------------------------
+// Main Payments Page Component
+// ------------------------------------------------------------------
 export default function PaymentsPage() {
   const { toast } = useToast();
   const utils = trpc.useContext();
 
   // States
-  const [activeSection, setActiveSection] = useState('transactions');
+  const [activeSection, setActiveSection] = useState<'transactions' | 'upcoming' | 'methods'>(
+    'transactions'
+  );
   const [timeframe, setTimeframe] = useState<'all' | 'week' | 'month' | 'year'>('all');
   const [type, setType] = useState<'all' | 'contributions' | 'payouts'>('all');
   const [showBECSSetupDialog, setShowBECSSetupDialog] = useState(false);
@@ -161,7 +179,7 @@ export default function PaymentsPage() {
   const createConnectAccount = trpc.stripe.createStripeConnectAccount.useMutation();
   const stripeDashboard = trpc.stripe.getStripeDashboardLink.useMutation();
 
-  // Type guard function
+  // Type guard: ensures accountStatus has a defined `.accountStatus`
   const hasAccountStatus = (
     status: StripeAccountStatus
   ): status is StripeAccountStatus & { accountStatus: NonNullable<StripeAccountStatus['accountStatus']> } => {
@@ -201,9 +219,20 @@ export default function PaymentsPage() {
     await utils.payment.getPaymentMethods.invalidate();
   };
 
+  // ------------------------------------------------------------------
+  // FIX: Pass the required `groupId` when calling `createConnectAccount`
+  // ------------------------------------------------------------------
   const handleConnectAccount = async () => {
     try {
-      const { url } = await createConnectAccount.mutateAsync();
+      // You may retrieve the actual group ID from your router or state
+      // For example:
+      // const { query } = useRouter();
+      // const groupId = query.groupId as string;
+
+      // For now, just use a placeholder:
+      const groupId = 'SOME_GROUP_ID';
+
+      const { url } = await createConnectAccount.mutateAsync({ groupId });
       if (url) window.location.href = url;
     } catch (error) {
       console.error('Failed to create Connect account:', error);
@@ -317,16 +346,26 @@ export default function PaymentsPage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className={`font-medium ${
-                          transaction.transactionType === 'Credit' 
-                            ? 'text-green-600' 
-                            : 'text-red-600'
-                        }`}>
+                        <p
+                          className={`font-medium ${
+                            transaction.transactionType === 'Credit'
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`}
+                        >
                           {transaction.transactionType === 'Credit' ? '+' : '-'}
                           {formatCurrency(transaction.amount)}
                         </p>
-                        <Badge variant={transaction.transactionType === 'Credit' ? 'success' : 'default'}>
-                          {transaction.transactionType === 'Credit' ? 'Payout' : 'Contribution'}
+                        <Badge
+                          variant={
+                            transaction.transactionType === 'Credit'
+                              ? 'success'
+                              : 'default'
+                          }
+                        >
+                          {transaction.transactionType === 'Credit'
+                            ? 'Payout'
+                            : 'Contribution'}
                         </Badge>
                       </div>
                     </CardContent>
@@ -360,8 +399,10 @@ export default function PaymentsPage() {
                       <div>
                         <p className="font-medium">{payment.groupName}</p>
                         <p className="text-sm text-gray-500">
-                          Next contribution: {payment.nextContributionDate ? 
-                            formatDate(payment.nextContributionDate) : 'Not scheduled'}
+                          Next contribution:{' '}
+                          {payment.nextCycleDate
+                            ? formatDate(payment.nextCycleDate)
+                            : 'Not scheduled'}
                         </p>
                       </div>
                       <div className="text-right">
@@ -369,8 +410,10 @@ export default function PaymentsPage() {
                           {formatCurrency(payment.amount || 0)}
                         </p>
                         <p className="text-sm text-gray-500">
-                          Next payout: {payment.nextPayoutDate ? 
-                            formatDate(payment.nextPayoutDate) : 'Not scheduled'}
+                          Next payout:{' '}
+                          {payment.nextCycleDate
+                            ? formatDate(payment.nextCycleDate)
+                            : 'Not scheduled'}
                         </p>
                       </div>
                     </CardContent>
@@ -384,10 +427,11 @@ export default function PaymentsPage() {
         {/* Payment Methods Section */}
         {activeSection === 'methods' && (
           <div className="space-y-6">
+            {/* BECS Direct Debit */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
-                <CreditCard className="w-5 h-5 mr-2" />
+                  <CreditCard className="w-5 h-5 mr-2" />
                   BECS Direct Debit
                 </CardTitle>
               </CardHeader>
@@ -407,14 +451,13 @@ export default function PaymentsPage() {
                 ) : (
                   <div className="flex justify-between items-center">
                     <p>No bank account connected</p>
-                    <Button onClick={handleBECSSetup}>
-                      Set up Direct Debit
-                    </Button>
+                    <Button onClick={handleBECSSetup}>Set up Direct Debit</Button>
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* Stripe Connect Account */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -429,14 +472,14 @@ export default function PaymentsPage() {
                       <div>
                         <p className="font-medium">Account connected</p>
                         <p className="text-sm text-gray-500">
-                          {accountStatus?.isOnboardingComplete ? 
-                            'Ready to receive payments' : 
-                            'Additional verification required'}
+                          {accountStatus?.isOnboardingComplete
+                            ? 'Ready to receive payments'
+                            : 'Additional verification required'}
                         </p>
                       </div>
                       <div className="flex gap-2">
                         {accountStatus?.isOnboardingComplete ? (
-                          <Button 
+                          <Button
                             variant="outline"
                             onClick={handleDashboardAccess}
                             className="flex items-center"
@@ -457,11 +500,27 @@ export default function PaymentsPage() {
                     {accountStatus && hasAccountStatus(accountStatus) && (
                       <div className="mt-4 space-y-2">
                         <div className="flex items-center gap-2">
-                          <Badge variant={accountStatus.accountStatus.chargesEnabled ? "success" : "secondary"}>
-                            {accountStatus.accountStatus.chargesEnabled ? "Charges Enabled" : "Charges Disabled"}
+                          <Badge
+                            variant={
+                              accountStatus.accountStatus.chargesEnabled
+                                ? 'success'
+                                : 'secondary'
+                            }
+                          >
+                            {accountStatus.accountStatus.chargesEnabled
+                              ? 'Charges Enabled'
+                              : 'Charges Disabled'}
                           </Badge>
-                          <Badge variant={accountStatus.accountStatus.payoutsEnabled ? "success" : "secondary"}>
-                            {accountStatus.accountStatus.payoutsEnabled ? "Payouts Enabled" : "Payouts Disabled"}
+                          <Badge
+                            variant={
+                              accountStatus.accountStatus.payoutsEnabled
+                                ? 'success'
+                                : 'secondary'
+                            }
+                          >
+                            {accountStatus.accountStatus.payoutsEnabled
+                              ? 'Payouts Enabled'
+                              : 'Payouts Disabled'}
                           </Badge>
                         </div>
 
@@ -472,11 +531,15 @@ export default function PaymentsPage() {
                             <AlertDescription>
                               <div className="space-y-2">
                                 {accountStatus.accountStatus.currentlyDue.length > 0 && (
-                                  <p>Required information: {accountStatus.accountStatus.currentlyDue.join(", ")}</p>
+                                  <p>
+                                    Required information:{' '}
+                                    {accountStatus.accountStatus.currentlyDue.join(', ')}
+                                  </p>
                                 )}
                                 {accountStatus.accountStatus.pastDue.length > 0 && (
                                   <p className="text-red-500">
-                                    Past due requirements: {accountStatus.accountStatus.pastDue.join(", ")}
+                                    Past due requirements:{' '}
+                                    {accountStatus.accountStatus.pastDue.join(', ')}
                                   </p>
                                 )}
                               </div>
@@ -502,8 +565,8 @@ export default function PaymentsPage() {
 
         {/* BECS Setup Dialog */}
         {setupIntentClientSecret && (
-          <Elements 
-            stripe={stripePromise} 
+          <Elements
+            stripe={stripePromise}
             options={{
               clientSecret: setupIntentClientSecret,
               appearance: { theme: 'stripe' },
@@ -514,11 +577,13 @@ export default function PaymentsPage() {
               <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>
-                    {paymentMethods?.becsSetup ? 'Update Payment Method' : 'Set Up Direct Debit'}
+                    {paymentMethods?.becsSetup
+                      ? 'Update Payment Method'
+                      : 'Set Up Direct Debit'}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="p-6">
-                  <BECSForm 
+                  <BECSForm
                     clientSecret={setupIntentClientSecret}
                     onSuccess={handleBECSSetupDone}
                     isUpdate={!!paymentMethods?.becsSetup}

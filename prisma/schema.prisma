@@ -174,29 +174,25 @@ model Subscription {
   plan                 Plan?              @relation(fields: [planId], references: [id])
 }
 
-
+// Single cycleFrequency + single nextCycleDate
 model Group {
   id                    String            @id @default(cuid())
   name                  String
   description           String?
   createdById           String
   contributionAmount    Decimal?          @db.Decimal(10, 2)
-  
-  // CHANGED: single cycleFrequency for everything
-  cycleFrequency        Frequency?
 
-  // single date used for the next cycle
+  cycleFrequency        Frequency?
   nextCycleDate         DateTime?
 
   cycleStarted          Boolean           @default(false)
   status                GroupStatus       @default(Active)
   pauseReason           PauseReason?
-  futureCyclesJson      Json?             // storing multiple future cycle dates
+  futureCyclesJson      Json?
 
-  totalDebitedAmount  Decimal?  @default(0)
-  totalPendingAmount  Decimal?  @default(0)
-  totalSuccessAmount  Decimal?  @default(0)
-
+  totalDebitedAmount    Decimal?  @default(0)
+  totalPendingAmount    Decimal?  @default(0)
+  totalSuccessAmount    Decimal?  @default(0)
 
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
@@ -222,7 +218,7 @@ model GroupMembership {
   status        MembershipStatus
   acceptedTOSAt DateTime?
   lastReadAt    DateTime?
-  hasBeenPaid   Boolean          @default(false) 
+  hasBeenPaid   Boolean          @default(false)
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -245,8 +241,7 @@ model Payment {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
   retryCount            Int           @default(0)
-  cycleNumber           Int?          // <--- newly added
-
+  cycleNumber           Int?
 
   // relations
   user                  User          @relation(fields: [userId], references: [id])
@@ -285,7 +280,6 @@ model Transaction {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  // relations
   user             User            @relation(fields: [userId], references: [id])
   group            Group           @relation(fields: [groupId], references: [id])
   relatedPayment   Payment?        @relation(fields: [relatedPaymentId], references: [id])
@@ -299,7 +293,6 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  // relations
   user      User     @relation(fields: [userId], references: [id])
 }
 
@@ -310,7 +303,6 @@ model Message {
   content   String
   createdAt DateTime @default(now())
 
-  // relations
   group     Group    @relation(fields: [groupId], references: [id])
   sender    User     @relation("MessagesSent", fields: [senderId], references: [id])
 }
@@ -325,7 +317,6 @@ model SupportTicket {
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
-  // relations
   user      User             @relation(fields: [userId], references: [id])
   responses TicketResponse[]
 }
@@ -339,8 +330,7 @@ model TicketResponse {
   userId     String?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @default(now())
-  
-  // relations
+
   ticket     SupportTicket @relation(fields: [ticketId], references: [id])
   user       User?         @relation(fields: [userId], references: [id])
 }
@@ -355,7 +345,6 @@ model Feedback {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())
 
-  // relations
   user        User     @relation(fields: [userId], references: [id])
 }
 
@@ -366,7 +355,6 @@ model ContractTemplate {
   effectiveDate DateTime
   lastUpdated   DateTime   @updatedAt
 
-  // relations
   contracts     Contract[]
 }
 
@@ -381,9 +369,8 @@ model Contract {
   fullName           String?
   pdfUrl             String?
   createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  updatedAt          DateTime         @default(now())
 
-  // relations
   contractTemplate   ContractTemplate @relation(fields: [contractTemplateId], references: [id])
   group              Group            @relation(fields: [groupId], references: [id])
   user               User             @relation(fields: [userId], references: [id])
@@ -398,7 +385,6 @@ model Invitation {
   expiresAt    DateTime
   invitedById  String
 
-  // relations
   group        Group            @relation(fields: [groupId], references: [id])
   invitedBy    User             @relation("UserInvitesSent", fields: [invitedById], references: [id])
 

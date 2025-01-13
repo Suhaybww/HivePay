@@ -107,18 +107,18 @@ export default function GroupsPage() {
                 {group.contributionAmount ? (
                   <span>
                     {formatCurrency(group.contributionAmount)}
-                    {group.contributionFrequency && 
-                      <span className="text-muted-foreground/60"> / {group.contributionFrequency.toLowerCase()}</span>
+                    {group.cycleFrequency && 
+                      <span className="text-muted-foreground/60"> / {group.cycleFrequency.toLowerCase()}</span>
                     }
                   </span>
                 ) : (
                   'No contribution set'
                 )}
               </div>
-              {group.nextContributionDate && (
+              {group.nextCycleDate && (
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Calendar className="mr-2 h-4 w-4" />
-                  Next contribution: {formatDate(group.nextContributionDate)}
+                  Next contribution: {formatDate(group.nextCycleDate)}
                 </div>
               )}
             </div>

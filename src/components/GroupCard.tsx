@@ -28,7 +28,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({ group }) => {
             {group.name}
           </CardTitle>
           <Badge variant="outline" className="text-sm">
-            {group.contributionFrequency || 'N/A'}
+            {group.cycleFrequency || 'N/A'}
           </Badge>
         </div>
       </CardHeader>
@@ -43,8 +43,8 @@ export const GroupCard: React.FC<GroupCardProps> = ({ group }) => {
           </p>
           <p>
             <span className="font-medium">Next Contribution Date:</span>{' '}
-            {group.nextContributionDate
-              ? new Date(group.nextContributionDate).toLocaleDateString()
+            {group.nextCycleDate
+              ? new Date(group.nextCycleDate).toLocaleDateString()
               : 'N/A'}
           </p>
           <p>

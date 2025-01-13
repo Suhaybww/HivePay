@@ -39,7 +39,7 @@ export const groupSettingsRouter = router({
         }
 
         const dataToUpdate: any = {};
-        if (scheduleDate) dataToUpdate.nextContributionDate = scheduleDate;
+        if (scheduleDate) dataToUpdate.nextCycleDate = scheduleDate;
         if (payoutDate) dataToUpdate.nextPayoutDate = payoutDate;
 
         if (Object.keys(dataToUpdate).length === 0) {
