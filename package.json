@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "seed": "prisma db seed",
     "analyze": "cross-env ANALYZE=true next build",
+
+    "build:vercel": "prisma generate && next build",
+
     "test:cron": "curl -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/delete-users",
     "seed:test-deletion": "ts-node -T prisma/seed-test-deletion.ts",
     "test:deletion": "npm run seed:test-deletion && npm run test:cron",
