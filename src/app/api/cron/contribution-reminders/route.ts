@@ -1,4 +1,5 @@
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;     // make sure there's zero revalidation
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
@@ -27,6 +28,7 @@ interface GroupWithMembers {
 }
 
 export async function GET(req: Request) {
+  const { db } = await import('@/src/db');
   try {
     console.log('Starting contribution reminder check...');
     
