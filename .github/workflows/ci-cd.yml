@@ -59,6 +59,7 @@ jobs:
         env:
           NODE_ENV: production
           CI: true
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
 
       - name: Analyze bundle
         run: npm run analyze
