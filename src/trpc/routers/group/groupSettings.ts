@@ -98,109 +98,121 @@ export const groupSettingsRouter = router({
       return updatedGroup;
     }),
 
-  // deleteGroup: Deletes a group entirely before the cycle starts
-  deleteGroup: privateProcedure
-    .input(z.object({ groupId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx;
-      const { groupId } = input;
+ /**
+   * deleteGroup
+   * Completely removes a group before the cycle starts, including
+   * all child references, ensuring no "required relation" errors occur.
+   */
+ deleteGroup: privateProcedure
+ .input(z.object({ groupId: z.string() }))
+ .mutation(async ({ ctx, input }) => {
+   const { userId } = ctx;
+   const { groupId } = input;
 
-      return await db.$transaction(async (tx) => {
-        const group = await tx.group.findUnique({
-          where: { id: groupId },
-          include: {
-            groupMemberships: {
-              include: {
-                user: { select: { id: true, email: true, firstName: true, lastName: true } }
-              }
-            },
-            createdBy: { select: { firstName: true, lastName: true } }
-          }
-        });
+   return await db.$transaction(async (tx) => {
+     // 1) Load group + memberships
+     const group = await tx.group.findUnique({
+       where: { id: groupId },
+       include: {
+         groupMemberships: {
+           include: {
+             user: {
+               select: {
+                 id: true,
+                 email: true,
+                 firstName: true,
+                 lastName: true,
+               },
+             },
+           },
+         },
+         createdBy: {
+           select: { firstName: true, lastName: true },
+         },
+       },
+     });
 
-        if (!group) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' });
-        }
+     if (!group) {
+       throw new TRPCError({
+         code: 'NOT_FOUND',
+         message: 'Group not found',
+       });
+     }
 
-        const isAdmin = group.groupMemberships.some(
-          membership => membership.user.id === userId && membership.isAdmin
-        );
+     // 2) Must be an admin
+     const isAdmin = group.groupMemberships.some(
+       (membership) => membership.user.id === userId && membership.isAdmin,
+     );
+     if (!isAdmin) {
+       throw new TRPCError({
+         code: 'FORBIDDEN',
+         message: 'Only group admins can delete groups',
+       });
+     }
 
-        if (!isAdmin) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Only group admins can delete groups'
-          });
-        }
+     // 3) Group must not have started its cycle
+     if (group.cycleStarted) {
+       throw new TRPCError({
+         code: 'FORBIDDEN',
+         message: 'Cannot delete the group after the cycle has started',
+       });
+     }
 
-        if (group.cycleStarted) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Cannot delete group after cycle has started'
-          });
-        }
+     // 4) (Optional) Create a "Group was deleted" transaction record for each member
+     //    so the action is logged. Note that these transactions also reference groupId,
+     //    so we MUST remove them afterward if your schema enforces that relation.
+     await Promise.all(
+       group.groupMemberships.map((membership) =>
+         tx.transaction.create({
+           data: {
+             userId: membership.user.id,
+             groupId: groupId,
+             amount: new Prisma.Decimal(0),
+             transactionType: TransactionType.Credit,
+             description: 'Group was deleted by admin',
+           },
+         }),
+       ),
+     );
 
-        // Set all memberships to inactive
-        await tx.groupMembership.updateMany({
-          where: { groupId, status: MembershipStatus.Active },
-          data: { status: MembershipStatus.Inactive }
-        });
+     // 5) Delete all Transaction records referencing this group
+     //    (including the ones you might have just created above).
+     await tx.transaction.deleteMany({ where: { groupId } });
 
-        // Create transaction records for all members
-        await Promise.all(
-          group.groupMemberships.map(membership =>
-            tx.transaction.create({
-              data: {
-                userId: membership.user.id,
-                groupId,
-                amount: new Prisma.Decimal(0),
-                transactionType: TransactionType.Credit,
-                description: 'Group was deleted by admin'
-              }
-            })
-          )
-        );
+     // 6) Now remove child references from other tables
+     await tx.invitation.deleteMany({ where: { groupId } });
+     await tx.message.deleteMany({ where: { groupId } });
+     await tx.contract.deleteMany({ where: { groupId } });
+     await tx.payment.deleteMany({ where: { groupId } });
+     await tx.payout.deleteMany({ where: { groupId } });
 
-        // Delete related records
-        await tx.invitation.deleteMany({ where: { groupId } });
-        await tx.message.deleteMany({ where: { groupId } });
-        await tx.contract.deleteMany({ where: { groupId } });
-        await tx.payment.deleteMany({ where: { groupId } });
-        await tx.payout.deleteMany({ where: { groupId } });
+     // 7) Finally remove groupMembership rows
+     await tx.groupMembership.deleteMany({ where: { groupId } });
 
-        // Delete the group
-        await tx.group.delete({ where: { id: groupId } });
+     // 8) Delete the group itself
+     await tx.group.delete({ where: { id: groupId } });
 
-        // Create notifications for all members
-        await tx.notification.createMany({
-          data: group.groupMemberships.map(membership => ({
-            userId: membership.user.id,
-            content: `The group "${group.name}" has been deleted by ${group.createdBy.firstName} ${group.createdBy.lastName}.`
-          }))
-        });
+     // 9) Notify members via email
+     const adminName = `${group.createdBy.firstName} ${group.createdBy.lastName}`;
+     const emailPromises = group.groupMemberships.map((membership) =>
+       sendGroupDeletionEmail({
+         groupName: group.name,
+         adminName,
+         recipient: {
+           email: membership.user.email,
+           firstName: membership.user.firstName,
+           lastName: membership.user.lastName,
+         },
+       }),
+     );
+     await Promise.allSettled(emailPromises);
 
-        const adminName = `${group.createdBy.firstName} ${group.createdBy.lastName}`;
-
-        const emailPromises = group.groupMemberships.map(membership =>
-          sendGroupDeletionEmail({
-            groupName: group.name,
-            adminName,
-            recipient: {
-              email: membership.user.email,
-              firstName: membership.user.firstName,
-              lastName: membership.user.lastName
-            }
-          })
-        );
-
-        await Promise.allSettled(emailPromises);
-
-        return {
-          success: true,
-          message: 'Group successfully deleted and all members notified'
-        };
-      });
-    }),
+     return {
+       success: true,
+       message: `Group "${group.name}" deleted. All members have been notified.`,
+     };
+   });
+ }),
 });
 
 export type GroupSettingsRouter = typeof groupSettingsRouter;

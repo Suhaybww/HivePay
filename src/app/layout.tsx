@@ -1,19 +1,25 @@
-import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
-import Providers from '../components/Providers'
-import { cn, constructMetadata } from '../lib/utils'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import { AppSidebar } from '../components/ui/app-siderbar'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '../components/ui/sidebar'
-import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server'
-import { db } from '@/src/db'
-import { headers } from 'next/headers'
-import { Toaster } from '../components/ui/toaster'
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
+import Providers from "../components/Providers";
+import { cn, constructMetadata } from "../lib/utils";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { AppSidebar } from "../components/ui/app-siderbar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "../components/ui/sidebar";
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { db } from "@/src/db";
+import { headers } from "next/headers";
+import { Toaster } from "../components/ui/toaster";
+// Import the redirect helper
+import { redirect } from "next/navigation";
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ["latin"] });
 
-export const metadata = constructMetadata()
+export const metadata = constructMetadata();
 
 export default async function RootLayout({
   children,
@@ -23,12 +29,12 @@ export default async function RootLayout({
   const { getUser } = getKindeServerSession();
   const kindeUser = await getUser();
   const headersList = headers();
-  const pathname = headersList.get('x-invoke-path') || '';
+  const pathname = headersList.get("x-invoke-path") || "";
 
-  // Add console logging for debugging
-  console.log('Current pathname:', pathname);
-  console.log('Kinde user:', kindeUser?.id);
+  console.log("Current pathname:", pathname);
+  console.log("Kinde user:", kindeUser?.id);
 
+  // Retrieve user from DB if logged in
   const user = kindeUser
     ? await db.user.findUnique({
         where: { id: kindeUser.id },
@@ -42,54 +48,38 @@ export default async function RootLayout({
       })
     : null;
 
-  console.log('DB user found:', !!user);
+  console.log("DB user found:", !!user);
 
+  // Define which routes require authentication
   const protectedRoutes = [
-    '/dashboard',
-    '/groups',
-    '/messages',
-    '/payments',
-    '/analytics',
-    '/settings',
-    '/onboarding',
+    "/dashboard",
+    "/groups",
+    "/messages",
+    "/payments",
+    "/analytics",
+    "/settings",
+    "/onboarding",
   ];
 
-  const companyRoutes = [
-    '/company/contact',
-    '/company/about',
-    '/company/faqs',
-    '/company/pricing',
-  ];
-
-  // More specific route checking
+  // Check if the current route is "protected"
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
-  
-  const isCompanyRoute = companyRoutes.some((route) => 
-    pathname.startsWith(route)
-  );
 
-  // Force app layout for authenticated users on company routes
-  const shouldShowAppLayout = Boolean(user) && (isProtectedRoute || isCompanyRoute);
-  
-  // Only show public layout for non-authenticated users
-  const shouldShowNavbarAndFooter = !user;
-
-  console.log({
-    isProtectedRoute,
-    isCompanyRoute,
-    shouldShowAppLayout,
-    shouldShowNavbarAndFooter
-  });
+  // If user is NOT logged in but is on a protected route, redirect to login
+  if (!user && isProtectedRoute) {
+    // Change "/kinde-auth/login" to whichever route triggers your Kinde login
+    redirect("/kinde-auth/login");
+  }
 
   return (
     <html lang="en" className="light">
-      <body className={cn('min-h-screen bg-background', inter.className)}>
+      <body className={cn("min-h-screen bg-background", inter.className)}>
         <Providers>
           <Toaster />
+
+          {/* If user is logged in, show App Layout */}
           {user ? (
-            // Always show app layout for authenticated users
             <SidebarProvider>
               <AppSidebar user={user} />
               <SidebarInset>
@@ -104,11 +94,13 @@ export default async function RootLayout({
               </SidebarInset>
             </SidebarProvider>
           ) : (
-            // Public layout for non-authenticated users
+            // Otherwise, show public layout
             <>
               <Navbar />
               <main className="flex-1">
-                <div className="container max-w-7xl mx-auto p-8">{children}</div>
+                <div className="container max-w-7xl mx-auto p-8">
+                  {children}
+                </div>
               </main>
               <Footer />
             </>

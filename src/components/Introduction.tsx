@@ -7,9 +7,13 @@ const Introduction = () => {
   return (
     <section className="py-48">
       <MaxWidthWrapper>
-        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-12">
+        {/* 
+          Use flex-col on small devices and flex-row on larger screens,
+          center items vertically across all breakpoints 
+        */}
+        <div className="flex flex-col lg:flex-row items-center gap-12">
           {/* Content */}
-          <div className="flex-1 space-y-6">
+          <div className="flex-1 space-y-6 text-center lg:text-left">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
               Modern Group Savings
               <span className="block mt-2 text-yellow-400">Made Simple</span>
@@ -19,7 +23,8 @@ const Introduction = () => {
               HivePay reinvents the traditional ROSCA (Rotating Savings and Credit Association)
               with a seamless, digital platform. Enjoy an internet-free, peer-to-peer loan system,
               allowing you to save and lend with your trusted circle, without banks or intermediaries.
-              Perfect for achieving financial goals together.
+              Perfect for achieving financial goals together. All of this at{" "}
+              <strong className="text-yellow-400">0% interest</strong>.
             </p>
 
             <div className="pt-4">
@@ -33,12 +38,16 @@ const Introduction = () => {
 
           {/* Responsive Image */}
           <div className="flex-1 w-full">
-            <div className="relative aspect-[4/3] w-full max-h-[500px] rounded-2xl overflow-hidden">
+            {/* 
+              Remove the fixed aspect ratio so the entire illustration 
+              (including their feet) is visible. 
+            */}
+            <div className="relative w-full h-[600px] rounded-2xl overflow-hidden">
               <Image
-                src="/images/1.png"
+                src="/images/test.png"
                 alt="People managing their group savings"
                 fill
-                className="object-contain md:object-cover rounded-2xl"
+                className="object-contain rounded-2xl"
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 priority
               />

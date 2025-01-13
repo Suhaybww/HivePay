@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
+import React, { useState, useCallback, useEffect } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { trpc } from "@/src/app/_trpc/client";
 import { Skeleton } from "@/src/components/ui/skeleton";
 import { useToast } from "@/src/components/ui/use-toast";
@@ -38,14 +38,38 @@ const defaultAnalyticsData = {
 
 export default function GroupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const params = useParams();
   const { toast } = useToast();
-  const [activeSection, setActiveSection] = useState("details");
   const utils = trpc.useContext();
 
   const groupId = params?.groupId as string;
+  const validTabs = ["details", "analytics", "messaging", "settings", "admin"];
 
-  // Fetch the group data
+  // Get the initial tab from the URL (or default to "details")
+  const initialTab = searchParams.get("tab");
+  const defaultTab = validTabs.includes(initialTab || "") ? initialTab : "details";
+
+  const [activeSection, setActiveSection] = useState<string>(defaultTab || "details");
+
+  // Keep local state (activeSection) in sync with query param changes
+  useEffect(() => {
+    const nextTab = searchParams.get("tab");
+    if (nextTab && validTabs.includes(nextTab) && nextTab !== activeSection) {
+      setActiveSection(nextTab);
+    }
+  }, [searchParams, activeSection]);
+
+  // Helper to switch tabs while also updating the query param (no 'shallow' option in next/navigation)
+  const handleTabChange = useCallback(
+    (tabName: string) => {
+      setActiveSection(tabName);
+      router.replace(`/groups/${groupId}?tab=${tabName}`); // remove shallow
+    },
+    [router, groupId]
+  );
+
+  // 1) Fetch group data
   const { data: group, isLoading: isLoadingGroup } = trpc.group.getGroupById.useQuery(
     { groupId },
     {
@@ -60,25 +84,21 @@ export default function GroupPage() {
     }
   );
 
-  // Fetch analytics data only when on the "analytics" tab
+  // 2) Possibly fetch analytics if user is on "analytics" tab
   const { data: analyticsData, isLoading: isLoadingAnalytics } =
     trpc.group.getGroupAnalytics.useQuery(
       { groupId },
-      {
-        enabled: activeSection === "analytics",
-      }
+      { enabled: activeSection === "analytics" }
     );
 
-  // Fetch messages only when on the "messaging" tab
+  // 3) Possibly fetch messages if on "messaging" tab
   const { data: messagesData, isLoading: isLoadingMessages } =
     trpc.group.getGroupMessages.useQuery(
       { groupId, limit: 50 },
-      {
-        enabled: activeSection === "messaging",
-      }
+      { enabled: activeSection === "messaging" }
     );
 
-  // Send message mutation
+  // 4) Send message mutation
   const sendMessageMutation = trpc.group.sendMessage.useMutation({
     onError: (error) => {
       toast({
@@ -92,20 +112,19 @@ export default function GroupPage() {
     await sendMessageMutation.mutateAsync({ groupId, content });
   };
 
-  // Callback for leaving the group
+  // 5) Callback for leaving group => push user to /dashboard
   const handleLeaveGroup = useCallback(() => {
     router.push("/dashboard");
   }, [router]);
 
-  // Callback for refreshing group data after updates
+  // 6) Refresh group data (e.g. after admin actions)
   const handleGroupUpdate = useCallback(() => {
     utils.group.getGroupById.invalidate({ groupId });
   }, [utils, groupId]);
 
-  // Fetch user setup status (stripe, BECS)
+  // 7) Fetch user’s setup status (Stripe, BECS)
   const { data: userSetupStatus } = trpc.user.getUserSetupStatus.useQuery();
 
-  // If group is still loading
   if (isLoadingGroup) {
     return (
       <div className="p-6 space-y-4">
@@ -121,14 +140,14 @@ export default function GroupPage() {
 
   if (!group) return null;
 
-  // Determine if user is missing either receiving or payment setup
+  // Payment setups incomplete?
   const isStripeIncomplete = userSetupStatus?.stripeOnboardingStatus !== "Completed";
   const isBECsIncomplete = userSetupStatus?.becsSetupStatus !== "Completed";
   const isAnySetupIncomplete = isStripeIncomplete || isBECsIncomplete;
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div className="space-y-2">
           <h1 className="text-5xl font-bold leading-tight">{group.name}</h1>
@@ -136,7 +155,7 @@ export default function GroupPage() {
         </div>
       </div>
 
-      {/* If user hasn't set up everything, show a friendly alert */}
+      {/* Alert if user hasn't completed all payment setups */}
       {isAnySetupIncomplete && (
         <Alert
           variant="destructive"
@@ -152,7 +171,7 @@ export default function GroupPage() {
               <Button
                 variant="link"
                 className="p-0 h-auto inline-flex items-center font-semibold text-red-600 hover:text-red-700"
-                onClick={() => setActiveSection("settings")}
+                onClick={() => handleTabChange("settings")}
               >
                 Settings
               </Button>{" "}
@@ -166,7 +185,7 @@ export default function GroupPage() {
       <div className="border-b mb-8">
         <div className="flex flex-wrap -mb-px">
           <button
-            onClick={() => setActiveSection("details")}
+            onClick={() => handleTabChange("details")}
             className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
               ${
                 activeSection === "details"
@@ -177,7 +196,7 @@ export default function GroupPage() {
             Details
           </button>
           <button
-            onClick={() => setActiveSection("analytics")}
+            onClick={() => handleTabChange("analytics")}
             className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
               ${
                 activeSection === "analytics"
@@ -188,7 +207,7 @@ export default function GroupPage() {
             Analytics
           </button>
           <button
-            onClick={() => setActiveSection("messaging")}
+            onClick={() => handleTabChange("messaging")}
             className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
               ${
                 activeSection === "messaging"
@@ -199,7 +218,7 @@ export default function GroupPage() {
             Messaging
           </button>
           <button
-            onClick={() => setActiveSection("settings")}
+            onClick={() => handleTabChange("settings")}
             className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
               ${
                 activeSection === "settings"
@@ -208,14 +227,13 @@ export default function GroupPage() {
               }`}
           >
             Settings
-            {/* If incomplete, show a red exclamation icon */}
             {isAnySetupIncomplete && (
               <AlertCircle className="ml-2 h-4 w-4 text-red-500" />
             )}
           </button>
           {group.isAdmin && (
             <button
-              onClick={() => setActiveSection("admin")}
+              onClick={() => handleTabChange("admin")}
               className={`inline-flex items-center px-6 py-4 border-b-2 font-medium text-sm transition-colors
                 ${
                   activeSection === "admin"
@@ -231,10 +249,7 @@ export default function GroupPage() {
 
       {/* Content Sections */}
       <div className="space-y-6">
-        {/* Details Section */}
         {activeSection === "details" && <GroupDetails group={group} />}
-
-        {/* Analytics Section */}
         {activeSection === "analytics" && (
           <>
             {isLoadingAnalytics ? (
@@ -250,8 +265,6 @@ export default function GroupPage() {
             )}
           </>
         )}
-
-        {/* Messaging Section */}
         {activeSection === "messaging" && (
           <>
             {isLoadingMessages ? (
@@ -265,8 +278,6 @@ export default function GroupPage() {
             )}
           </>
         )}
-
-        {/* Settings Section */}
         {activeSection === "settings" && group && (
           <GroupSettings
             group={group}
@@ -274,8 +285,6 @@ export default function GroupPage() {
             onGroupUpdate={handleGroupUpdate}
           />
         )}
-
-        {/* Admin Section */}
         {activeSection === "admin" && group.isAdmin && (
           <GroupAdmin group={group} onGroupUpdate={handleGroupUpdate} />
         )}

@@ -13,7 +13,48 @@ import {
   GroupStatus
 } from '@prisma/client';
 import { sendGroupPausedEmail } from '@/src/lib/emailService';
+import { Decimal } from "@prisma/client/runtime/library";
 
+// ----------------------------------------------------------
+// Helper to recalc group totals for Payment columns
+// ----------------------------------------------------------
+async function updateGroupPaymentStats(groupId: string) {
+  const allPayments = await db.payment.findMany({
+    where: { groupId },
+  });
+
+  let totalDebited = new Decimal(0);
+  let totalPending = new Decimal(0);
+  let totalSuccess = new Decimal(0);
+
+  for (const pay of allPayments) {
+    // Count everything that's NOT "Failed" as "debited"
+    if (pay.status !== PaymentStatus.Failed) {
+      totalDebited = totalDebited.plus(pay.amount);
+    }
+    if (pay.status === PaymentStatus.Pending) {
+      totalPending = totalPending.plus(pay.amount);
+    } else if (pay.status === PaymentStatus.Successful) {
+      totalSuccess = totalSuccess.plus(pay.amount);
+    }
+  }
+
+  await db.group.update({
+    where: { id: groupId },
+    data: {
+      totalDebitedAmount: totalDebited,
+      totalPendingAmount: totalPending,
+      totalSuccessAmount: totalSuccess,
+    },
+  });
+
+  console.log(
+    `Updated group ${groupId} payment stats:\n` +
+      `  totalDebited=${totalDebited},\n` +
+      `  totalPending=${totalPending},\n` +
+      `  totalSuccess=${totalSuccess}`
+  );
+}
 export async function POST(request: Request) {
   const body = await request.text();
   const signature = headers().get('Stripe-Signature') ?? '';
@@ -449,28 +490,43 @@ case 'customer.subscription.deleted': {
       }
 
      //==============================
-      // Payment Intents (Subscription or otherwise)
+      // Payment Intents (ROSCA or otherwise)
       //==============================
-      case 'payment_intent.succeeded': {
+      case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent;
         console.log(`PaymentIntent succeeded: ${pi.id}`);
 
-        // Mark local Payment as success
-        await db.payment.updateMany({
+        // 1) Mark local Payment => Successful
+        const { count } = await db.payment.updateMany({
           where: { stripePaymentIntentId: pi.id },
           data: { status: PaymentStatus.Successful },
         });
+        console.log(`Marked ${count} Payment(s) as Successful for PI=${pi.id}`);
+
+        // 2) Recompute totals for each distinct group that used this PaymentIntent
+        const successPayments = await db.payment.findMany({
+          where: { stripePaymentIntentId: pi.id },
+          select: { groupId: true },
+        });
+
+        const groupIds = new Set(successPayments.map((p) => p.groupId));
+        for (const gid of groupIds) {
+          await updateGroupPaymentStats(gid);
+        }
+
         break;
       }
-      
-      case 'payment_intent.payment_failed': {
+
+      case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent;
         console.log(`PaymentIntent failed: ${pi.id}`);
-      
-        // 1) Mark local Payment(s) as failed & increment retryCount
+
+        // 1) Mark local Payment(s) => Failed + increment retryCount
         const failedPayments = await db.payment.findMany({
           where: { stripePaymentIntentId: pi.id },
         });
+        const groupIds = new Set<string>();
+
         for (const pay of failedPayments) {
           const updated = await db.payment.update({
             where: { id: pay.id },
@@ -479,12 +535,17 @@ case 'customer.subscription.deleted': {
               retryCount: { increment: 1 },
             },
           });
-      
-          console.log(`Payment ${pay.id} is now Failed (retryCount=${updated.retryCount})`);
-      
+          groupIds.add(updated.groupId);
+
+          console.log(
+            `Payment ${pay.id} => Failed (retryCount=${updated.retryCount})`
+          );
+
           // 2) If 3+ => pause group
           if (updated.retryCount >= 3) {
-            console.log(`Pausing group ${updated.groupId} because Payment ${pay.id} exceeded retry limit...`);
+            console.log(
+              `Pausing group ${updated.groupId}, Payment ${pay.id} exceeded retry limit...`
+            );
             await db.group.update({
               where: { id: updated.groupId },
               data: { status: GroupStatus.Paused },
@@ -492,8 +553,13 @@ case 'customer.subscription.deleted': {
             // Optionally email group members about the pause
           }
         }
-      
-        // 3) (Optional) Also mark user sub inactive if needed
+
+        // 3) Recompute totals for all impacted groups
+        for (const gid of groupIds) {
+          await updateGroupPaymentStats(gid);
+        }
+
+        // (Optional) Mark user sub inactive if needed
         if (pi.customer) {
           const custId = pi.customer as string;
           const user = await db.user.findUnique({
@@ -504,14 +570,16 @@ case 'customer.subscription.deleted': {
               where: { id: user.id },
               data: { subscriptionStatus: SubscriptionStatus.Inactive },
             });
-            console.log(`User ${user.id} sub is now Inactive due to PaymentIntent fail`);
+            console.log(
+              `User ${user.id} sub => Inactive due to PaymentIntent fail`
+            );
           }
         }
-      
+
         break;
       }
-      
-      
+
+    
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;

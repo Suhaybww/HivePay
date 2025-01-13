@@ -6,7 +6,7 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 /**
  * contributionQueue
- * - Handles “start-contribution” jobs, i.e. when a group cycle starts.
+ * - Handles “start-contribution” jobs, i.e. the main cycle job.
  */
 export const contributionQueue = new Bull('contribution-cycles', REDIS_URL);
 

@@ -26,7 +26,7 @@ const Footer = () => {
           <div className="space-y-4">
             <Link href="/" className="flex items-center">
               <Image 
-                src="/images/HivePay.svg" 
+                src="/images/E.png" 
                 alt="HivePay Logo" 
                 width={96} 
                 height={96}
@@ -36,7 +36,7 @@ const Footer = () => {
               </span>
             </Link>
             <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">
-              Transforming traditional group savings into a seamless digital experience. Save and grow wealth together.
+            Transforming traditional group savings into a seamless, interest-free digital experience. Save and grow wealth together—without the burden of interest.
             </p>
           </div>
 

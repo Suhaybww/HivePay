@@ -28,7 +28,7 @@ const Navbar = async () => {
             {/* HivePay Logo */}
             <div className="relative w-20 h-20">
               <Image
-                src='/images/HivePay.svg'
+                src='/images/NB.png'
                 alt='HivePay Logo'
                 fill
                 className='object-contain'

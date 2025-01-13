@@ -174,8 +174,7 @@ model Subscription {
   plan                 Plan?              @relation(fields: [planId], references: [id])
 }
 
-// CHANGED: "nextCycleDate" instead of nextContributionDate
-// REMOVED: nextPayoutDate, and removed payoutFrequency
+
 model Group {
   id                    String            @id @default(cuid())
   name                  String
@@ -193,6 +192,11 @@ model Group {
   status                GroupStatus       @default(Active)
   pauseReason           PauseReason?
   futureCyclesJson      Json?             // storing multiple future cycle dates
+
+  totalDebitedAmount  Decimal?  @default(0)
+  totalPendingAmount  Decimal?  @default(0)
+  totalSuccessAmount  Decimal?  @default(0)
+
 
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
@@ -218,6 +222,7 @@ model GroupMembership {
   status        MembershipStatus
   acceptedTOSAt DateTime?
   lastReadAt    DateTime?
+  hasBeenPaid   Boolean          @default(false) 
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -240,6 +245,8 @@ model Payment {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
   retryCount            Int           @default(0)
+  cycleNumber           Int?          // <--- newly added
+
 
   // relations
   user                  User          @relation(fields: [userId], references: [id])

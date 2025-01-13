@@ -1,4 +1,5 @@
-"use client"
+// src/components/GroupAdmin.tsx
+"use client";
 
 import React, { useState } from 'react';
 import { GroupWithStats, GroupMember } from '../types/groups';
@@ -37,7 +38,7 @@ import { AdminInviteSection } from './AdminInviteSection';
 import { PauseReason } from "@prisma/client"
 
 interface GroupAdminProps {
-  group: GroupWithStats;  // group now includes { pauseReason?: string; ... }
+  group: GroupWithStats;
   onGroupUpdate: () => void;
 }
 
@@ -53,14 +54,13 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
 
   const cycleStarted = group.cycleStarted;
 
-  // 1) Save basic group settings
+  // 1) Update group settings
   const updateGroupMutation = trpc.group.updateGroupSettings.useMutation({
     onSuccess: () => {
       toast({
         title: 'Settings Saved',
         description: 'Your group settings have been updated successfully.',
       });
-      // Re-fetch group data
       utils.group.getGroupById.invalidate({ groupId: group.id });
     },
     onError: (error) => {
@@ -102,7 +102,6 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
       onGroupUpdate();
     },
     onError: (error) => {
-      // revert changes if error
       setMembers(group.members);
       toast({
         title: 'Error',
@@ -112,7 +111,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
     },
   });
 
-  // 4) Reorder (drag & drop) payout order
+  // 4) Reorder payout
   const updatePayoutOrderMutation = trpc.group.updatePayoutOrder.useMutation({
     onSuccess: () => {
       toast({
@@ -130,7 +129,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
     },
   });
 
-  // 5) Retry all payments if paused due to payment failures/refund
+  // 5) Retry payments if paused
   const retryAllPaymentsMutation = trpc.cycle.retryAllPayments.useMutation({
     onSuccess: () => {
       toast({
@@ -164,10 +163,11 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
         description: error.message || 'Failed to delete group',
         variant: 'destructive',
       });
+      console.error('Failed to delete group:', error);
     },
   });
 
-  // Handler: update group
+  // Handler: save basic settings
   const handleSave = async () => {
     await updateGroupMutation.mutateAsync({
       groupId: group.id,
@@ -179,7 +179,6 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
 
   // Handler: remove member
   const handleRemoveMember = async (memberId: string) => {
-    // optimistic
     setMembers((curr) => curr.filter((m) => m.id !== memberId));
     await removeMemberMutation.mutateAsync({ groupId: group.id, memberId });
   };
@@ -198,7 +197,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
     onGroupUpdate();
   };
 
-  // Handler: drag & drop reorder
+  // Handler: reorder (drag & drop)
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
@@ -208,7 +207,6 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
 
     setMembers(reordered);
 
-    // now call mutation
     const memberOrders = reordered.map((mem, idx) => ({
       memberId: mem.id,
       newOrder: idx + 1,
@@ -222,14 +220,10 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
 
   // Handler: delete group
   const handleDeleteGroup = async () => {
-    try {
-      await deleteGroupMutation.mutateAsync({ groupId: group.id });
-    } catch (err) {
-      console.error('Failed to delete group:', err);
-    }
+    await deleteGroupMutation.mutateAsync({ groupId: group.id });
   };
 
-  // Handler: retry all payments
+  // Handler: retry payments
   const handleRetryPayments = () => {
     retryAllPaymentsMutation.mutate({ groupId: group.id });
   };
@@ -279,8 +273,8 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
 
           <Separator className="my-8" />
 
-          {/* 2) Invitation and Member Management (only if cycle not started) */}
-          {!cycleStarted && (
+          {/* 2) Invitation and Member Management */}
+          {!group.cycleStarted && (
             <>
               <div className="space-y-4">
                 <h3 className="text-xl font-medium flex items-center gap-2">
@@ -288,10 +282,8 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                   <span>Manage Members</span>
                 </h3>
 
-                {/* AdminInviteSection for inviting new members */}
                 <AdminInviteSection groupId={group.id} />
 
-                {/* Member Management */}
                 <Alert className="bg-background">
                   <Users className="h-5 w-5" />
                   <AlertDescription className="text-sm text-muted-foreground">
@@ -320,7 +312,6 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                                       : 'bg-background border-muted hover:border-primary/50'
                                   }`}
                                 >
-                                  {/* DRAG HANDLE */}
                                   <div className="flex items-center gap-4">
                                     <div
                                       {...dragProvided.dragHandleProps}
@@ -366,7 +357,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
             </>
           )}
 
-          {/* 3) Admin Transfer Section */}
+          {/* 3) Transfer Admin Section */}
           <div className="space-y-4">
             <h3 className="text-xl font-medium flex items-center gap-2">
               <Crown className="h-6 w-6 text-yellow-500" />
@@ -384,8 +375,8 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                     <SelectGroup>
                       <SelectLabel>Members</SelectLabel>
                       {members
-                        .filter((m) => !m.isAdmin)
-                        .map((m) => (
+                        .filter(m => !m.isAdmin)
+                        .map(m => (
                           <SelectItem key={m.id} value={m.id} className="text-base">
                             {m.firstName}
                           </SelectItem>
@@ -404,17 +395,12 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
               <AlertTriangle className="h-5 w-5" />
               <AlertTitle className="text-base font-medium">Note</AlertTitle>
               <AlertDescription className="text-sm text-gray-600">
-                Transferring the admin role will make you a regular member and give all admin
-                privileges to the selected member.
+                Transferring the admin role will make you a regular member and give all admin privileges to the selected member.
               </AlertDescription>
             </Alert>
           </div>
 
-          {/*
-            4) "Retry Payments" button if:
-               group.status === 'Paused'
-               AND (group.pauseReason === 'PAYMENT_FAILURES' || group.pauseReason === 'REFUND_ALL')
-          */}
+          {/** 4) Retry Payments if paused */}
           {group.status === 'Paused' &&
             (group.pauseReason === 'PAYMENT_FAILURES' || group.pauseReason === 'REFUND_ALL') && (
               <>
@@ -445,7 +431,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
               </>
             )}
 
-          {/* 5) Delete Group Section (only if cycle not started) */}
+          {/* 5) Delete Group (only if cycle not started) */}
           {!cycleStarted && (
             <>
               <Separator className="my-8" />
@@ -472,7 +458,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                     <Button
                       variant="destructive"
                       size="lg"
-                      className="w-full bg-rose-500 hover:bg-rose-600 transition-colors"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white transition-colors"
                     >
                       <Trash2 className="h-5 w-5 mr-2" />
                       Delete Group
@@ -495,7 +481,7 @@ const GroupAdmin: React.FC<GroupAdminProps> = ({ group, onGroupUpdate }) => {
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={handleDeleteGroup}
-                        className="bg-rose-500 hover:bg-rose-600 transition-colors text-white"
+                        className="bg-red-600 hover:bg-red-700 text-white transition-colors"
                       >
                         Yes, Delete Group
                       </AlertDialogAction>

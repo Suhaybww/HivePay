@@ -7,14 +7,17 @@ import { z } from 'zod';
 import { stripe } from '../../lib/stripe';
 
 export const stripeRouter = router({
-  createStripeConnectAccount: privateProcedure.mutation(async ({ ctx }) => {
+  createStripeConnectAccount: privateProcedure
+  .input(z.object({ groupId: z.string() }))
+  .mutation(async ({ ctx, input }) => {
     const { userId } = ctx;
+    const { groupId } = input;
 
     if (!userId) {
       throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not authenticated' });
     }
 
-    // Fetch user data from the database
+    // Fetch user data
     const dbUser = await db.user.findUnique({
       where: { id: userId },
       select: {
@@ -36,8 +39,7 @@ export const stripeRouter = router({
       let accountId = dbUser.stripeAccountId;
 
       if (!accountId) {
-        // Create a new Express account with a 2-day delay schedule for payouts
-        // (If you prefer manual payouts, see alternative code block below.)
+        // Create an Express Connect account
         const account = await stripe.accounts.create({
           type: 'express',
           country: 'AU',
@@ -54,24 +56,15 @@ export const stripeRouter = router({
           settings: {
             payouts: {
               schedule: {
-                delay_days: 2, // <--- Stripe will hold funds for 2 days before depositing
+                delay_days: 2,
               },
             },
           },
         });
 
-        // If you prefer "manual" payouts instead of a 2-day auto-delay:
-        // settings: {
-        //   payouts: {
-        //     schedule: {
-        //       interval: 'manual',
-        //     },
-        //   },
-        // }
-
         accountId = account.id;
 
-        // Save to your DB
+        // Save to DB
         await db.user.update({
           where: { id: userId },
           data: {
@@ -82,11 +75,11 @@ export const stripeRouter = router({
         });
       }
 
-      // Generate an account link for Express onboarding
+      // Build the link that returns user specifically to ?tab=settings
       const accountLink = await stripe.accountLinks.create({
         account: accountId,
-        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=failed`,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?onboarding=completed`,
+        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/groups/${groupId}?tab=settings&onboarding=failed`,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/groups/${groupId}?tab=settings&onboarding=completed`,
         type: 'account_onboarding',
       });
 
@@ -99,7 +92,6 @@ export const stripeRouter = router({
       });
     }
   }),
-
 
     getStripeDashboardLink: privateProcedure
     .mutation(async ({ ctx }) => {  

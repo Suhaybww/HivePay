@@ -33,8 +33,8 @@ export function formatDate(date: Date): string {
 export function constructMetadata({
   title = "HivePay",
   description = "HivePay is a digital platform for secure and automated rotating savings. Whether saving with friends or family, our system ensures trust and transparency every step of the way.",
-  image = "/HivePay.svg",
-  icons = "/HivePay.svg",
+  image = "/E.png",
+  icons = "/E.png",
   noIndex = false
 }: {
   title?: string

@@ -1,72 +1,42 @@
-// src/lib/services/SchedulerService.ts
-import { db } from '@/src/db';
-import { contributionQueue, defaultJobOptions } from '../queue/config';
-import { Frequency, GroupStatus } from '@prisma/client';
-import { addWeeks, addMonths } from 'date-fns';
-import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { db } from "@/src/db";
+import { contributionQueue, defaultJobOptions } from "../queue/config";
+import { GroupStatus } from "@prisma/client"; // <— we no longer need Frequency here
+import { toZonedTime, formatInTimeZone } from "date-fns-tz";
 
 export class SchedulerService {
-  private static readonly TIMEZONE = 'Australia/Melbourne';
-
-  /**
-   * getNextDate
-   * Takes the current date & the Frequency => returns a new date in UTC
-   */
-  private static getNextDate(currentDate: Date, frequency: Frequency): Date {
-    const melbourneDate = toZonedTime(currentDate, this.TIMEZONE);
-    let nextDate: Date;
-
-    switch (frequency) {
-      case 'Weekly':
-        nextDate = addWeeks(melbourneDate, 1);
-        break;
-      case 'BiWeekly':
-        nextDate = addWeeks(melbourneDate, 2);
-        break;
-      case 'Monthly':
-        nextDate = addMonths(melbourneDate, 1);
-        break;
-      default:
-        throw new Error(`Unsupported frequency: ${frequency}`);
-    }
-
-    // Convert back to UTC
-    return new Date(Date.UTC(
-      nextDate.getFullYear(),
-      nextDate.getMonth(),
-      nextDate.getDate(),
-      nextDate.getHours(),
-      nextDate.getMinutes(),
-      nextDate.getSeconds(),
-      nextDate.getMilliseconds()
-    ));
-  }
+  private static readonly TIMEZONE = "Australia/Melbourne";
 
   /**
    * scheduleContributionCycle
    * Called right away after scheduleGroupCycles, or after finishing a cycle,
-   * to queue up the next run of "start-contribution".
+   * to queue up the next run of "start-contribution" at `group.nextCycleDate`.
    */
   static async scheduleContributionCycle(groupId: string): Promise<void> {
     const group = await db.group.findUnique({
       where: { id: groupId },
       select: {
-        cycleFrequency: true,
         nextCycleDate: true,
         status: true,
       },
     });
 
-    if (!group || !group.cycleFrequency || group.status !== GroupStatus.Active) {
+    if (!group || group.status !== GroupStatus.Active) {
       console.log(`Invalid or inactive group for scheduling: ${groupId}`);
       return;
     }
 
-    // If group.nextCycleDate is not set or is in the past, we do immediate or fix it
-    const nextDateInMelbourne = group.nextCycleDate
-      ? toZonedTime(group.nextCycleDate, this.TIMEZONE)
-      : toZonedTime(new Date(), this.TIMEZONE);
+    // If nextCycleDate missing or in the past => immediate
+    if (!group.nextCycleDate) {
+      console.log(`No nextCycleDate => forcing immediate for group ${groupId}`);
+      await contributionQueue.add("start-contribution", { groupId }, {
+        ...defaultJobOptions,
+        delay: 0,
+        jobId: `contribution-${groupId}-now`
+      });
+      return;
+    }
 
+    const nextDateInMelbourne = toZonedTime(group.nextCycleDate, this.TIMEZONE);
     let nextDateUTC = new Date(Date.UTC(
       nextDateInMelbourne.getFullYear(),
       nextDateInMelbourne.getMonth(),
@@ -77,15 +47,14 @@ export class SchedulerService {
     ));
 
     let delay = nextDateUTC.getTime() - Date.now();
-
     if (delay < 0) {
-      console.log(`(TESTING) nextCycleDate is in the past. Forcing delay=0 immediately.`);
+      console.log(`(TESTING) nextCycleDate is in the past => forcing delay=0.`);
       delay = 0;
     }
 
     // Add job => 'start-contribution'
     await contributionQueue.add(
-      'start-contribution',
+      "start-contribution",
       { groupId },
       {
         ...defaultJobOptions,
@@ -96,45 +65,26 @@ export class SchedulerService {
 
     console.log(
       `Scheduled next cycle for group ${groupId} at`,
-      formatInTimeZone(nextDateUTC, this.TIMEZONE, 'yyyy-MM-dd HH:mm:ss zzz')
+      formatInTimeZone(nextDateUTC, this.TIMEZONE, "yyyy-MM-dd HH:mm:ss zzz")
     );
   }
 
   /**
    * scheduleNextCycle
-   * If the group is still active & started, we push nextCycleDate forward
-   * by 1 frequency interval => then re-schedule the queue.
+   * Previously we were adding frequency increments. 
+   * Now we simply read the nextCycleDate from futureCyclesJson in the processor
+   * and store it in the group. We just re-schedule that date. No additional increments.
    */
   static async scheduleNextCycle(groupId: string): Promise<void> {
-    const group = await db.group.findUnique({
-      where: { id: groupId },
-      select: {
-        cycleFrequency: true,
-        nextCycleDate: true,
-        status: true,
-      },
-    });
+    // The group’s code updates `nextCycleDate` from `futureCyclesJson`.
+    // So we just re-queue it if still active.
+    const group = await db.group.findUnique({ where: { id: groupId } });
     if (!group || group.status !== GroupStatus.Active) {
+      console.log(`Group ${groupId} is not active => skip scheduleNextCycle.`);
       return;
     }
 
-    if (!group.cycleFrequency) {
-      console.log(`No cycleFrequency set for group ${groupId}; skipping next cycle scheduling.`);
-      return;
-    }
-
-    const nextCycleDate = group.nextCycleDate || new Date();
-
-    // Move it forward by 1 frequency cycle
-    const nextDateUTC = this.getNextDate(nextCycleDate, group.cycleFrequency);
-
-    await db.group.update({
-      where: { id: groupId },
-      data: {
-        nextCycleDate: nextDateUTC,
-      },
-    });
-
+    // We rely on the updated nextCycleDate from the DB
     await this.scheduleContributionCycle(groupId);
   }
 }

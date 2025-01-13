@@ -11,7 +11,7 @@ const steps = [
     title: "Create or Join a Group",
     description:
       "Sign up and either start a new group or join an existing one with your friends and family.",
-    imageSrc: "/images/step1.png",
+    imageSrc: "/images/1step.png",
     altText: 'Person tapping "Create Group" on a smartphone',
     width: 800,
     height: 800,
@@ -21,7 +21,7 @@ const steps = [
     title: "Customize Your Group",
     description:
       "Set the payout amounts, contribution frequency, and event duration to fit your group's preferences.",
-    imageSrc: "/images/step2.png",
+    imageSrc: "/images/step22.png",
     altText: "Settings dashboard with adjustable sliders",
   },
   {

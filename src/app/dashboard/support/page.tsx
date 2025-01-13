@@ -154,10 +154,6 @@ export default function SupportPage() {
     },
   });
 
-  // Handlers
-  const handleStatusUpdate = async (ticketId: string, status: TicketStatus) => {
-    updateStatus.mutate({ ticketId, status });
-  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -265,7 +261,7 @@ return (
             </CardFooter>
           </Card>
 
-          <Card className="bg-gradient-to-br from-yellow-50/50 to-transparent">
+          {/* <Card className="bg-gradient-to-br from-yellow-50/50 to-transparent">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-yellow-600" />
@@ -291,7 +287,7 @@ return (
                 <ExternalLink className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </CardFooter>
-          </Card>
+          </Card> */}
         </div>
       )}
 

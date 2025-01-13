@@ -109,7 +109,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
               <a href="/dashboard" className="flex items-center gap-3 px-2">
                 <div className="relative flex aspect-square size-10 items-center justify-center">
                   <Image
-                    src="/images/HivePay.svg"
+                    src="/images/NB.png"
                     alt="HivePay Logo"
                     width={40}
                     height={40}

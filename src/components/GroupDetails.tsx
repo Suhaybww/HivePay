@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card"
-import { Badge } from "@/src/components/ui/badge"
-import { Button } from "@/src/components/ui/button"
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
+import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,106 +14,101 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/src/components/ui/alert-dialog"
+} from "@/src/components/ui/alert-dialog";
 import {
   Users,
   Calendar as CalendarIcon,
-  CircleDollarSign,
   CreditCard,
   Play,
   CheckCircle,
   XCircle,
   AlertTriangle,
-  InfoIcon,
+  Info as InfoIcon,
   Loader2,
   PauseCircle,
   ArrowUpRight,
   RefreshCw,
-} from "lucide-react"
-import { useToast } from "@/src/components/ui/use-toast"
-import { trpc } from "@/src/app/_trpc/client"
+} from "lucide-react";
+import { useToast } from "@/src/components/ui/use-toast";
+import { trpc } from "@/src/app/_trpc/client";
 
-// Import your new types
-import type { GroupWithStats, GroupSchedule } from "../types/groups"
-
-import { Controller, useForm } from "react-hook-form"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { DatePicker } from "@/src/components/ui/date-picker"
-import { cn } from "../lib/utils"
-import { Avatar, AvatarFallback } from "@/src/components/ui/avatar"
+import type { GroupWithStats, GroupSchedule } from "../types/groups";
+import { Controller, useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { DatePicker } from "@/src/components/ui/date-picker";
+import { cn } from "../lib/utils";
+import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/src/components/ui/tooltip"
-import { SubscriptionStatus } from "@prisma/client"
+} from "@/src/components/ui/tooltip";
+import { SubscriptionStatus } from "@prisma/client";
 
-// ====== Extra Types ======
+// ====== Types ======
 interface GroupDetailsProps {
-  group: GroupWithStats
+  group: GroupWithStats;
 }
 
-// We'll rename the form data to have just a single "cycleDate"
 interface StartCycleFormData {
-  cycleDate: Date
+  cycleDate: Date;
 }
 
-// If you have a "checkAndUpdateGroupStatus" returning something like:
 interface GroupStatusResponse {
-  status: string
+  status: string;
   inactiveMembers?: Array<{
-    id: string
-    email: string
-    name: string
-    subscriptionStatus: SubscriptionStatus
-  }>
+    id: string;
+    email: string;
+    name: string;
+    subscriptionStatus: SubscriptionStatus;
+  }>;
 }
 
-// The single field form schema
+// ====== Zod schema ======
 const StartCycleSchema = z.object({
   cycleDate: z.date({ required_error: "Cycle date is required" }),
-})
+});
 
-// A simple helper Avatar
+// ====== Helper Avatars ======
 const InitialsAvatar = ({
   firstName,
   lastName,
 }: {
-  firstName: string
-  lastName: string
+  firstName: string;
+  lastName: string;
 }) => (
   <Avatar className="h-8 w-8 bg-yellow-400 text-black font-bold">
     <AvatarFallback>
       {`${firstName?.[0] || ""}${lastName?.[0] || ""}`}
     </AvatarFallback>
   </Avatar>
-)
-
-// ====== Main GroupDetails Component ======
+);
 
 export function GroupDetails({ group }: GroupDetailsProps) {
-  const router = useRouter()
-  const { toast } = useToast()
-  const utils = trpc.useContext()
+  const router = useRouter();
+  const { toast } = useToast();
+  const utils = trpc.useContext();
 
-  const [isStartCycleDialogOpen, setIsStartCycleDialogOpen] = useState(false)
-  const [isStarting, setIsStarting] = useState(false)
-  const [isReactivating, setIsReactivating] = useState(false)
+  const [isStartCycleDialogOpen, setIsStartCycleDialogOpen] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isReactivating, setIsReactivating] = useState(false);
 
-  // Subscription details (if relevant)
+  // 1) Subscription details
   const { data: subscriptionDetails } = trpc.subscription.getUserSubscriptionDetails.useQuery(
     undefined,
     { refetchInterval: 30_000 }
-  )
+  );
 
-  // Group schedule => typed as GroupSchedule
-  const { data: groupSchedule, isLoading: isLoadingSchedule } = trpc.cycle.getGroupSchedule.useQuery<
-    GroupSchedule
-  >({ groupId: group.id }, { refetchInterval: 30_000 })
+  // 2) Group schedule => typed as GroupSchedule
+  const { data: groupSchedule, isLoading: isLoadingSchedule } =
+    trpc.cycle.getGroupSchedule.useQuery<GroupSchedule>(
+      { groupId: group.id },
+      { refetchInterval: 30_000 }
+    );
 
-  // Periodically check group status if paused
+  // 3) Periodically check group status if paused
   const groupStatusCheck = trpc.subscription.checkAndUpdateGroupStatus.useMutation({
     onSuccess: (res: GroupStatusResponse) => {
       if (res.status === "paused" && res.inactiveMembers) {
@@ -125,95 +120,95 @@ export function GroupDetails({ group }: GroupDetailsProps) {
               ? `Group paused due to inactive subscriptions for: ${res.inactiveMembers
                   .map((m) => m.name)
                   .join(", ")}`
-              : "Group paused due to inactive subscriptions."
-        })
+              : "Group paused due to inactive subscriptions.",
+        });
       }
-      utils.group.getGroupDetails.invalidate()
+      // Re-fetch group details
+      utils.group.getGroupDetails.invalidate();
     },
     onError: (error) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to check group status"
-      })
+        description: error.message || "Failed to check group status",
+      });
     },
-  })
+  });
 
   const handleCheckStatus = () => {
-    groupStatusCheck.mutate({ groupId: group.id })
-  }
+    groupStatusCheck.mutate({ groupId: group.id });
+  };
 
-  // Reactivate group
+  // 4) Reactivate group
   const { mutate: reactivateGroup } = trpc.subscription.reactivateGroup.useMutation({
     onSuccess: () => {
       toast({
         title: "Success",
         description: "Group reactivated successfully.",
-      })
-      utils.group.getGroupDetails.invalidate()
+      });
+      utils.group.getGroupDetails.invalidate();
     },
     onError: (err: any) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: err.message || "Failed to reactivate group"
-      })
+        description: err.message || "Failed to reactivate group",
+      });
     },
     onSettled: () => {
-      setIsReactivating(false)
+      setIsReactivating(false);
     },
-  })
+  });
 
   const handleReactivate = () => {
-    // Check subscription
     if (!subscriptionDetails?.isActive) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "You need an active subscription to reactivate the group."
-      })
-      return
+        description: "You need an active subscription to reactivate the group.",
+      });
+      return;
     }
-    setIsReactivating(true)
-    reactivateGroup({ groupId: group.id })
-  }
+    setIsReactivating(true);
+    reactivateGroup({ groupId: group.id });
+  };
 
   useEffect(() => {
     if (group.status === "Paused") {
-      const intervalId = setInterval(handleCheckStatus, 60_000)
-      return () => clearInterval(intervalId)
+      const intervalId = setInterval(handleCheckStatus, 60_000);
+      return () => clearInterval(intervalId);
     }
-  }, [group.status])
+  }, [group.status]);
 
-  // For displaying how members are set up
+  // 5) For displaying how members are set up
   const { data: groupMembersSetupStatus } = trpc.group.getGroupMembersSetupStatus.useQuery({
     groupId: group.id,
-  })
+  });
 
-  // scheduleGroupCycles mutation
+  // 6) scheduleGroupCycles mutation
   const scheduleGroupCycles = trpc.cycle.scheduleGroupCycles.useMutation({
     onSuccess: () => {
       toast({
         title: "Success",
         description: "Group cycles scheduled successfully.",
-      })
-      setIsStartCycleDialogOpen(false)
-      utils.group.getGroupDetails.invalidate()
-      utils.cycle.getGroupSchedule.invalidate()
+      });
+      setIsStartCycleDialogOpen(false);
+      utils.group.getGroupDetails.invalidate();
+      utils.cycle.getGroupSchedule.invalidate();
     },
     onError: (error) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to schedule group cycles."
-      })
+        description: error.message || "Failed to schedule group cycles.",
+      });
     },
     onSettled: () => {
-      setIsStarting(false)
+      setIsStarting(false);
     },
-  })
+  });
 
-  // React Hook Form
+  // 7) React Hook Form for starting a cycle
   const {
     control,
     handleSubmit,
@@ -221,48 +216,89 @@ export function GroupDetails({ group }: GroupDetailsProps) {
   } = useForm<StartCycleFormData>({
     resolver: zodResolver(StartCycleSchema),
     defaultValues: { cycleDate: undefined },
-  })
+  });
 
   const onSubmit = (data: StartCycleFormData) => {
     if (!subscriptionDetails?.isActive) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "You need an active subscription to start a cycle."
-      })
-      return
+        description: "You need an active subscription to start a cycle.",
+      });
+      return;
     }
-    setIsStarting(true)
+    setIsStarting(true);
     scheduleGroupCycles.mutate({
       groupId: group.id,
       cycleDate: data.cycleDate,
-    })
+    });
+  };
+
+  // ====== Payment Tracking Logic ======
+  const totalDebited = typeof group.totalDebitedAmount === "number"
+    ? group.totalDebitedAmount
+    : parseFloat(group.totalDebitedAmount || "0");
+
+  const totalPending = typeof group.totalPendingAmount === "number"
+    ? group.totalPendingAmount
+    : parseFloat(group.totalPendingAmount || "0");
+
+  const totalSuccess = typeof group.totalSuccessAmount === "number"
+    ? group.totalSuccessAmount
+    : parseFloat(group.totalSuccessAmount || "0");
+
+  // We'll only show *one* status at a time
+  let paymentFlowStatus: React.ReactNode = null;
+  if (totalPending > 0) {
+    paymentFlowStatus = (
+      <div className="flex items-center gap-2 text-sm font-medium text-yellow-600">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span>Payments are pending...</span>
+      </div>
+    );
+  } else if (totalDebited > 0 && totalDebited === totalSuccess) {
+    paymentFlowStatus = (
+      <div className="flex items-center gap-2 text-sm font-medium text-green-600">
+        <CheckCircle className="w-4 h-4" />
+        <span>All contributions have succeeded!</span>
+      </div>
+    );
+  } else {
+    paymentFlowStatus = (
+      <div className="text-sm font-medium text-muted-foreground">
+        No direct debits yet.
+      </div>
+    );
   }
 
-  // Helpers
-  const formatCurrency = (val: string | null | undefined) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "AUD",
-    }).format(parseFloat(val || "0"))
+  // Instead of the old "payoutOrder===1" approach, we find the first member who hasn't been paid,
+  // with the lowest payoutOrder:
+  const nextInLine = [...group.members]
+    .filter((m) => !m.hasBeenPaid) // only those who haven't been paid
+    .sort((a, b) => a.payoutOrder - b.payoutOrder)[0]; // pick smallest payoutOrder
 
-  // Basic stats
-  const formattedBalance = formatCurrency(group.currentBalance)
-  const formattedAmount = formatCurrency(group.contributionAmount)
-  const formattedTotal = formatCurrency(group.totalContributions)
+  // For the next contribution/payout date => from futureCycleDates
+  const { currentSchedule, futureCycleDates } = groupSchedule || {};
+  let firstCycleDate: Date | null = null;
+  if (futureCycleDates && futureCycleDates.length > 0) {
+    firstCycleDate = new Date(futureCycleDates[0]);
+  }
 
-  const progressPercentage =
-    group.totalContributions === "0"
-      ? 0
-      : Math.min(
-          (parseFloat(group.totalContributions) /
-            (parseFloat(group.contributionAmount || "0") * group._count.groupMemberships)) *
-            100,
-          100
-        )
+  const projectedPayoutDate = firstCycleDate
+    ? new Date(firstCycleDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+    : null;
 
-  // Next in line for payout
-  const nextInLine = group.members.find((m) => m.payoutOrder === 1)
+  // For total contributions progress
+  const totalContributionsNum = parseFloat(group.totalContributions || "0");
+  const contributionAmountNum = parseFloat(group.contributionAmount || "0");
+  const totalMembers = group._count.groupMemberships;
+
+  let progressPercentage = 0;
+  if (contributionAmountNum > 0 && totalMembers > 0) {
+    const ratio =
+      totalContributionsNum / (contributionAmountNum * totalMembers);
+    progressPercentage = Math.min(ratio * 100, 100);
+  }
 
   return (
     <div className="space-y-6">
@@ -337,6 +373,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
         )}
       </div>
 
+      {/* Paused Notice Banner */}
       {group.status === "Paused" && (
         <div className="mb-6 flex items-start space-x-2 bg-yellow-50 p-4 rounded-xl border border-yellow-200">
           <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
@@ -350,150 +387,165 @@ export function GroupDetails({ group }: GroupDetailsProps) {
         </div>
       )}
 
-      {/* Financial Cards */}
+      {/* Live Payment Flow Tracker */}
       <div className="grid gap-4 md:grid-cols-3">
+        {/* 1) Payment Flow Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
-            <CircleDollarSign className="h-4 w-4 text-yellow-500" />
+            <CardTitle className="text-sm font-medium">Live Payment Flow</CardTitle>
+            <RefreshCw className="h-4 w-4 text-yellow-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formattedBalance}</div>
-            <p className="text-xs text-muted-foreground">Available for payouts</p>
+          <CardContent className="space-y-2">
+            <div className="text-base font-semibold">
+              Total Debited:{" "}
+              {new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: "AUD",
+              }).format(totalDebited)}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Funds debited from members so far.
+            </p>
+            <div className="mt-4">{paymentFlowStatus}</div>
           </CardContent>
         </Card>
 
+        {/* 2) Contribution Amount Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Contribution Amount</CardTitle>
             <CreditCard className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formattedAmount}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {new Intl.NumberFormat("en-US", {
+                style: "currency",
+                currency: "AUD",
+              }).format(parseFloat(group.contributionAmount || "0"))}
+            </div>
             <p className="text-xs text-muted-foreground">
               {group.cycleFrequency?.toLowerCase() || "Not set"}
             </p>
           </CardContent>
         </Card>
 
+        {/* 3) Next in line Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Next Payout</CardTitle>
+            <CardTitle className="text-sm font-medium">Next in line</CardTitle>
             <ArrowUpRight className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            {nextInLine ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <InitialsAvatar
-                    firstName={nextInLine.firstName}
-                    lastName={nextInLine.lastName}
-                  />
-                  <div className="text-xl font-bold truncate">
-                    {nextInLine.firstName} {nextInLine.lastName}
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Next in line for payout</p>
-              </>
-            ) : (
-              <>
-                <div className="text-xl font-bold">Not Set</div>
-                <p className="text-xs text-muted-foreground">No members in queue</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Cycle info row */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-yellow-500" />
-              Next Cycle Date
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isLoadingSchedule ? (
-              <div className="flex items-center justify-center p-4">
-                <Loader2 className="h-8 w-8 animate-spin text-yellow-500" />
-              </div>
-            ) : groupSchedule ? (
-              <>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Upcoming Cycle</p>
-                  <p className="text-sm font-semibold">
-                    {groupSchedule.currentSchedule.nextCycleDate
-                      ? new Date(groupSchedule.currentSchedule.nextCycleDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )
-                      : "Not scheduled"}
-                  </p>
-                  <Badge variant="outline" className="mt-1">
-                    {groupSchedule.currentSchedule.cycleFrequency || "Not set"}
-                  </Badge>
-                </div>
-
-                {/* optional total contributions progress */}
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      Total Contributions
-                    </span>
-                    <span className="text-sm font-medium text-green-600">
-                      {formattedTotal}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full bg-secondary rounded-full">
-                    <div
-                      className="h-full bg-green-600 rounded-full"
-                      style={{ width: `${progressPercentage}%` }}
+            {(() => {
+              if (!nextInLine) {
+                return (
+                  <>
+                    <div className="text-xl font-bold">Not Set</div>
+                    <p className="text-xs text-muted-foreground">No members in queue</p>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <div className="flex items-center gap-2">
+                    <InitialsAvatar
+                      firstName={nextInLine.firstName}
+                      lastName={nextInLine.lastName}
                     />
+                    <div className="text-xl font-bold truncate">
+                      {nextInLine.firstName} {nextInLine.lastName}
+                    </div>
                   </div>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">Failed to load schedule</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <RefreshCw className="h-4 w-4 text-yellow-500" />
-              Payout Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isLoadingSchedule ? (
-              <div className="flex items-center justify-center p-4">
-                <Loader2 className="h-8 w-8 animate-spin text-yellow-500" />
-              </div>
-            ) : groupSchedule ? (
-              <>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Next Payout</p>
-                  <p className="text-sm font-semibold">
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Who will receive the next payout
                   </p>
-                  <Badge variant="outline" className="mt-1">
-                    {groupSchedule.currentSchedule.cycleFrequency || "Not set"}
-                  </Badge>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">Failed to load payout schedule</p>
-            )}
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
+
+      {/* Next Contribution & Payout => from first item in futureCycleDates */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarIcon className="h-4 w-4 text-yellow-500" />
+            Next Contribution &amp; Payout
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoadingSchedule ? (
+            <div className="flex items-center justify-center p-4">
+              <Loader2 className="h-8 w-8 animate-spin text-yellow-500" />
+            </div>
+          ) : !groupSchedule ? (
+            <p className="text-sm text-muted-foreground">Failed to load schedule</p>
+          ) : !firstCycleDate ? (
+            <p className="text-sm text-muted-foreground">Not scheduled</p>
+          ) : (
+            <>
+              {/* Next contribution date info */}
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Contribution Date</p>
+                <p className="text-sm font-semibold">
+                  {firstCycleDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+                <Badge variant="outline" className="mt-1">
+                  {currentSchedule?.cycleFrequency || "Not set"}
+                </Badge>
+              </div>
+
+              {/* total contributions progress */}
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Total Contributions
+                  </span>
+                  <span className="text-sm font-medium text-green-600">
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: "AUD",
+                    }).format(totalContributionsNum)}
+                  </span>
+                </div>
+                <div className="h-2 w-full bg-secondary rounded-full">
+                  <div
+                    className="h-full bg-green-600 rounded-full"
+                    style={{ width: `${progressPercentage}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Projected payout date ~1 week after the first cycle date */}
+              {projectedPayoutDate && (
+                <div className="flex flex-col space-y-1 mt-4">
+                  <p className="text-sm font-medium text-muted-foreground">Projected Payout Date</p>
+                  <p className="text-sm font-semibold">
+                    {projectedPayoutDate.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-3 p-3 border border-blue-200 bg-blue-50 rounded-md text-sm text-blue-700">
+                Please note that payouts typically occur about a week after the contribution date.
+                This allows enough time to process contributions and address potential
+                issues with failed payments.
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Group Members */}
       <Card>
@@ -510,51 +562,68 @@ export function GroupDetails({ group }: GroupDetailsProps) {
         </CardHeader>
         <CardContent className="p-0">
           {groupMembersSetupStatus && groupMembersSetupStatus.length > 0 ? (
-            <div className="divide-y">
+            <div className="space-y-2 p-4">
               {groupMembersSetupStatus.map((member: any) => (
-                <div key={member.id} className="flex items-center p-4">
-                  <div className="flex items-center flex-1 min-w-0 gap-3">
+                <div
+                  key={member.id}
+                  className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 rounded-lg border bg-card"
+                >
+                  {/* Left side: payout order, avatar, name, email */}
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col items-center">
+                      <Badge
+                        variant={member.payoutOrder === 1 ? "default" : "secondary"}
+                        className={cn(
+                          "text-xs mb-1",
+                          member.payoutOrder === 1 && "bg-yellow-500 text-black"
+                        )}
+                      >
+                        #{member.payoutOrder}
+                      </Badge>
+                    </div>
                     <InitialsAvatar firstName={member.firstName} lastName={member.lastName} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">
+
+                    <div>
+                      <div className="flex items-center flex-wrap gap-2">
+                        <p className="text-sm font-medium truncate leading-5">
                           {member.firstName} {member.lastName}
                         </p>
-                        <div className="flex gap-1.5">
-                          {member.isAdmin && (
-                            <Badge variant="outline" className="text-xs">
-                              Admin
-                            </Badge>
-                          )}
-                          <Badge
-                            variant={member.payoutOrder === 1 ? "default" : "secondary"}
-                            className={`text-xs ${member.payoutOrder === 1 ? "bg-yellow-500" : ""}`}
-                          >
-                            #{member.payoutOrder} in line
+                        {member.isAdmin && (
+                          <Badge variant="outline" className="text-xs">
+                            Admin
                           </Badge>
-                        </div>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">{member.email}</p>
-
-                      <div className="flex items-center space-x-4 mt-2">
-                        <div className="flex items-center space-x-1">
-                          {member.onboardingStatus === "Completed" ? (
-                            <CheckCircle className="text-green-500 w-4 h-4" />
-                          ) : (
-                            <XCircle className="text-red-500 w-4 h-4" />
-                          )}
-                          <span className="text-xs">Receive Payment Setup</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          {member.becsSetupStatus === "Completed" ? (
-                            <CheckCircle className="text-green-500 w-4 h-4" />
-                          ) : (
-                            <XCircle className="text-red-500 w-4 h-4" />
-                          )}
-                          <span className="text-xs">Direct Debit Setup</span>
-                        </div>
-                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {member.email}
+                      </p>
                     </div>
+                  </div>
+
+                  {/* Right side: setup statuses */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                    <div className="flex items-center space-x-1">
+                      {member.onboardingStatus === "Completed" ? (
+                        <CheckCircle className="text-green-500 w-4 h-4" />
+                      ) : (
+                        <XCircle className="text-red-500 w-4 h-4" />
+                      )}
+                      <span className="text-xs">Receive Payment Setup</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      {member.becsSetupStatus === "Completed" ? (
+                        <CheckCircle className="text-green-500 w-4 h-4" />
+                      ) : (
+                        <XCircle className="text-red-500 w-4 h-4" />
+                      )}
+                      <span className="text-xs">Direct Debit Setup</span>
+                    </div>
+                    {/* If needed, show if they've been paid */}
+                    {member.hasBeenPaid && (
+                      <Badge variant="secondary" className="text-xs">
+                        Paid
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}
@@ -580,7 +649,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
               <AlertDialogDescription className="space-y-6 pt-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <InfoIcon className="h-4 w-4 text-blue-500" />
-                  <p>Please confirm the cycle details and pick the next cycle date/time.</p>
+                  <p>Please confirm the cycle details and pick the first cycle date/time.</p>
                 </div>
 
                 {/* Info row */}
@@ -588,8 +657,13 @@ export function GroupDetails({ group }: GroupDetailsProps) {
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Contribution Amount</p>
                     <div className="flex items-center gap-2">
-                      <CircleDollarSign className="h-4 w-4 text-green-500" />
-                      <p className="text-lg font-semibold text-green-600">{formattedAmount}</p>
+                      <CreditCard className="h-4 w-4 text-green-500" />
+                      <p className="text-lg font-semibold text-green-600">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: "AUD",
+                        }).format(parseFloat(group.contributionAmount || "0"))}
+                      </p>
                     </div>
                   </div>
 
@@ -622,7 +696,7 @@ export function GroupDetails({ group }: GroupDetailsProps) {
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-medium">
                     <CalendarIcon className="h-4 w-4 text-yellow-500" />
-                    Next Cycle Date/Time
+                    First Cycle Date/Time
                   </label>
                   <Controller
                     control={control}
@@ -653,9 +727,14 @@ export function GroupDetails({ group }: GroupDetailsProps) {
                     <p className="font-medium text-amber-800">Important Notice</p>
                     <p className="text-sm text-amber-700">
                       This will schedule automatic contributions of{" "}
-                      <span className="font-semibold">{formattedAmount}</span> from each member,
-                      according to your chosen <strong>cycle date</strong> and frequency.
-                      Ensure all members have completed their BECS Direct Debit setup.
+                      <span className="font-semibold">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: "AUD",
+                        }).format(parseFloat(group.contributionAmount || "0"))}
+                      </span>{" "}
+                      from each member, according to your chosen <strong>cycle date</strong> and
+                      frequency. Ensure all members have completed their BECS Direct Debit setup.
                     </p>
                   </div>
                 </div>
@@ -688,5 +767,5 @@ export function GroupDetails({ group }: GroupDetailsProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }

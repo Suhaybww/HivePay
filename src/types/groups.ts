@@ -19,9 +19,9 @@ export interface GroupWithStats {
   description: string | null;
   createdById: string;
 
-  // For convenience, store numeric fields as strings (if your DB returns them that way)
+  // For convenience, store numeric fields as strings
   contributionAmount: string | null;
-  
+
   // Single cycle frequency (Weekly, BiWeekly, or Monthly)
   cycleFrequency: Frequency | null;
 
@@ -36,12 +36,26 @@ export interface GroupWithStats {
   _count: {
     groupMemberships: number;
   };
-  totalContributions: string; 
-  currentBalance: string;     
+  totalContributions: string; // existing field
+  currentBalance: string;     // existing field
+
+  // Admin
   isAdmin: boolean;
 
   // The active (or relevant) members in this group
   members: GroupMember[];
+
+  // ===== NEW Payment columns (recently added) =====
+  /**
+   * totalDebitedAmount: sum of all Payment amounts that are not "Failed"
+   * totalPendingAmount: sum of all Payment amounts where status=Pending
+   * totalSuccessAmount: sum of all Payment amounts where status=Successful
+   * 
+   * These can be string or null, depending on how your DB or code returns them.
+   */
+  totalDebitedAmount?: string | null;
+  totalPendingAmount?: string | null;
+  totalSuccessAmount?: string | null;
 }
 
 // For scheduled events (if needed)
@@ -57,12 +71,12 @@ export interface ScheduledEvent {
  * and `currentSchedule` describing the single `nextCycleDate`.
  */
 export interface GroupSchedule {
-  futureCycleDates: string[];  
+  futureCycleDates: string[];
   currentSchedule: {
-    nextCycleDate: string | null;      
-    cycleFrequency: Frequency | null;  
-    contributionAmount: string | null; 
-    status: GroupStatus;               
-    cycleStarted: boolean;             
+    nextCycleDate: string | null;
+    cycleFrequency: Frequency | null;
+    contributionAmount: string | null;
+    status: GroupStatus;
+    cycleStarted: boolean;
   };
 }

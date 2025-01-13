@@ -1,14 +1,11 @@
 -- CreateEnum
-CREATE TYPE "ContractStatus" AS ENUM ('Pending', 'Signed', 'Rejected');
-
--- CreateEnum
-CREATE TYPE "SubscriptionStatus" AS ENUM ('Active', 'Inactive', 'Canceled');
+CREATE TYPE "SubscriptionStatus" AS ENUM ('Active', 'PendingCancel', 'Inactive', 'Canceled');
 
 -- CreateEnum
 CREATE TYPE "GroupStatus" AS ENUM ('Active', 'Paused');
 
 -- CreateEnum
-CREATE TYPE "PayoutOrderMethod" AS ENUM ('Admin_Selected', 'First_Come_First_Serve');
+CREATE TYPE "PauseReason" AS ENUM ('PAYMENT_FAILURES', 'REFUND_ALL', 'INACTIVE_SUBSCRIPTION', 'OTHER');
 
 -- CreateEnum
 CREATE TYPE "MembershipStatus" AS ENUM ('Active', 'Inactive', 'Pending');
@@ -20,13 +17,13 @@ CREATE TYPE "PayoutStatus" AS ENUM ('Pending', 'Completed', 'Failed');
 CREATE TYPE "PaymentStatus" AS ENUM ('Pending', 'Successful', 'Failed');
 
 -- CreateEnum
+CREATE TYPE "Frequency" AS ENUM ('Weekly', 'BiWeekly', 'Monthly');
+
+-- CreateEnum
 CREATE TYPE "TransactionType" AS ENUM ('Debit', 'Credit');
 
 -- CreateEnum
 CREATE TYPE "Gender" AS ENUM ('Female', 'Male');
-
--- CreateEnum
-CREATE TYPE "Frequency" AS ENUM ('Daily', 'Weekly', 'BiWeekly', 'Monthly', 'Custom');
 
 -- CreateEnum
 CREATE TYPE "OnboardingStatus" AS ENUM ('Pending', 'Completed', 'Failed');
@@ -39,6 +36,12 @@ CREATE TYPE "TicketStatus" AS ENUM ('Open', 'InProgress', 'Resolved', 'Closed');
 
 -- CreateEnum
 CREATE TYPE "TicketPriority" AS ENUM ('Low', 'Medium', 'High', 'Urgent');
+
+-- CreateEnum
+CREATE TYPE "InvitationStatus" AS ENUM ('PENDING', 'ACCEPTED', 'EXPIRED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "ContractStatus" AS ENUM ('Pending', 'Signed', 'Rejected');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -63,6 +66,9 @@ CREATE TABLE "User" (
     "onboardingDate" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+    "deletedAt" TIMESTAMP(3),
+    "deletionReason" TEXT,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -103,14 +109,16 @@ CREATE TABLE "Group" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "createdById" TEXT NOT NULL,
-    "payoutOrderMethod" "PayoutOrderMethod" NOT NULL,
     "contributionAmount" DECIMAL(10,2),
-    "contributionFrequency" "Frequency",
-    "payoutFrequency" "Frequency",
-    "nextContributionDate" TIMESTAMP(3),
-    "nextPayoutDate" TIMESTAMP(3),
+    "cycleFrequency" "Frequency",
+    "nextCycleDate" TIMESTAMP(3),
     "cycleStarted" BOOLEAN NOT NULL DEFAULT false,
     "status" "GroupStatus" NOT NULL DEFAULT 'Active',
+    "pauseReason" "PauseReason",
+    "futureCyclesJson" JSONB,
+    "updateGroupPaymentStatstotalDebitedAmount" DECIMAL(65,30) DEFAULT 0,
+    "totalPendingAmount" DECIMAL(65,30) DEFAULT 0,
+    "totalSuccessAmount" DECIMAL(65,30) DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -127,6 +135,7 @@ CREATE TABLE "GroupMembership" (
     "isAdmin" BOOLEAN NOT NULL DEFAULT false,
     "status" "MembershipStatus" NOT NULL,
     "acceptedTOSAt" TIMESTAMP(3),
+    "lastReadAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -145,6 +154,7 @@ CREATE TABLE "Payment" (
     "mandateId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "retryCount" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "Payment_pkey" PRIMARY KEY ("id")
 );
@@ -227,7 +237,7 @@ CREATE TABLE "TicketResponse" (
     "ticketId" TEXT NOT NULL,
     "userId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "TicketResponse_pkey" PRIMARY KEY ("id")
 );
@@ -241,7 +251,7 @@ CREATE TABLE "Feedback" (
     "description" TEXT NOT NULL,
     "rating" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Feedback_pkey" PRIMARY KEY ("id")
 );
@@ -274,6 +284,19 @@ CREATE TABLE "Contract" (
     CONSTRAINT "Contract_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Invitation" (
+    "id" TEXT NOT NULL,
+    "groupId" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "status" "InvitationStatus" NOT NULL DEFAULT 'PENDING',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "invitedById" TEXT NOT NULL,
+
+    CONSTRAINT "Invitation_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_id_key" ON "User"("id");
 
@@ -303,3 +326,9 @@ CREATE UNIQUE INDEX "Payout_stripeTransferId_key" ON "Payout"("stripeTransferId"
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ContractTemplate_version_key" ON "ContractTemplate"("version");
+
+-- CreateIndex
+CREATE INDEX "Invitation_groupId_idx" ON "Invitation"("groupId");
+
+-- CreateIndex
+CREATE INDEX "Invitation_invitedById_idx" ON "Invitation"("invitedById");

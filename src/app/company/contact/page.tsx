@@ -1,6 +1,7 @@
-"use client"
+"use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { Input } from "@/src/components/ui/input";
 import { Textarea } from "@/src/components/ui/text-area";
 import { Button } from "@/src/components/ui/button";
@@ -22,7 +23,9 @@ export default function ContactPage() {
     message: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
 
@@ -52,16 +55,16 @@ export default function ContactPage() {
 
     if (isValid) {
       try {
-        const response = await fetch('/api/contact', {
-          method: 'POST',
+        const response = await fetch("/api/contact", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(formData),
         });
 
         if (!response.ok) {
-          throw new Error('Failed to send message');
+          throw new Error("Failed to send message");
         }
 
         toast({
@@ -78,22 +81,36 @@ export default function ContactPage() {
         });
       }
     }
-    
+
     setIsSubmitting(false);
   };
 
   return (
-    <main className="min-h-screen bg-white py-10">
+    <main className="min-h-screen bg-white py-6">
       <section className="container mx-auto px-4 max-w-3xl">
         <h1 className="text-center text-4xl font-bold text-gray-800">Contact Us</h1>
-        <p className="text-center text-lg text-gray-600 mt-2">
+        <p className="text-center text-lg text-gray-600 mt-1">
           Have questions? Reach out to us using the form below.
         </p>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <div className="relative w-full aspect-[16/9] mt-2">
+          <Image
+            src="/images/contact.png"
+            alt="Illustration of two hands reaching out"
+            fill
+            priority
+            className="object-contain"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
+          />
+        </div>
+
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           {/* Name Field */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700"
+            >
               Name
             </label>
             <Input
@@ -102,18 +119,20 @@ export default function ContactPage() {
               value={formData.name}
               onChange={handleChange}
               placeholder="Enter your name"
-              className={cn(
-                "mt-1",
-                errors.name && "border-red-500"
-              )}
+              className={cn("mt-1", errors.name && "border-red-500")}
               disabled={isSubmitting}
             />
-            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+            {errors.name && (
+              <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+            )}
           </div>
 
           {/* Email Field */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
               Email
             </label>
             <Input
@@ -122,18 +141,20 @@ export default function ContactPage() {
               value={formData.email}
               onChange={handleChange}
               placeholder="Enter your email"
-              className={cn(
-                "mt-1",
-                errors.email && "border-red-500"
-              )}
+              className={cn("mt-1", errors.email && "border-red-500")}
               disabled={isSubmitting}
             />
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+            )}
           </div>
 
           {/* Message Field */}
           <div>
-            <label htmlFor="message" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="message"
+              className="block text-sm font-medium text-gray-700"
+            >
               Message
             </label>
             <Textarea
@@ -141,14 +162,13 @@ export default function ContactPage() {
               value={formData.message}
               onChange={handleChange}
               placeholder="Type your message here..."
-              rows={5}
-              className={cn(
-                "mt-1",
-                errors.message && "border-red-500"
-              )}
+              rows={4}
+              className={cn("mt-1", errors.message && "border-red-500")}
               disabled={isSubmitting}
             />
-            {errors.message && <p className="text-red-500 text-sm mt-1">{errors.message}</p>}
+            {errors.message && (
+              <p className="text-red-500 text-sm mt-1">{errors.message}</p>
+            )}
           </div>
 
           {/* Submit Button */}
@@ -163,7 +183,7 @@ export default function ContactPage() {
           </div>
         </form>
 
-        <div className="mt-12 text-center text-sm text-gray-600">
+        <div className="mt-6 text-center text-sm text-gray-600">
           <p>
             Alternatively, email us at{" "}
             <a
