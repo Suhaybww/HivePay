@@ -9,8 +9,8 @@ import { z } from 'zod';
 /**
  * Example: single frequency is stored in `cycleFrequency`
  * and single date is `nextCycleDate`.
- * (No more separate `payoutFrequency` or `nextPayoutDate`).
  */
+
 export const groupBaseRouter = router({
   /**
    * getAllGroups
@@ -53,12 +53,12 @@ export const groupBaseRouter = router({
       });
 
       const groupsWithStats: GroupWithStats[] = groups.map((group) => {
-        // sum of all payments
+        // sum all Payment amounts
         const totalContributions = group.payments.reduce(
           (sum: Decimal, payment) => sum.plus(payment.amount),
           new Decimal(0)
         );
-        // sum of all payouts
+        // sum all Payout amounts
         const totalPayouts = group.payouts.reduce(
           (sum: Decimal, payout) => sum.plus(payout.amount),
           new Decimal(0)
@@ -67,7 +67,7 @@ export const groupBaseRouter = router({
         const currentBalance = totalContributions.minus(totalPayouts);
 
         // Build array of members
-        const validMemberships = group.groupMemberships.filter(m => m.user !== null);
+        const validMemberships = group.groupMemberships.filter((m) => m.user !== null);
         const members = validMemberships.map((membership) => ({
           id: membership.user!.id,
           firstName: membership.user!.firstName,
@@ -77,6 +77,7 @@ export const groupBaseRouter = router({
           isAdmin: membership.isAdmin,
           payoutOrder: membership.payoutOrder,
           stripeAccountId: membership.user!.stripeAccountId,
+          hasBeenPaid: membership.hasBeenPaid, // <---- ADDED
         }));
 
         return {
@@ -84,6 +85,7 @@ export const groupBaseRouter = router({
           name: group.name,
           description: group.description,
           createdById: group.createdById,
+
           contributionAmount: group.contributionAmount?.toFixed(2) ?? null,
           cycleFrequency: group.cycleFrequency,
           nextCycleDate: group.nextCycleDate?.toISOString() ?? null,
@@ -100,6 +102,11 @@ export const groupBaseRouter = router({
 
           isAdmin: group.createdById === userId,
           members,
+
+          // Add new payment columns as strings or null
+          totalDebitedAmount: group.totalDebitedAmount?.toString() ?? null,
+          totalPendingAmount: group.totalPendingAmount?.toString() ?? null,
+          totalSuccessAmount: group.totalSuccessAmount?.toString() ?? null,
         };
       });
 
@@ -174,6 +181,7 @@ export const groupBaseRouter = router({
       );
       const currentBalance = totalContributions.minus(totalPayouts);
 
+      // Build array of members
       const validMemberships = group.groupMemberships.filter((m) => m.user !== null);
       const members = validMemberships.map((membership) => ({
         id: membership.user!.id,
@@ -184,8 +192,10 @@ export const groupBaseRouter = router({
         isAdmin: membership.isAdmin,
         payoutOrder: membership.payoutOrder,
         stripeAccountId: membership.user!.stripeAccountId,
+        hasBeenPaid: membership.hasBeenPaid, // <---- ADDED
       }));
 
+      // Return the final shape
       const groupWithStats: GroupWithStats = {
         id: group.id,
         name: group.name,
@@ -208,6 +218,11 @@ export const groupBaseRouter = router({
 
         isAdmin: userMembership?.isAdmin || (group.createdById === userId),
         members,
+
+        // new payment columns
+        totalDebitedAmount: group.totalDebitedAmount?.toString() ?? null,
+        totalPendingAmount: group.totalPendingAmount?.toString() ?? null,
+        totalSuccessAmount: group.totalSuccessAmount?.toString() ?? null,
       };
 
       return groupWithStats;
@@ -233,15 +248,15 @@ export const groupBaseRouter = router({
             groupMemberships: {
               where: { status: MembershipStatus.Active },
               include: {
-                user: { 
-                  select: { 
+                user: {
+                  select: {
                     id: true,
                     firstName: true,
                     lastName: true,
                     email: true,
                     gender: true,
-                    stripeAccountId: true 
-                  }
+                    stripeAccountId: true,
+                  },
                 },
               },
               orderBy: { payoutOrder: 'asc' },
@@ -266,6 +281,7 @@ export const groupBaseRouter = router({
           });
         }
 
+        // Totals
         const totalContributions = group.payments.reduce(
           (sum: Decimal, payment) => sum.plus(payment.amount),
           new Decimal(0)
@@ -276,6 +292,7 @@ export const groupBaseRouter = router({
         );
         const currentBalance = totalContributions.minus(totalPayouts);
 
+        // Build array of members
         const members = group.groupMemberships.map((membership) => ({
           id: membership.user.id,
           firstName: membership.user.firstName,
@@ -285,6 +302,7 @@ export const groupBaseRouter = router({
           isAdmin: membership.isAdmin,
           payoutOrder: membership.payoutOrder,
           stripeAccountId: membership.user.stripeAccountId,
+          hasBeenPaid: membership.hasBeenPaid, // <---- ADDED
         }));
 
         return {
@@ -306,6 +324,11 @@ export const groupBaseRouter = router({
           currentBalance: currentBalance.toFixed(2),
           isAdmin: isOwner,
           members,
+
+          // new payment columns
+          totalDebitedAmount: group.totalDebitedAmount?.toString() ?? null,
+          totalPendingAmount: group.totalPendingAmount?.toString() ?? null,
+          totalSuccessAmount: group.totalSuccessAmount?.toString() ?? null,
         };
       } catch (error) {
         console.error('Failed to fetch group details:', error);

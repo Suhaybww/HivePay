@@ -44,8 +44,7 @@ const PaymentFlow: React.FC = () => {
         {/* Heading */}
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-800 mb-4">
-            How Payments Work on{" "}
-            <span className="text-yellow-400">HivePay</span>
+            How Payments Work on <span className="text-yellow-400">HivePay</span>
           </h2>
           <p className="text-lg text-gray-500">
             Transparent and secure payment processing for your group contributions.
@@ -81,8 +80,8 @@ const PaymentFlow: React.FC = () => {
             ))}
           </div>
 
-          {/* Main Step Content (No card, no gray bg) */}
-          <div className="flex-1 p-0 md:p-0 relative">
+          {/* Main Step Content */}
+          <div className="flex-1 p-0 md:p-0">
             <div className="flex flex-col lg:flex-row gap-8 lg:items-center">
               {/* Image Section */}
               <div className="relative w-full h-64 lg:h-80 lg:w-1/2 mx-auto">
@@ -106,23 +105,23 @@ const PaymentFlow: React.FC = () => {
                 </p>
               </div>
             </div>
-
-            {/* Navigation Buttons (centered) */}
-            <div className="flex justify-center gap-4 mt-8">
-              <button
-                onClick={prevStep}
-                className="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
-              >
-                Previous
-              </button>
-              <button
-                onClick={nextStep}
-                className="px-4 py-2 bg-yellow-400 text-white rounded-md hover:bg-yellow-500 transition-colors"
-              >
-                Next
-              </button>
-            </div>
           </div>
+        </div>
+
+        {/* Navigation Buttons (now truly below, centered) */}
+        <div className="flex justify-center gap-4 mt-8">
+          <button
+            onClick={prevStep}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
+          >
+            Previous
+          </button>
+          <button
+            onClick={nextStep}
+            className="px-4 py-2 bg-yellow-400 text-white rounded-md hover:bg-yellow-500 transition-colors"
+          >
+            Next
+          </button>
         </div>
 
         {/* Mobile Dots Navigation */}

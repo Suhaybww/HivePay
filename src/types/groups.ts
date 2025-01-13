@@ -10,7 +10,7 @@ export type GroupMember = {
   isAdmin: boolean;
   payoutOrder: number;
   stripeAccountId: string | null;
-  hasBeenPaid:  boolean;
+  hasBeenPaid: boolean;
 };
 
 // The main GroupWithStats shape
@@ -20,46 +20,36 @@ export interface GroupWithStats {
   description: string | null;
   createdById: string;
 
-  // For convenience, store numeric fields as strings
+  // numeric fields as strings
   contributionAmount: string | null;
 
-  // Single cycle frequency (Weekly, BiWeekly, or Monthly)
   cycleFrequency: Frequency | null;
-
-  // Single date used for both the next contribution + payout
   nextCycleDate: string | null;
 
   cycleStarted: boolean;
   status: GroupStatus;
   pauseReason?: string | null;
 
-  // For group stats
+  // group stats
   _count: {
     groupMemberships: number;
   };
-  totalContributions: string; // existing field
-  currentBalance: string;     // existing field
+  totalContributions: string;
+  currentBalance: string;
 
   // Admin
   isAdmin: boolean;
 
-  // The active (or relevant) members in this group
+  // The active members in this group
   members: GroupMember[];
 
-  // ===== NEW Payment columns (recently added) =====
-  /**
-   * totalDebitedAmount: sum of all Payment amounts that are not "Failed"
-   * totalPendingAmount: sum of all Payment amounts where status=Pending
-   * totalSuccessAmount: sum of all Payment amounts where status=Successful
-   * 
-   * These can be string or null, depending on how your DB or code returns them.
-   */
+  // NEW Payment columns
   totalDebitedAmount?: string | null;
   totalPendingAmount?: string | null;
   totalSuccessAmount?: string | null;
 }
 
-// For scheduled events (if needed)
+// For scheduled events
 export interface ScheduledEvent {
   id: string;
   scheduledFor: Date;
@@ -67,9 +57,6 @@ export interface ScheduledEvent {
 
 /**
  * The shape returned by `getGroupSchedule`.
- * 
- * We have `futureCycleDates` (string[]) 
- * and `currentSchedule` describing the single `nextCycleDate`.
  */
 export interface GroupSchedule {
   futureCycleDates: string[];
