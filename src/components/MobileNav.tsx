@@ -15,7 +15,7 @@ const MobileNav = ({ isAuth }: { isAuth: boolean }) => {
 
   useEffect(() => {
     if (isOpen) {
-      setOpen(false) // Directly set to false instead of toggling
+      setOpen(true) // Directly set to false instead of toggling
     }
   }, [pathname, isOpen]) // Add isOpen to dependencies
 

@@ -1,6 +1,7 @@
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Providers from "../components/Providers";
+import DebugClickWrapper from "../components/DebugClickeWrapper";
 import { cn, constructMetadata } from "../lib/utils";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -30,10 +31,10 @@ export default async function RootLayout({
   const headersList = headers();
   const pathname = headersList.get("x-invoke-path") || "";
 
-  console.log("Current pathname:", pathname);
-  console.log("Kinde user:", kindeUser?.id);
+  console.log("**DEBUG** Current pathname:", pathname);
+  console.log("**DEBUG** Kinde user:", kindeUser?.id);
 
-  // Retrieve user from DB if logged in
+  // Attempt to fetch user from DB
   const user = kindeUser
     ? await db.user.findUnique({
         where: { id: kindeUser.id },
@@ -47,9 +48,9 @@ export default async function RootLayout({
       })
     : null;
 
-  console.log("DB user found:", !!user);
+  console.log("**DEBUG** DB user found:", user ? user.id : "No DB user");
 
-  // Define which routes require authentication
+  // Protected routes
   const protectedRoutes = [
     "/dashboard",
     "/groups",
@@ -59,17 +60,20 @@ export default async function RootLayout({
     "/settings",
     "/onboarding",
   ];
-
-  // Check if the current route is "protected"
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
-  // If user is NOT logged in but is on a protected route, redirect to /auth-callback
+  // If user is not logged in but on a protected route => redirect
   if (!user && isProtectedRoute) {
-    // If your actual login flow is somewhere else, adjust this path accordingly
+    console.log("**DEBUG** Accessing protected route without user => redirect");
     redirect("/auth-callback");
   }
+
+  console.log(
+    "**DEBUG** Layout deciding: user?",
+    user ? "YES (logged-in layout)" : "NO (public layout)"
+  );
 
   return (
     <html lang="en" className="light">
@@ -77,8 +81,8 @@ export default async function RootLayout({
         <Providers>
           <Toaster />
 
-          {/* If user is logged in, show App Layout */}
           {user ? (
+            /* LOGGED-IN LAYOUT */
             <SidebarProvider>
               <AppSidebar user={user} />
               <SidebarInset>
@@ -93,14 +97,22 @@ export default async function RootLayout({
               </SidebarInset>
             </SidebarProvider>
           ) : (
-            // Otherwise, show public layout
+            /* PUBLIC (LOGGED-OUT) LAYOUT */
             <>
-              <Navbar />
+              {/* High z-index wrapper. 
+                  We put DebugClickWrapper around Navbar so we can see if clicks happen. */}
+              <div className="sticky top-0 z-[9999]">
+                <DebugClickWrapper>
+                  <Navbar />
+                </DebugClickWrapper>
+              </div>
+
               <main className="flex-1">
                 <div className="container max-w-7xl mx-auto p-8">
                   {children}
                 </div>
               </main>
+
               <Footer />
             </>
           )}
