@@ -178,7 +178,7 @@ export default function GroupPage() {
               >
                 Settings
               </Button>{" "}
-              to finalize your Stripe onboarding for payouts or BECS Direct Debit configuration. If you just completed the Stripe Express onboarding and it's not showing as complete, please wait a few minutes for the status to update.
+              to finalize your Stripe onboarding for payouts or BECS Direct Debit configuration. If you just completed the Stripe Express onboarding and it`&apos;s not showing as complete, please wait a few minutes for the status to update.
             </AlertDescription>
           </div>
         </Alert>
