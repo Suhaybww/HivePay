@@ -517,6 +517,22 @@ case 'customer.subscription.deleted': {
         break;
       }
 
+      case 'transfer.created': {
+        const transfer = event.data.object as Stripe.Transfer;
+        await db.payout.updateMany({
+          where: { 
+            userId: transfer.destination as string,
+            stripeTransferId: null 
+          },
+          data: {
+            stripeTransferId: transfer.id,
+            status: PayoutStatus.Completed,
+            updatedAt: new Date()
+          }
+        });
+        break;
+      }
+
       case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent;
         console.log(`PaymentIntent failed: ${pi.id}`);

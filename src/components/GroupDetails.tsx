@@ -71,7 +71,7 @@ const StartCycleSchema = z.object({
   cycleDate: z.date({ required_error: "Cycle date is required" }),
 });
 
-// ====== Helper Avatars ======
+// ====== Helper Components ======
 const InitialsAvatar = ({ firstName, lastName }: { firstName: string; lastName: string }) => (
   <Avatar className="h-8 w-8 bg-yellow-400 text-black font-bold">
     <AvatarFallback>
@@ -79,6 +79,120 @@ const InitialsAvatar = ({ firstName, lastName }: { firstName: string; lastName: 
     </AvatarFallback>
   </Avatar>
 );
+
+const PaymentStatusCard = ({
+  totalDebited,
+  totalPending,
+  totalSuccess,
+}: {
+  totalDebited: number;
+  totalPending: number;
+  totalSuccess: number;
+}) => {
+  const hasPending = totalPending > 0;
+  const allCleared = totalDebited > 0 && totalDebited === totalSuccess;
+  const partialSuccess = totalSuccess > 0 && totalDebited !== totalSuccess;
+
+  return (
+    <Card className="relative">
+      <CardHeader className="p-4 pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold">Payment Status</CardTitle>
+          <Badge
+            variant={hasPending ? "warning" : allCleared ? "success" : "default"}
+            className="rounded-full px-2.5 py-0.5 text-xs"
+          >
+            {hasPending ? (
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            ) : allCleared ? (
+              <CheckCircle className="h-3 w-3 mr-1" />
+            ) : (
+              <InfoIcon className="h-3 w-3 mr-1" />
+            )}
+            {hasPending ? "Processing" : allCleared ? "Completed" : "Pending"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-0 space-y-3">
+        {hasPending && (
+          <>
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Processing:</span>
+                <span className="font-medium text-yellow-600">
+                  {new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "AUD",
+                  }).format(totalPending)}
+                </span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full">
+                <div
+                  className="h-full bg-yellow-500 rounded-full animate-pulse"
+                  style={{ width: `${Math.round((totalPending / totalDebited) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <InfoIcon className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
+              <span>Payments processing automatically - updates every 30s</span>
+            </div>
+          </>
+        )}
+
+        {allCleared && (
+          <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <div>
+              <div className="text-sm font-medium text-green-800">All payments cleared</div>
+              <div className="text-lg font-semibold text-green-900">
+                {new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "AUD",
+                }).format(totalSuccess)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!hasPending && !allCleared && (
+          <div className="space-y-3">
+            {partialSuccess && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Completed:</span>
+                  <span className="font-medium text-green-600">
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: "AUD",
+                    }).format(totalSuccess)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Pending:</span>
+                  <span className="font-medium text-red-600">
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: "AUD",
+                    }).format(totalDebited - totalSuccess)}
+                  </span> 
+                </div>
+              </div>
+            )}
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <InfoIcon className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
+              <span>
+                {partialSuccess
+                  ? "Review member statuses for pending payments"
+                  : "Awaiting first payment processing"}
+              </span>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 export function GroupDetails({ group }: GroupDetailsProps) {
   const router = useRouter();
@@ -243,29 +357,6 @@ export function GroupDetails({ group }: GroupDetailsProps) {
       ? group.totalSuccessAmount
       : parseFloat(group.totalSuccessAmount || "0");
 
-  let paymentFlowStatus: React.ReactNode = null;
-  if (totalPending > 0) {
-    paymentFlowStatus = (
-      <div className="flex items-center gap-2 text-sm font-medium text-yellow-600">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Payments are pending...</span>
-      </div>
-    );
-  } else if (totalDebited > 0 && totalDebited === totalSuccess) {
-    paymentFlowStatus = (
-      <div className="flex items-center gap-2 text-sm font-medium text-green-600">
-        <CheckCircle className="w-4 h-4" />
-        <span>All contributions have succeeded!</span>
-      </div>
-    );
-  } else {
-    paymentFlowStatus = (
-      <div className="text-sm font-medium text-muted-foreground">
-        No direct debits yet.
-      </div>
-    );
-  }
-
   // Next in line => first membership without hasBeenPaid, sorted by payoutOrder
   const nextInLine = [...group.members]
     .filter((m) => !m.hasBeenPaid)
@@ -380,28 +471,13 @@ export function GroupDetails({ group }: GroupDetailsProps) {
         </div>
       )}
 
-      {/* Payment Flow Tracker */}
+      {/* Status Cards Grid */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* Payment Flow */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Live Payment Flow</CardTitle>
-            <RefreshCw className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="text-base font-semibold">
-              Total Debited:{" "}
-              {new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "AUD",
-              }).format(totalDebited)}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Funds debited from members so far.
-            </p>
-            <div className="mt-4">{paymentFlowStatus}</div>
-          </CardContent>
-        </Card>
+        <PaymentStatusCard
+          totalDebited={totalDebited}
+          totalPending={totalPending}
+          totalSuccess={totalSuccess}
+        />
 
         {/* Contribution Amount */}
         <Card>

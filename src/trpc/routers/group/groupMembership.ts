@@ -47,75 +47,75 @@ export const groupMembershipRouter = router({
    *   - initial membership => Admin (Pending)
    */
   createGroup: privateProcedure
-    .input(newGroupSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx;
-      if (!userId) {
-        throw new TRPCError({ code: 'UNAUTHORIZED' });
-      }
+  .input(newGroupSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { userId } = ctx;
+    if (!userId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED' });
+    }
 
-      // Optionally check user’s plan limit, etc.
-      const userGroups = await db.group.count({ where: { createdById: userId } });
-      if (userGroups >= 5) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You have reached the maximum number of groups you can create with your current plan.',
-        });
-      }
+    // Check user's plan limit
+    const userGroups = await db.group.count({ where: { createdById: userId } });
+    if (userGroups >= 5) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'You have reached the maximum number of groups you can create.',
+      });
+    }
 
-      // Create group
-      try {
-        const group = await db.group.create({
+    try {
+      // Create group and admin membership in a transaction
+      const result = await db.$transaction(async (tx) => {
+        const group = await tx.group.create({
           data: {
             name: input.name,
             description: input.description,
             createdById: userId,
-
             contributionAmount: new Prisma.Decimal(input.contributionAmount),
             cycleFrequency: input.cycleFrequency,
-
-            groupMemberships: {
-              create: {
-                userId,
-                isAdmin: true,
-                payoutOrder: 1,
-                status: MembershipStatus.Pending, // admin might still need to sign contract
-                acceptedTOSAt: null,
-              },
-            },
           },
-          include: { groupMemberships: true },
         });
 
-        return {
-          success: true,
-          group,
-          // Indicate to the front-end that the user may need to sign an owner contract
-          requiresContract: true,
-        };
-      } catch (error) {
-        console.error('Failed to create group:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create group',
+        const membership = await tx.groupMembership.create({
+          data: {
+            groupId: group.id,
+            userId,
+            isAdmin: true,
+            payoutOrder: 1,
+            status: MembershipStatus.Pending,
+            acceptedTOSAt: null,
+          },
         });
-      }
-    }),
 
-  /**
-   * joinGroup
-   * The user joins an existing group. Status becomes Pending until TOS/contract is accepted.
-   */
-  joinGroup: privateProcedure
-    .input(joinGroupSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx;
-      if (!userId) {
-        throw new TRPCError({ code: 'UNAUTHORIZED' });
-      }
+        return { group, membership };
+      });
 
+      return {
+        success: true,
+        group: result.group,
+        requiresContract: true,
+        redirectUrl: `/groups/${result.group.id}/contract`,
+      };
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to create group',
+      });
+    }
+  }),
+
+joinGroup: privateProcedure
+  .input(joinGroupSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { userId } = ctx;
+    if (!userId) {
+      throw new TRPCError({ code: 'UNAUTHORIZED' });
+    }
+
+    try {
       return await db.$transaction(async (tx) => {
-        // 1) Find group + figure out new payoutOrder
+        // Check if group exists and get next payout order
         const group = await tx.group.findUnique({
           where: { id: input.groupId },
           include: {
@@ -125,15 +125,20 @@ export const groupMembershipRouter = router({
             },
           },
         });
+
         if (!group) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' });
+          throw new TRPCError({ 
+            code: 'NOT_FOUND', 
+            message: 'Group not found' 
+          });
         }
 
-        // 2) Check user email
+        // Get user email for invitation check
         const user = await tx.user.findUnique({
           where: { id: userId },
           select: { email: true },
         });
+
         if (!user?.email) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -141,49 +146,44 @@ export const groupMembershipRouter = router({
           });
         }
 
-        // 3) Check existing membership
+        // Check existing membership
         const existingMembership = await tx.groupMembership.findFirst({
           where: { groupId: input.groupId, userId },
         });
 
-        // Next payoutOrder is 1 beyond current max
+        if (existingMembership?.status === MembershipStatus.Active) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'You are already a member of this group',
+          });
+        }
+
         const nextPayoutOrder = group.groupMemberships[0]?.payoutOrder
           ? group.groupMemberships[0].payoutOrder + 1
           : 1;
 
-        let membership;
-        if (existingMembership) {
-          // Already active => can't rejoin
-          if (existingMembership.status === MembershipStatus.Active) {
-            throw new TRPCError({
-              code: 'CONFLICT',
-              message: 'You are already a member of this group',
+        // Create or update membership
+        const membership = existingMembership 
+          ? await tx.groupMembership.update({
+              where: { id: existingMembership.id },
+              data: {
+                status: MembershipStatus.Pending,
+                acceptedTOSAt: null,
+                payoutOrder: nextPayoutOrder,
+              },
+            })
+          : await tx.groupMembership.create({
+              data: {
+                groupId: input.groupId,
+                userId,
+                isAdmin: false,
+                payoutOrder: nextPayoutOrder,
+                status: MembershipStatus.Pending,
+                acceptedTOSAt: null,
+              },
             });
-          }
-          // Update old record => set to Pending
-          membership = await tx.groupMembership.update({
-            where: { id: existingMembership.id },
-            data: {
-              status: MembershipStatus.Pending,
-              acceptedTOSAt: null,
-              payoutOrder: nextPayoutOrder,
-            },
-          });
-        } else {
-          // No existing membership => create
-          membership = await tx.groupMembership.create({
-            data: {
-              groupId: input.groupId,
-              userId,
-              isAdmin: false,
-              payoutOrder: nextPayoutOrder,
-              status: MembershipStatus.Pending,
-              acceptedTOSAt: null,
-            },
-          });
-        }
 
-        // 4) Mark invitation => accepted if it exists
+        // Update invitation if exists
         await tx.invitation.updateMany({
           where: {
             groupId: input.groupId,
@@ -193,19 +193,6 @@ export const groupMembershipRouter = router({
           data: { status: InvitationStatus.ACCEPTED },
         });
 
-        // 5) Log a transaction => user joined
-        await tx.transaction.create({
-          data: {
-            userId,
-            groupId: input.groupId,
-            amount: new Prisma.Decimal(0),
-            transactionType: TransactionType.Credit,
-            description: existingMembership
-              ? 'Member rejoined group'
-              : 'Member joined group',
-          },
-        });
-
         return {
           success: true,
           membership,
@@ -213,7 +200,17 @@ export const groupMembershipRouter = router({
           redirectUrl: `/groups/${input.groupId}/contract`,
         };
       });
-    }),
+    } catch (error) {
+      console.error('Failed to join group:', error);
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to join group',
+      });
+    }
+  }),
 
   /**
    * transferAdminRole
@@ -260,19 +257,16 @@ export const groupMembershipRouter = router({
 
       return { success: true };
     }),
+// Updated removeMember Mutation
+removeMember: privateProcedure
+  .input(z.object({ groupId: z.string(), memberId: z.string() }))
+  .mutation(async ({ ctx, input }) => {
+    const { userId } = ctx;
+    const { groupId, memberId } = input;
 
-  /**
-   * removeMember
-   * Admin removes a user from the group if the cycle hasn't started
-   */
-  removeMember: privateProcedure
-    .input(z.object({ groupId: z.string(), memberId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx;
-      const { groupId, memberId } = input;
-
+    return await db.$transaction(async (tx) => {
       // Must be an admin
-      const membership = await db.groupMembership.findFirst({
+      const membership = await tx.groupMembership.findFirst({
         where: { groupId, userId, isAdmin: true },
         include: { group: true },
       });
@@ -291,7 +285,7 @@ export const groupMembershipRouter = router({
         });
       }
 
-      const membershipToRemove = await db.groupMembership.findFirst({
+      const membershipToRemove = await tx.groupMembership.findFirst({
         where: { groupId, userId: memberId },
       });
       if (!membershipToRemove) {
@@ -301,22 +295,39 @@ export const groupMembershipRouter = router({
         });
       }
 
-      await db.groupMembership.delete({ where: { id: membershipToRemove.id } });
+      const deletedPayoutOrder = membershipToRemove.payoutOrder;
+
+      // Delete the membership
+      await tx.groupMembership.delete({ where: { id: membershipToRemove.id } });
+
+      // Adjust payout orders for remaining members
+      const membershipsToUpdate = await tx.groupMembership.findMany({
+        where: {
+          groupId,
+          payoutOrder: { gt: deletedPayoutOrder },
+        },
+      });
+
+      for (const mem of membershipsToUpdate) {
+        await tx.groupMembership.update({
+          where: { id: mem.id },
+          data: { payoutOrder: mem.payoutOrder - 1 },
+        });
+      }
+
       return { success: true };
-    }),
+    });
+  }),
 
-  /**
-   * leaveGroup
-   * A non-admin or admin can leave if cycle not started.
-   * If admin leaves, must appoint new admin.
-   */
-  leaveGroup: privateProcedure
-    .input(z.object({ groupId: z.string(), newAdminId: z.string().optional() }))
-    .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx;
-      const { groupId, newAdminId } = input;
+// Updated leaveGroup Mutation
+leaveGroup: privateProcedure
+  .input(z.object({ groupId: z.string(), newAdminId: z.string().optional() }))
+  .mutation(async ({ ctx, input }) => {
+    const { userId } = ctx;
+    const { groupId, newAdminId } = input;
 
-      const membership = await db.groupMembership.findFirst({
+    return await db.$transaction(async (tx) => {
+      const membership = await tx.groupMembership.findFirst({
         where: { groupId, userId },
         include: { group: true },
       });
@@ -331,50 +342,63 @@ export const groupMembershipRouter = router({
         });
       }
 
-      return await db.$transaction(async (tx) => {
-        if (membership.isAdmin) {
-          if (!newAdminId) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: 'Must specify new admin when an admin leaves',
-            });
-          }
-          const newAdminMembership = await tx.groupMembership.findFirst({
-            where: { groupId, userId: newAdminId },
-          });
-          if (!newAdminMembership) {
-            throw new TRPCError({
-              code: 'NOT_FOUND',
-              message: 'New admin not found in group',
-            });
-          }
-          // Transfer admin role
-          await tx.groupMembership.update({
-            where: { id: newAdminMembership.id },
-            data: { isAdmin: true },
+      if (membership.isAdmin) {
+        if (!newAdminId) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Must specify new admin when an admin leaves',
           });
         }
-
-        // Mark current user membership => Inactive
+        const newAdminMembership = await tx.groupMembership.findFirst({
+          where: { groupId, userId: newAdminId },
+        });
+        if (!newAdminMembership) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'New admin not found in group',
+          });
+        }
+        // Transfer admin role
         await tx.groupMembership.update({
-          where: { id: membership.id },
-          data: { status: MembershipStatus.Inactive },
+          where: { id: newAdminMembership.id },
+          data: { isAdmin: true },
         });
+      }
 
-        // Log transaction
-        await tx.transaction.create({
-          data: {
-            userId,
-            groupId,
-            amount: new Prisma.Decimal(0),
-            transactionType: TransactionType.Credit,
-            description: 'Member left the group',
-          },
-        });
+      const deletedPayoutOrder = membership.payoutOrder;
 
-        return { success: true };
+      // Delete the membership
+      await tx.groupMembership.delete({ where: { id: membership.id } });
+
+      // Adjust payout orders for remaining members
+      const membershipsToUpdate = await tx.groupMembership.findMany({
+        where: {
+          groupId,
+          payoutOrder: { gt: deletedPayoutOrder },
+        },
       });
-    }),
+
+      for (const mem of membershipsToUpdate) {
+        await tx.groupMembership.update({
+          where: { id: mem.id },
+          data: { payoutOrder: mem.payoutOrder - 1 },
+        });
+      }
+
+      // Log transaction
+      await tx.transaction.create({
+        data: {
+          userId,
+          groupId,
+          amount: new Prisma.Decimal(0),
+          transactionType: TransactionType.Credit,
+          description: 'Member left the group',
+        },
+      });
+
+      return { success: true };
+    });
+  }),
 
   /**
    * updatePayoutOrder

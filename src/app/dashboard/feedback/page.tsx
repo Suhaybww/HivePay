@@ -1,5 +1,3 @@
-// src/app/dashboard/feedback/page.tsx
-
 "use client"
 
 import React from 'react';
@@ -21,10 +19,9 @@ interface FeedbackFormData {
 }
 
 interface ErrorFallbackProps {
-    error: Error;
-    resetErrorBoundary: () => void;
-  }
-  
+  error: Error;
+  resetErrorBoundary: () => void;
+}
 
 const FeedbackForm = () => {
   const { toast } = useToast();
@@ -48,10 +45,10 @@ const FeedbackForm = () => {
       setFormData({ type: '', title: '', description: '' });
       setRating(0);
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: 'Something went wrong',
-        description: error.message || 'Please try again later',
+        description: 'Failed to submit feedback. Please try again later.',
         variant: 'destructive',
       });
     }
@@ -219,23 +216,23 @@ const FeedbackForm = () => {
 
 // Error Fallback Component
 const ErrorFallback = ({ error, resetErrorBoundary }: ErrorFallbackProps) => {
-    return (
-      <div className="min-h-screen bg-gray-50/40 flex items-center justify-center p-4">
-        <Card className="p-6 max-w-md w-full">
-          <div className="text-center space-y-4">
-            <h2 className="text-xl font-semibold text-gray-900">Something went wrong</h2>
-            <p className="text-gray-600">{error.message}</p>
-            <Button
-              onClick={resetErrorBoundary}
-              className="bg-yellow-400 hover:bg-yellow-500 text-white"
-            >
-              Try again
-            </Button>
-          </div>
-        </Card>
-      </div>
-    );
-  };
+  return (
+    <div className="min-h-screen bg-gray-50/40 flex items-center justify-center p-4">
+      <Card className="p-6 max-w-md w-full">
+        <div className="text-center space-y-4">
+          <h2 className="text-xl font-semibold text-gray-900">Something went wrong</h2>
+          <p className="text-gray-600">{error.message}</p>
+          <Button
+            onClick={resetErrorBoundary}
+            className="bg-yellow-400 hover:bg-yellow-500 text-white"
+          >
+            Try again
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+};
 
 // Main Page Component
 const FeedbackPage = () => {

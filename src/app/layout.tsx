@@ -16,6 +16,7 @@ import { db } from "@/src/db";
 import { headers } from "next/headers";
 import { Toaster } from "../components/ui/toaster";
 import { redirect } from "next/navigation";
+// import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -110,6 +111,7 @@ export default async function RootLayout({
               <main className="flex-1">
                 <div className="container max-w-7xl mx-auto p-8">
                   {children}
+                  {/* <SpeedInsights /> */}
                 </div>
               </main>
 

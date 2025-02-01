@@ -1,5 +1,3 @@
-"use strict";
-
 import { Job } from "bull";
 import { db } from "@/src/db";
 import { stripe } from "@/src/lib/stripe";
@@ -15,7 +13,6 @@ import { SchedulerService } from "../services/schedulerService";
 import {
   sendPaymentFailureEmail,
   sendGroupPausedNotificationEmail,
-  sendGroupCycleStartedEmail,
 } from "@/src/lib/emailService";
 import { paymentQueue } from "./paymentQueue";
 
@@ -54,12 +51,7 @@ async function updateGroupPaymentStats(
 }
 
 /**
- * processContributionCycle
- *  1) We figure out which cycle # we’re on by counting existing Payouts in that group.
- *  2) The payee => membership with payoutOrder= that cycle #.
- *  3) Everyone else pays => skip duplicates if Payment row exists for that cycle #.
- *  4) We create a Payout row => set payee's membership hasBeenPaid=true.
- *  5) We shift futureCyclesJson => pop the used date => if there's a next date => set nextCycleDate to that next item => re-schedule.
+ * Process contribution cycle for a group
  */
 export async function processContributionCycle(job: Job) {
   const { groupId } = job.data;
@@ -67,11 +59,10 @@ export async function processContributionCycle(job: Job) {
 
   try {
     await db.$transaction(async (tx) => {
-      // 1) load group
+      // 1) Load group
       const group = await tx.group.findUnique({
         where: { id: groupId },
         include: {
-          // only active & not paid
           groupMemberships: {
             where: {
               status: MembershipStatus.Active,
@@ -82,6 +73,7 @@ export async function processContributionCycle(job: Job) {
           payouts: { orderBy: { payoutOrder: "desc" } },
         },
       });
+
       if (!group || group.status !== GroupStatus.Active) {
         throw new Error(`Group ${groupId} is not active/found.`);
       }
@@ -89,17 +81,16 @@ export async function processContributionCycle(job: Job) {
         throw new Error(`Invalid contributionAmount for group ${groupId}.`);
       }
 
-      const safeDecimal = group.contributionAmount; // e.g. 1000
+      const safeDecimal = group.contributionAmount;
       const baseAmount = safeDecimal.toNumber();
-      const membersPending = group.groupMemberships; // not yet paid
+      const membersPending = group.groupMemberships;
 
-      // 2) nextCycleNumber => last payout’s order + 1
+      // 2) Determine next cycle number
       let nextCycleNumber = 1;
       if (group.payouts.length > 0) {
         nextCycleNumber = group.payouts[0].payoutOrder + 1;
       }
 
-      // if nextCycleNumber > membersPending.length => done
       if (nextCycleNumber > membersPending.length) {
         await tx.group.update({
           where: { id: group.id },
@@ -110,21 +101,10 @@ export async function processContributionCycle(job: Job) {
           },
         });
         console.log(`All members have received payout => group ${group.id} ended.`);
-
-        const allEmails = membersPending.map((m) => ({
-          email: m.user.email,
-          firstName: m.user.firstName,
-          lastName: m.user.lastName,
-        }));
-        await sendGroupPausedNotificationEmail(
-          group.name,
-          allEmails,
-          "All members have received their payout; cycle is complete."
-        );
         return;
       }
 
-      // 3) find payee => payoutOrder= nextCycleNumber
+      // 3) Find payee
       const payee = membersPending.find((m) => m.payoutOrder === nextCycleNumber);
       if (!payee) {
         throw new Error(`No membership found => group=${groupId}, cycle#=${nextCycleNumber}`);
@@ -138,7 +118,7 @@ export async function processContributionCycle(job: Job) {
         throw new Error(`Payee missing stripeAccountId => userId=${payee.userId}`);
       }
 
-      // 4) Everyone else pays => skip duplicates
+      // 4) Process payments for all members
       for (const membership of membersPending) {
         const user = membership.user;
         if (
@@ -150,7 +130,6 @@ export async function processContributionCycle(job: Job) {
           continue;
         }
 
-        // check if Payment row already exists
         const existing = await tx.payment.findFirst({
           where: {
             userId: user.id,
@@ -163,7 +142,6 @@ export async function processContributionCycle(job: Job) {
           continue;
         }
 
-        // 1% + $0.30, max $3.50
         let fee = baseAmount * 0.01 + 0.3;
         if (fee > 3.5) fee = 3.5;
 
@@ -172,7 +150,6 @@ export async function processContributionCycle(job: Job) {
         const feeInCents = Math.round(fee * 100);
 
         try {
-          // PaymentIntent => money => payee
           const pi = await stripe.paymentIntents.create({
             amount: totalInCents,
             currency: "aud",
@@ -192,7 +169,6 @@ export async function processContributionCycle(job: Job) {
             },
           });
 
-          // record Payment => pending
           await tx.payment.create({
             data: {
               userId: user.id,
@@ -236,7 +212,6 @@ export async function processContributionCycle(job: Job) {
               { delay: 2 * 86400000 }
             );
           } else {
-            // pause group
             await tx.group.update({
               where: { id: group.id },
               data: {
@@ -245,115 +220,45 @@ export async function processContributionCycle(job: Job) {
               },
             });
             console.log(`Group ${group.id} paused => repeated fails from user ${user.id}`);
-
-            const emailsAll = membersPending.map((m) => ({
-              email: m.user.email,
-              firstName: m.user.firstName,
-              lastName: m.user.lastName,
-            }));
-            await sendGroupPausedNotificationEmail(
-              group.name,
-              emailsAll,
-              `Payment failures by ${user.email}`
-            );
           }
         }
       }
 
-      // update totals
+      // Update totals
       await updateGroupPaymentStats(tx, group.id);
 
-      // create Payout => payee
+      // Create Payout
+      const cyclePayments = await tx.payment.findMany({
+        where: {
+          groupId: group.id,
+          cycleNumber: nextCycleNumber,
+          status: PaymentStatus.Successful,
+        },
+      });
+
+      const totalPayout = cyclePayments.reduce(
+        (sum, payment) => sum.plus(payment.amount),
+        new Decimal(0)
+      );
+
       await tx.payout.create({
         data: {
           groupId: group.id,
           userId: payee.userId,
           scheduledPayoutDate: new Date(),
-          amount: safeDecimal,
+          amount: totalPayout,
           status: PaymentStatus.Pending,
           payoutOrder: nextCycleNumber,
         },
       });
-      console.log(
-        `Payout #${nextCycleNumber} => userId=${payee.userId}, amount=${safeDecimal}`
-      );
 
-      // mark payee => hasBeenPaid
+      // Mark payee as paid
       await tx.groupMembership.update({
         where: { id: payee.id },
         data: { hasBeenPaid: true },
       });
     });
 
-    // after transaction => shift from futureCyclesJson => schedule next
-    const latest = await db.group.findUnique({
-      where: { id: groupId },
-      select: {
-        status: true,
-        cycleStarted: true,
-        futureCyclesJson: true,
-      },
-    });
-    if (!latest || latest.status !== GroupStatus.Active || !latest.cycleStarted) {
-      console.log(`Group ${groupId} is paused => skip next cycle schedule.`);
-      return;
-    }
-
-    let arr = Array.isArray(latest.futureCyclesJson)
-      ? [...latest.futureCyclesJson]
-      : [];
-    arr.shift(); // remove the used date
-
-    if (arr.length === 0) {
-      // no more => done
-      await db.group.update({
-        where: { id: groupId },
-        data: {
-          futureCyclesJson: [],
-          nextCycleDate: null, // done
-          cycleStarted: false,
-          status: GroupStatus.Paused,
-          pauseReason: PauseReason.OTHER,
-        },
-      });
-      console.log(`No more cycle dates => group ${groupId} ended/paused.`);
-    } else {
-      // set nextCycleDate to arr[0]
-      const nextRaw = arr[0];
-      let nextDate: Date | null = null;
-      if (typeof nextRaw === "string" && nextRaw.trim() !== "") {
-        nextDate = new Date(nextRaw);
-      }
-
-      if (nextDate && !isNaN(nextDate.getTime())) {
-        await db.group.update({
-          where: { id: groupId },
-          data: {
-            futureCyclesJson: arr,
-            nextCycleDate: nextDate,
-          },
-        });
-        console.log(
-          `Group ${groupId} => nextCycleDate=${nextDate.toISOString()}, scheduling next cycle...`
-        );
-        await SchedulerService.scheduleNextCycle(groupId);
-      } else {
-        // invalid => end
-        console.warn(`Invalid next date => pausing group ${groupId}`);
-        await db.group.update({
-          where: { id: groupId },
-          data: {
-            futureCyclesJson: [],
-            nextCycleDate: null,
-            cycleStarted: false,
-            status: GroupStatus.Paused,
-            pauseReason: PauseReason.OTHER,
-          },
-        });
-      }
-    }
-
-    // optionally notify => “new cycle started”
     console.log(`=== processContributionCycle success for group=${groupId} ===\n`);
   } catch (error) {
     console.error(`Failed processContributionCycle for group ${groupId}:`, error);

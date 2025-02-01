@@ -160,8 +160,8 @@ export default function GroupPage() {
         </div>
       </div>
 
-      {/* Alert if user hasn't completed all payment setups */}
-      {isAnySetupIncomplete && (
+{/* Alert if user hasn't completed all payment setups */}
+  {isAnySetupIncomplete && (
         <Alert
           variant="destructive"
           className="mb-6 bg-red-50 border border-red-200 text-red-900"
@@ -178,7 +178,7 @@ export default function GroupPage() {
               >
                 Settings
               </Button>{" "}
-              to finalize your Stripe onboarding for payouts or BECS Direct Debit configuration.
+              to finalize your Stripe onboarding for payouts or BECS Direct Debit configuration. If you just completed the Stripe Express onboarding and it's not showing as complete, please wait a few minutes for the status to update.
             </AlertDescription>
           </div>
         </Alert>

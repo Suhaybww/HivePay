@@ -1,6 +1,7 @@
 import * as brevo from '@getbrevo/brevo';
-import { TransactionalEmailsApi } from '@getbrevo/brevo';
+import { TransactionalEmailsApi, SendSmtpEmail } from '@getbrevo/brevo';
 import { Decimal } from '@prisma/client/runtime/library';
+import {theme, baseTemplate, contentSection, alertBox, actionButton } from './emailTemplates';
 
 const brevoClient = new brevo.TransactionalEmailsApi();
 brevoClient.setApiKey(
@@ -8,11 +9,31 @@ brevoClient.setApiKey(
   process.env.BREVO_API_KEY || ''
 );
 
+
+interface FeedbackEmailParams {
+  user: {
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  type: string;
+  title: string;
+  description: string;
+  rating: number;
+}
+
 interface GroupMemberInfo {
   email: string;
   firstName: string;
   lastName: string;
 }
+
+interface ContactFormData {
+  name: string;
+  email: string;
+  message: string;
+}
+
 
 interface GroupDeletionEmailParams {
   groupName: string;
@@ -65,13 +86,6 @@ interface GroupNotificationParams {
 const senderName = process.env.EMAIL_SENDER_NAME || 'HivePay';
 const senderEmail = process.env.EMAIL_SENDER_EMAIL || 'support@hivepay.com.au';
 
-const fontFamily = "'Inter', Arial, sans-serif";
-const primaryColor = "#F59E0B";
-const textColor = "#374151";
-const subtleBg = "#F9FAFB";
-const borderColor = "#E5E7EB";
-const headingColor = "#000000";
-const footerColor = "#6B7280";
 
 /**
  * A general-purpose function to email multiple group members 
@@ -83,32 +97,27 @@ const footerColor = "#6B7280";
 export async function sendGroupNotificationEmail(params: GroupNotificationParams): Promise<void> {
   const { groupName, members, subject, body } = params;
 
-  // We send the same subject & body to each member
   for (const mem of members) {
     try {
-      const sendSmtpEmail = new brevo.SendSmtpEmail();
-      const htmlContent = `
-        <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
-          <h2 style="color: ${headingColor}; font-size: 24px; margin-bottom: 10px;">${subject}</h2>
-          <p style="color: ${textColor}; font-size: 16px;">Hi ${mem.firstName},</p>
-          <div style="background-color: ${subtleBg}; padding: 15px; border-radius: 4px; margin: 20px 0;">
-            <p style="margin: 0; font-size: 14px; color: ${textColor}; white-space: pre-line;">
-              ${body}
-            </p>
-          </div>
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
-            <p style="color: ${footerColor}; font-size: 12px; margin: 0;">
-              Best regards,<br>${senderName} Team
-            </p>
-          </div>
-        </div>
-      `;
+      const htmlContent = baseTemplate(`
+        ${contentSection(`
+          <h2 style="
+            margin: 0 0 16px;
+            font-size: 20px;
+            color: ${theme.headingColor};
+          ">
+            ${subject}
+          </h2>
+          
+          <p>Hi ${mem.firstName},</p>
+          
+          ${alertBox(body.replace(/\n/g, '<br>'), 'info')}
+        `)}
+      `);
 
+      const sendSmtpEmail = new brevo.SendSmtpEmail();
       sendSmtpEmail.sender = { name: senderName, email: senderEmail };
-      sendSmtpEmail.to = [{
-        email: mem.email,
-        name: `${mem.firstName} ${mem.lastName}`
-      }];
+      sendSmtpEmail.to = [{ email: mem.email, name: `${mem.firstName} ${mem.lastName}` }];
       sendSmtpEmail.subject = `${subject} - ${groupName}`;
       sendSmtpEmail.htmlContent = htmlContent;
 
@@ -116,7 +125,6 @@ export async function sendGroupNotificationEmail(params: GroupNotificationParams
       console.log(`Group notification (“${subject}”) sent to ${mem.email}`);
     } catch (error) {
       console.error(`Failed to send group notification to ${mem.email}:`, error);
-      // we can continue the loop or re-throw
     }
   }
 }
@@ -127,14 +135,18 @@ export async function sendGroupNotificationEmail(params: GroupNotificationParams
  * 
  * We'll build a default message, then call sendGroupNotificationEmail for each member.
  */
-export async function sendGroupPausedNotificationEmail(groupName: string, members: GroupMemberInfo[], reason?: string): Promise<void> {
-  let subject = 'Group Paused';
+export async function sendGroupPausedNotificationEmail(
+  groupName: string, 
+  members: GroupMemberInfo[], 
+  reason?: string
+): Promise<void> {
+  const subject = 'Group Paused';
   let body = `Your group "${groupName}" has been paused.\n\n`;
 
   if (reason) {
     body += `Reason: ${reason}\n\n`;
   }
-  body += 'No further contributions or payouts will occur until this group is reactivated. If you have questions, please contact your admin or support.';
+  body += 'No further contributions or payouts will occur until this group is reactivated.';
 
   await sendGroupNotificationEmail({
     groupName,
@@ -148,11 +160,17 @@ export async function sendGroupPausedNotificationEmail(groupName: string, member
  * Send an email to the entire group saying 
  * “Cycle started for group X, contributions are now being collected…”
  */
-export async function sendGroupCycleStartedEmail(groupName: string, members: GroupMemberInfo[]): Promise<void> {
-  const subject = 'A new cycle has started!';
-  let body = `A new contribution cycle for "${groupName}" just started.\n\n`;
-  body += 'Contributions will be automatically collected from all members, and the next payout will follow soon.\n\n';
-  body += 'Thank you for being part of HivePay!';
+export async function sendGroupCycleStartedEmail(
+  groupName: string, 
+  members: GroupMemberInfo[]
+): Promise<void> {
+  const subject = 'New Contribution Cycle Started';
+  const body = `
+    A new contribution cycle for "${groupName}" has begun.\n\n
+    Contributions will be automatically collected from all members, 
+    and the next payout will follow soon.\n\n
+    Thank you for being part of HivePay!
+  `;
 
   await sendGroupNotificationEmail({
     groupName,
@@ -167,44 +185,67 @@ export async function sendGroupPausedEmail({
   inactiveMembers,
   recipient,
 }: GroupStatusEmailParams): Promise<void> {
-  const sendSmtpEmail = new brevo.SendSmtpEmail();
   const inactiveMembersList = inactiveMembers.join(', ');
 
-  const htmlContent = `
-    <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
-      <h2 style="color: ${headingColor}; font-size: 24px; margin-bottom: 10px;">Group Paused: ${groupName}</h2>
-      <p style="color: ${textColor}; font-size: 16px;">Hi ${recipient.firstName},</p>
-      <div style="background-color: #FEF9C3; border-left: 4px solid ${primaryColor}; padding: 15px; border-radius: 4px; margin: 20px 0;">
-        <p style="color: ${textColor}; font-size: 16px; margin: 0;"><strong>Your group has been paused</strong></p>
-        <p style="color: ${textColor}; font-size: 14px; margin: 8px 0 0;">
-          This is because the following member(s) no longer have an active subscription:
-        </p>
-        <p style="font-weight: bold; color: ${textColor}; font-size: 14px; margin-top: 8px;">${inactiveMembersList}</p>
-      </div>
-
-      <div style="background-color: ${subtleBg}; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="margin-top: 0; font-size: 18px; color: ${headingColor};">What this means:</h3>
-        <ul style="color: ${textColor}; font-size: 14px; padding-left: 20px;">
-          <li style="margin-bottom: 8px;">All group activities are temporarily suspended</li>
-          <li style="margin-bottom: 8px;">No new contributions will be collected</li>
-          <li style="margin-bottom: 0;">No payouts will be processed</li>
-        </ul>
-      </div>
-
-      <div style="background-color: #ECFDF5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <p style="color: #065F46; margin: 0; font-size: 14px;">
-          <strong>The group will automatically resume when all members have active subscriptions.</strong>
-        </p>
-      </div>
-
-      <p style="color: ${textColor}; font-size: 14px;">If you have any questions, please contact our support team.</p>
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        Group Paused: ${groupName}
+      </h2>
       
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
-        <p style="color: ${footerColor}; font-size: 12px; margin: 0;">Best regards,<br>${senderName} Team</p>
-      </div>
-    </div>
-  `;
+      <p>Hi ${recipient.firstName},</p>
+      
+      ${alertBox(`
+        <strong>Your group has been paused</strong><br>
+        The following members no longer have active subscriptions:
+        <div style="
+          background: white;
+          padding: 12px;
+          border-radius: 4px;
+          margin-top: 8px;
+          font-weight: 500;
+          color: ${theme.textColor};
+        ">
+          ${inactiveMembersList}
+        </div>
+      `, 'warning')}
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        What This Means
+      </h3>
+      
+      <ul style="
+        margin: 0;
+        padding-left: 20px;
+      ">
+        <li style="margin-bottom: 8px;">All group activities are suspended</li>
+        <li style="margin-bottom: 8px;">No new contributions will be collected</li>
+        <li>No payouts will be processed</li>
+      </ul>
+      
+      ${alertBox(`
+        The group will automatically resume when all members have active subscriptions
+      `, 'info')}
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        Need help? Contact our 
+        <a href="mailto:support@hivepay.com.au" style="
+          color: ${theme.primaryColor};
+          text-decoration: none;
+        ">support team</a>
+      </p>
+    `)}
+  `, `Group ${groupName} has been paused`);
 
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
   sendSmtpEmail.sender = { name: senderName, email: senderEmail };
   sendSmtpEmail.to = [{ email: recipient.email, name: `${recipient.firstName} ${recipient.lastName}` }];
   sendSmtpEmail.subject = `Group Paused: ${groupName}`;
@@ -214,7 +255,7 @@ export async function sendGroupPausedEmail({
     await brevoClient.sendTransacEmail(sendSmtpEmail);
     console.log(`Group paused email sent to ${recipient.email}`);
   } catch (error) {
-    console.error(`Failed to send group paused email to ${recipient.email}:`, error);
+    console.error(`Failed to send group paused email:`, error);
     throw error;
   }
 }
@@ -225,50 +266,62 @@ export async function sendContributionReminderEmail({
   contributionDate,
   recipient,
 }: ContributionReminderEmailParams): Promise<void> {
+  const formattedDate = contributionDate.toLocaleDateString('en-AU', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  
+  const formattedAmount = new Intl.NumberFormat('en-AU', { 
+    style: 'currency', 
+    currency: 'AUD' 
+  }).format(Number(contributionAmount));
+
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        Contribution Reminder
+      </h2>
+      
+      <p>Hi ${recipient.firstName},</p>
+      
+      ${alertBox(`
+        Your scheduled contribution of 
+        <strong>${formattedAmount}</strong> for 
+        <strong>${groupName}</strong> is due on 
+        <strong>${formattedDate}</strong>.
+      `, 'warning')}
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        Important Information
+      </h3>
+      
+      <ul style="
+        margin: 0;
+        padding-left: 20px;
+      ">
+        <li style="margin-bottom: 8px;">Automatic debit from registered account</li>
+        <li style="margin-bottom: 8px;">Ensure sufficient funds are available</li>
+        <li>Maintains group savings schedule</li>
+      </ul>
+      
+      ${actionButton(
+        'Update Payment Details', 
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+      )}
+    `)}
+  `, `Upcoming contribution of ${formattedAmount} for ${groupName}`);
+
   const sendSmtpEmail = new brevo.SendSmtpEmail();
-
-  const formattedDate = contributionDate.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const formattedAmount = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(Number(contributionAmount));
-
-  const htmlContent = `
-    <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
-      <div style="background-color: #FFF7ED; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h2 style="color: ${headingColor}; margin: 0; font-size: 24px;">Upcoming Contribution Reminder</h2>
-        <p style="color: #78350F; margin-top: 8px; font-size: 16px;">For ${groupName}</p>
-      </div>
-
-      <p style="color: ${textColor}; font-size: 16px;">Hi ${recipient.firstName},</p>
-
-      <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: ${textColor}; font-size: 16px;">
-          This is a friendly reminder that your scheduled contribution of <strong>${formattedAmount}</strong> 
-          is due on <strong>${formattedDate}</strong>.
-        </p>
-      </div>
-
-      <div style="background-color: #ECFDF5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: #166534; margin-top: 0; font-size: 18px;">Important Information</h3>
-        <ul style="color: ${textColor}; font-size: 14px; margin-bottom: 0; padding-left: 20px;">
-          <li style="margin-bottom: 8px;">The amount will be automatically debited from your registered bank account</li>
-          <li style="margin-bottom: 8px;">Please ensure sufficient funds are available</li>
-          <li>Your contribution helps maintain the group's saving schedule</li>
-        </ul>
-      </div>
-
-      <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: ${textColor}; font-size: 16px;">
-          Need to update your payment details or have questions? Visit your 
-          <a href="https://hivepay.com.au/dashboard" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">HivePay Dashboard</a> 
-          or contact our support team.
-        </p>
-      </div>
-
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
-        <p style="color: ${footerColor}; font-size: 12px; margin: 0;">Best regards,<br>${senderName} Team</p>
-      </div>
-    </div>
-  `;
-
   sendSmtpEmail.sender = { name: senderName, email: senderEmail };
   sendSmtpEmail.to = [{ email: recipient.email, name: `${recipient.firstName} ${recipient.lastName}` }];
   sendSmtpEmail.subject = `Contribution Reminder: ${groupName}`;
@@ -276,57 +329,73 @@ export async function sendContributionReminderEmail({
 
   try {
     await brevoClient.sendTransacEmail(sendSmtpEmail);
-    console.log(`Contribution reminder email sent to ${recipient.email} for group ${groupName}`);
+    console.log(`Contribution reminder sent to ${recipient.email}`);
   } catch (error) {
-    console.error(`Failed to send contribution reminder email to ${recipient.email}:`, error);
+    console.error(`Failed to send contribution reminder:`, error);
     throw error;
   }
 }
 
-
+// Updated Invitation Email
 export async function sendInvitationEmail(
   email: string,
   groupId: string,
   groupName: string,
   inviterName: string
 ): Promise<void> {
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        You're Invited!
+      </h2>
+      
+      <p>Hi there,</p>
+      
+      ${alertBox(`
+        ${inviterName} has invited you to join 
+        <strong>${groupName}</strong> on HivePay
+      `, 'success')}
+      
+      <div style="
+        background: ${theme.subtleBg};
+        padding: 16px;
+        border-radius: 6px;
+        margin: 24px 0;
+        text-align: center;
+      ">
+        <div style="font-size: 13px; color: ${theme.footerColor};">
+          Group ID
+        </div>
+        <div style="
+          font-size: 18px;
+          font-weight: 500;
+          margin-top: 8px;
+          color: ${theme.primaryColor};
+        ">
+          ${groupId}
+        </div>
+      </div>
+      
+      ${actionButton(
+        'Join Group Now', 
+        `${process.env.NEXT_PUBLIC_APP_URL}/groups`
+      )}
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        Need help? Contact our 
+        <a href="mailto:support@hivepay.com.au" style="
+          color: ${theme.primaryColor};
+          text-decoration: none;
+        ">support team</a>
+      </p>
+    `)}
+  `, `Join ${groupName} on HivePay`);
+
   const sendSmtpEmail = new brevo.SendSmtpEmail();
-
-  const htmlContent = `
-    <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
-      <div style="background-color: #FFF7ED; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h2 style="color: ${headingColor}; margin: 0; font-size: 24px;">You're Invited!</h2>
-        <p style="color: #78350F; margin-top: 8px; font-size: 16px;">To join ${groupName} on HivePay</p>
-      </div>
-
-      <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: ${textColor}; font-size: 16px;">
-          ${inviterName} has invited you to join their savings group "${groupName}" on HivePay.
-        </p>
-      </div>
-
-      <div style="background-color: #ECFDF5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <p style="color: #065F46; margin: 0; font-size: 14px;">
-          <strong>Group ID: ${groupId}</strong>
-        </p>
-      </div>
-
-      <div style="text-align: center; margin: 30px 0;">
-        <p style="color: ${textColor}; font-size: 16px;">
-          To join the group, please navigate to the 
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">Dashboard</a> 
-          or 
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/groups" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">Groups</a> 
-          page in the HivePay app and click "Join Group". Enter the Group ID provided above to join.
-        </p>
-      </div>
-
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
-        <p style="color: ${footerColor}; font-size: 12px; margin: 0;">Best regards,<br>${senderName} Team</p>
-      </div>
-    </div>
-  `;
-
   sendSmtpEmail.sender = { name: senderName, email: senderEmail };
   sendSmtpEmail.to = [{ email }];
   sendSmtpEmail.subject = `Join ${groupName} on HivePay`;
@@ -334,54 +403,66 @@ export async function sendInvitationEmail(
 
   try {
     await brevoClient.sendTransacEmail(sendSmtpEmail);
-    console.log(`Invitation email sent to ${email} for group ${groupName}`);
+    console.log(`Invitation sent to ${email}`);
   } catch (error) {
-    console.error(`Failed to send invitation email to ${email}:`, error);
+    console.error(`Failed to send invitation:`, error);
     throw error;
   }
 }
-
 export async function sendGroupDeletionEmail({
   groupName,
   adminName,
   recipient,
 }: GroupDeletionEmailParams): Promise<void> {
-  const sendSmtpEmail = new brevo.SendSmtpEmail();
-
-  const htmlContent = `
-    <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
-      <div style="background-color: #FEE2E2; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h2 style="color: ${headingColor}; margin: 0; font-size: 24px;">Group Deleted</h2>
-        <p style="color: #991B1B; margin-top: 8px; font-size: 16px;">${groupName}</p>
-      </div>
-
-      <p style="color: ${textColor}; font-size: 16px;">Hi ${recipient.firstName},</p>
-
-      <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: ${textColor}; font-size: 16px;">
-          This is to inform you that the group "${groupName}" has been deleted by ${adminName}.
-        </p>
-      </div>
-
-      <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: ${headingColor}; margin-top: 0; font-size: 18px;">What This Means:</h3>
-        <ul style="color: ${textColor}; font-size: 14px; margin-bottom: 0; padding-left: 20px;">
-          <li style="margin-bottom: 8px;">All group data has been permanently removed</li>
-          <li style="margin-bottom: 8px;">Any pending contributions or payouts have been cancelled</li>
-          <li>You can create or join other groups from your dashboard</li>
-        </ul>
-      </div>
-
-      <p style="color: ${textColor}; font-size: 14px;">
-        If you have any questions or concerns, please don't hesitate to contact our support team.
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        Group Deleted: ${groupName}
+      </h2>
+      
+      <p>Hi ${recipient.firstName},</p>
+      
+      ${alertBox(`
+        The group "${groupName}" has been deleted by ${adminName}
+      `, 'error')}
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        What This Means
+      </h3>
+      
+      <ul style="
+        margin: 0;
+        padding-left: 20px;
+      ">
+        <li style="margin-bottom: 8px;">All group data has been removed</li>
+        <li style="margin-bottom: 8px;">Pending contributions/payouts cancelled</li>
+        <li>You can create/join other groups</li>
+      </ul>
+      
+      ${actionButton(
+        'Create New Group',
+        `${process.env.NEXT_PUBLIC_APP_URL}/groups`
+      )}
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        Questions? Contact our 
+        <a href="mailto:support@hivepay.com.au" style="
+          color: ${theme.primaryColor};
+          text-decoration: none;
+        ">support team</a>
       </p>
+    `)}
+  `, `Group ${groupName} has been deleted`);
 
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
-        <p style="color: ${footerColor}; font-size: 12px; margin: 0;">Best regards,<br>${senderName} Team</p>
-      </div>
-    </div>
-  `;
-
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
   sendSmtpEmail.sender = { name: senderName, email: senderEmail };
   sendSmtpEmail.to = [{ email: recipient.email, name: `${recipient.firstName} ${recipient.lastName}` }];
   sendSmtpEmail.subject = `Group Deleted: ${groupName}`;
@@ -391,62 +472,72 @@ export async function sendGroupDeletionEmail({
     await brevoClient.sendTransacEmail(sendSmtpEmail);
     console.log(`Group deletion email sent to ${recipient.email}`);
   } catch (error) {
-    console.error(`Failed to send group deletion email to ${recipient.email}:`, error);
-    // Don't throw error to allow the deletion process to continue
+    console.error(`Failed to send group deletion email:`, error);
+    throw error;
   }
 }
 
-
-// Add these new functions to your emailService.ts file
+// Updated Payment Failure Email
 export async function sendPaymentFailureEmail({
   recipient,
   groupName,
   amount,
 }: PaymentFailureEmailParams): Promise<void> {
-  const sendSmtpEmail = new brevo.SendSmtpEmail();
-
   const formattedAmount = new Intl.NumberFormat('en-AU', { 
     style: 'currency', 
     currency: 'AUD' 
   }).format(Number(amount));
 
-  const htmlContent = `
-    <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
-      <div style="background-color: #FEE2E2; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h2 style="color: ${headingColor}; margin: 0; font-size: 24px;">Payment Failed</h2>
-        <p style="color: #991B1B; margin-top: 8px; font-size: 16px;">${groupName}</p>
-      </div>
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        Payment Failed
+      </h2>
+      
+      <p>Hi ${recipient.firstName},</p>
+      
+      ${alertBox(`
+        Your payment of <strong>${formattedAmount}</strong> 
+        for <strong>${groupName}</strong> could not be processed
+      `, 'error')}
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        Required Action
+      </h3>
+      
+      <ol style="
+        margin: 0;
+        padding-left: 20px;
+      ">
+        <li style="margin-bottom: 8px;">Check account balance</li>
+        <li style="margin-bottom: 8px;">Verify payment details</li>
+        <li>Retry automatically in 24 hours</li>
+      </ol>
+      
+      ${actionButton(
+        'Update Payment Method', 
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+      )}
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        Need immediate assistance? Call us at 
+        <a href="tel:+61212345678" style="
+          color: ${theme.primaryColor};
+          text-decoration: none;
+        ">+61 2 1234 5678</a>
+      </p>
+    `)}
+  `, `Payment failed for ${groupName}`);
 
-      <p style="color: ${textColor}; font-size: 16px;">Hi ${recipient.firstName},</p>
-
-      <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: ${textColor}; font-size: 16px;">
-          Your scheduled contribution of <strong>${formattedAmount}</strong> for "${groupName}" has failed.
-        </p>
-      </div>
-
-      <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: ${headingColor}; margin-top: 0; font-size: 18px;">Next Steps:</h3>
-        <ul style="color: ${textColor}; font-size: 14px; margin-bottom: 0; padding-left: 20px;">
-          <li style="margin-bottom: 8px;">Please check your bank account has sufficient funds</li>
-          <li style="margin-bottom: 8px;">Verify your BECS Direct Debit details are correct</li>
-          <li>The payment will be automatically retried within 24 hours</li>
-        </ul>
-      </div>
-
-      <div style="background-color: #ECFDF5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <p style="color: #065F46; margin: 0; font-size: 14px;">
-          <strong>Need to update your payment details?</strong><br>
-          Visit your <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">HivePay Dashboard</a>
-        </p>
-      </div>
-
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
-        <p style="color: ${footerColor}; font-size: 12px; margin: 0;">Best regards,<br>${senderName} Team</p>
-      </div>
-    </div>
-  `;
-
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
   sendSmtpEmail.sender = { name: senderName, email: senderEmail };
   sendSmtpEmail.to = [{ email: recipient.email, name: `${recipient.firstName} ${recipient.lastName}` }];
   sendSmtpEmail.subject = `Payment Failed: ${groupName}`;
@@ -454,9 +545,9 @@ export async function sendPaymentFailureEmail({
 
   try {
     await brevoClient.sendTransacEmail(sendSmtpEmail);
-    console.log(`Payment failure email sent to ${recipient.email}`);
+    console.log(`Payment failure notice sent to ${recipient.email}`);
   } catch (error) {
-    console.error(`Failed to send payment failure email to ${recipient.email}:`, error);
+    console.error(`Failed to send payment failure email:`, error);
     throw error;
   }
 }
@@ -466,50 +557,61 @@ export async function sendPayoutProcessedEmail({
   groupName,
   amount,
 }: PayoutProcessedEmailParams): Promise<void> {
-  const sendSmtpEmail = new brevo.SendSmtpEmail();
-
   const formattedAmount = new Intl.NumberFormat('en-AU', { 
     style: 'currency', 
     currency: 'AUD' 
   }).format(Number(amount));
 
-  const htmlContent = `
-    <div style="font-family: ${fontFamily}; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 20px; border-radius: 8px;">
-      <div style="background-color: #ECFDF5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-        <h2 style="color: ${headingColor}; margin: 0; font-size: 24px;">Payout Processed</h2>
-        <p style="color: #065F46; margin-top: 8px; font-size: 16px;">${groupName}</p>
-      </div>
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        Payout Processed: ${groupName}
+      </h2>
+      
+      <p>Hi ${recipient.firstName},</p>
+      
+      ${alertBox(`
+        Your payout of <strong>${formattedAmount}</strong> 
+        from <strong>${groupName}</strong> has been successfully processed!
+      `, 'success')}
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        Payment Details
+      </h3>
+      
+      <ul style="
+        margin: 0;
+        padding-left: 20px;
+      ">
+        <li style="margin-bottom: 8px;">Sent to your connected bank account</li>
+        <li style="margin-bottom: 8px;">Processing time: 5 business days</li>
+        <li>Trackable in your Stripe dashboard</li>
+      </ul>
+      
+      ${actionButton(
+        'View Transaction Details',
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+      )}
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        Need help? Contact our 
+        <a href="mailto:support@hivepay.com.au" style="
+          color: ${theme.primaryColor};
+          text-decoration: none;
+        ">support team</a>
+      </p>
+    `)}
+  `, `Payout of ${formattedAmount} processed for ${groupName}`);
 
-      <p style="color: ${textColor}; font-size: 16px;">Hi ${recipient.firstName},</p>
-
-      <div style="background-color: ${subtleBg}; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; color: ${textColor}; font-size: 16px;">
-          Great news! Your payout of <strong>${formattedAmount}</strong> from "${groupName}" has been processed.
-        </p>
-      </div>
-
-      <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3 style="color: ${headingColor}; margin-top: 0; font-size: 18px;">Important Information:</h3>
-        <ul style="color: ${textColor}; font-size: 14px; margin-bottom: 0; padding-left: 20px;">
-          <li style="margin-bottom: 8px;">The funds have been sent to your connected bank account</li>
-          <li style="margin-bottom: 8px;">Standard processing time is 1-3 business days</li>
-          <li>You can track this payout in your Stripe dashboard</li>
-        </ul>
-      </div>
-
-      <div style="background-color: #ECFDF5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <p style="color: #065F46; margin: 0; font-size: 14px;">
-          <strong>Want to view the transfer details?</strong><br>
-          Check your <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" style="color: ${primaryColor}; text-decoration: none; font-weight: 500;">HivePay Dashboard</a>
-        </p>
-      </div>
-
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid ${borderColor};">
-        <p style="color: ${footerColor}; font-size: 12px; margin: 0;">Best regards,<br>${senderName} Team</p>
-      </div>
-    </div>
-  `;
-
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
   sendSmtpEmail.sender = { name: senderName, email: senderEmail };
   sendSmtpEmail.to = [{ email: recipient.email, name: `${recipient.firstName} ${recipient.lastName}` }];
   sendSmtpEmail.subject = `Payout Processed: ${groupName}`;
@@ -519,7 +621,131 @@ export async function sendPayoutProcessedEmail({
     await brevoClient.sendTransacEmail(sendSmtpEmail);
     console.log(`Payout processed email sent to ${recipient.email}`);
   } catch (error) {
-    console.error(`Failed to send payout processed email to ${recipient.email}:`, error);
+    console.error(`Failed to send payout processed email:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Sends contact form emails to both the support team and the user.
+ */
+export async function sendContactFormEmails({ name, email, message }: ContactFormData) {
+  try {
+    // 1) Send notification to support team
+    const supportEmail = new SendSmtpEmail();
+    supportEmail.subject = `New Contact Form Submission from ${name}`;
+    supportEmail.htmlContent = baseTemplate(`
+      ${contentSection(`
+        <h2 style="
+          margin: 0 0 16px;
+          font-size: 20px;
+          color: ${theme.headingColor};
+        ">
+          New Contact Form Submission
+        </h2>
+        
+        <p>Hi HivePay Team,</p>
+        
+        ${alertBox(`
+          <strong>Contact Details:</strong>
+          <ul style="list-style: none; padding-left: 0;">
+            <li><strong>Name:</strong> ${name}</li>
+            <li><strong>Email:</strong> ${email}</li>
+          </ul>
+        `, 'info')}
+        
+        ${alertBox(`
+          <strong>Message:</strong>
+          <p>${message}</p>
+        `, 'info')}
+      `)}
+    `, `New contact form submission from ${name}`);
+
+    supportEmail.sender = { name: senderName, email: senderEmail };
+    supportEmail.to = [
+      {
+        email: "support@hivepay.com.au",
+        name: "HivePay Support Team",
+      },
+    ];
+
+    await brevoClient.sendTransacEmail(supportEmail);
+
+    // 2) Send confirmation to user
+    const userEmail = new SendSmtpEmail();
+    userEmail.subject = "Thank you for contacting HivePay";
+    userEmail.htmlContent = baseTemplate(`
+      ${contentSection(`
+        <h2 style="
+          margin: 0 0 16px;
+          font-size: 20px;
+          color: ${theme.headingColor};
+        ">
+          Hi ${name},
+        </h2>
+        
+        <p>Thank you for reaching out to HivePay. We've received your message and will get back to you as soon as possible.</p>
+        
+        ${alertBox(`
+          <strong>Your message:</strong>
+          <p>${message}</p>
+        `, 'info')}
+        
+        <p>We typically respond within 1-2 business days.</p>
+      `)}
+    `, `Thank you for contacting HivePay`);
+
+    userEmail.sender = { name: senderName, email: senderEmail };
+    userEmail.to = [
+      {
+        email: email,
+        name: name,
+      },
+    ];
+
+    await brevoClient.sendTransacEmail(userEmail);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to send contact form emails:", error);
+    throw error;
+  }
+}
+
+
+export async function sendFeedbackEmail(params: FeedbackEmailParams): Promise<void> {
+  const { user, type, title, description, rating } = params;
+
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        New Feedback Received
+      </h2>
+      
+      <p><strong>From:</strong> ${user.firstName} ${user.lastName} (${user.email})</p>
+      <p><strong>Type:</strong> ${type}</p>
+      <p><strong>Rating:</strong> ${rating}/5</p>
+      <p><strong>Title:</strong> ${title}</p>
+      <p><strong>Description:</strong></p>
+      <p>${description}</p>
+    `)}
+  `, `New Feedback: ${title}`);
+
+  const sendSmtpEmail = new SendSmtpEmail();
+  sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+  sendSmtpEmail.to = [{ email: 'support@hivepay.com.au', name: 'HivePay Support Team' }];
+  sendSmtpEmail.subject = `New Feedback: ${title}`;
+  sendSmtpEmail.htmlContent = htmlContent;
+
+  try {
+    await brevoClient.sendTransacEmail(sendSmtpEmail);
+    console.log(`Feedback email sent to support team`);
+  } catch (error) {
+    console.error(`Failed to send feedback email:`, error);
     throw error;
   }
 }

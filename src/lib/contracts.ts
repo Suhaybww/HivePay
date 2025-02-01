@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, PDFFont } from 'pdf-lib';
 import * as SibApiV3Sdk from '@getbrevo/brevo';
 import { ContractData } from '../types/contract';
+import { baseTemplate, contentSection, alertBox, actionButton } from './emailTemplates';
 
 // Initialize Brevo
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
@@ -215,7 +216,7 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
   const introText = `This Contract Agreement ("Agreement") is made and entered into on ${contractData.signedAt.toLocaleDateString(
     'en-AU',
     { timeZone: 'Australia/Sydney' }
-  )}, by and between HivePay Pty Ltd ("Provider", ABN: 56 683 103 808, ACN: 683 103 808) and ${contractData.userName} ("Member"), collectively referred to as the "Parties". This Agreement is governed by the laws of Australia, including but not limited to the Australian Contract Law and the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010).`;
+  )}, by and between ${contractData.groupName} ("Group") and its members, collectively referred to as the "Parties". This Agreement is governed by the laws of Australia, including but not limited to the Australian Contract Law and the Australian Consumer Law (Schedule 2 of the Competition and Consumer Act 2010).`;
 
   await pdfManager.drawText(introText, {
     font: italicFont,
@@ -226,7 +227,7 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
 
   // Recitals
   const recitals = [
-    `WHEREAS, the Provider operates a Rotating Savings and Credit Association (ROSCA) group known as "${contractData.groupName}";`,
+    `WHEREAS, the Group operates a Rotating Savings and Credit Association (ROSCA) group known as "${contractData.groupName}";`,
     'WHEREAS, the Member wishes to participate in the aforementioned ROSCA group under the terms and conditions set forth in this Agreement;',
     'NOW, THEREFORE, in consideration of the mutual covenants and promises herein contained, the Parties agree as follows:',
   ];
@@ -273,7 +274,7 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
 
   const contributions = [
     `2.1 The Member agrees to contribute AUD ${contractData.contributionAmount} to the ROSCA group on a ${contractData.payoutFrequency} basis.`,
-    '2.2 Contributions shall be made via the designated payment method provided by the Provider.',
+    '2.2 Contributions shall be made via the designated payment method provided by the Group.',
     '2.3 Late or missed contributions may result in penalties as outlined in Article 5.',
   ];
 
@@ -342,8 +343,8 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
 
   const penalties = [
     '5.1 Failure to make timely contributions may result in penalties, including but not limited to additional fees or exclusion from future ROSCA groups.',
-    '5.2 In the event of non-compliance with contribution obligations, the Provider reserves the right to initiate legal proceedings as permitted under the Australian Contract Law.',
-    '5.3 The Member agrees to indemnify and hold harmless the Provider against any claims, damages, or liabilities arising from non-compliance.',
+    '5.2 In the event of non-compliance with contribution obligations, the Group reserves the right to initiate legal proceedings as permitted under the Australian Contract Law.',
+    '5.3 The Member agrees to indemnify and hold harmless the Group against any claims, damages, or liabilities arising from non-compliance.',
   ];
 
   for (const clause of penalties) {
@@ -436,7 +437,7 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
     }
   );
 
-  // Provider Signature Placeholder with Current Date
+  // Group Representative Signature Placeholder with Current Date
   await pdfManager.drawText('______________________________', {
     font: regularFont,
     size: 12,
@@ -444,7 +445,7 @@ export async function generateContractPDF(contractData: ContractData): Promise<U
     x: 50,
   });
 
-  await pdfManager.drawText('HivePay Representative', {
+  await pdfManager.drawText(`${contractData.groupName} Representative`, {
     font: italicFont,
     size: 12,
     color: rgb(0, 0, 0),
@@ -485,26 +486,31 @@ export async function sendContractEmail(
 
   sendSmtpEmail.to = [{ email: userEmail, name: userName }];
   
-  // **Retain the original sender email**
+  // Retain the original sender email
   sendSmtpEmail.sender = { email: 'support@hivepay.com.au', name: 'HivePay Contracts' };
   
   sendSmtpEmail.subject = 'Your HivePay ROSCA Group Contract';
-  
-  // Updated email content using the same ContractData
-  sendSmtpEmail.htmlContent = `
-    <h1>Your HivePay ROSCA Group Contract</h1>
-    <p>Dear ${userName},</p>
-    <p>Attached to this email, you will find your signed contract for participating in the HivePay ROSCA group you're in. Below are the key highlights of the agreement:</p>
-    <ul>
-      <li><strong>Contribution Amount:</strong> AUD ${contractData.contributionAmount} on a ${contractData.payoutFrequency} basis.</li>
-      <li><strong>Obligations:</strong> Continued contributions until the completion of the ROSCA cycle.</li>
-      <li><strong>Legal Compliance:</strong> Governed by Australian laws with provisions for dispute resolution.</li>
-    </ul>
-    <p>Please review the attached contract carefully. If you have any questions or require further clarification, do not hesitate to <a href="mailto:support@hivepay.com.au">contact our support team</a>.</p>
-    <p>Thank you for your participation.</p>
-    <p>Best regards,<br/>HivePay Contracts Team</p>
+
+  // Email content using the provided template
+  const emailContent = `
+    ${contentSection(`
+      <p>Dear ${userName},</p>
+      <p>Attached to this email, you will find your signed contract for participating in the HivePay ROSCA group <strong>${contractData.groupName}</strong>. Below are the key highlights of the agreement:</p>
+      <ul>
+        <li><strong>Contribution Amount:</strong> AUD ${contractData.contributionAmount} on a ${contractData.payoutFrequency} basis.</li>
+        <li><strong>Obligations:</strong> Continued contributions until the completion of the ROSCA cycle.</li>
+        <li><strong>Legal Compliance:</strong> Governed by Australian laws with provisions for dispute resolution.</li>
+      </ul>
+      <p>Please review the attached contract carefully. If you have any questions or require further clarification, do not hesitate to <a href="mailto:support@hivepay.com.au">contact our support team</a>.</p>
+      <p>Thank you for your participation.</p>
+    `)}
+    ${alertBox('This is an automated email. Please do not reply directly to this message.', 'info')}
   `;
-  
+
+  // Wrap the email content in the base template
+  sendSmtpEmail.htmlContent = baseTemplate(emailContent, 'Your HivePay ROSCA Group Contract is ready.');
+
+  // Attach the contract PDF
   sendSmtpEmail.attachment = [
     {
       content: pdfBuffer.toString('base64'),

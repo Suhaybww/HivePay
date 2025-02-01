@@ -532,11 +532,32 @@ export const userRouter = router({
           },
         });
   
-        // Mark group memberships as inactive
-        await tx.groupMembership.updateMany({
+        // NEW: Get all user memberships before deletion
+        const userMemberships = await tx.groupMembership.findMany({
           where: { userId },
-          data: { status: MembershipStatus.Inactive },
+          select: {
+            groupId: true,
+            payoutOrder: true,
+          },
         });
+  
+        // NEW: Delete all user memberships
+        await tx.groupMembership.deleteMany({
+          where: { userId },
+        });
+  
+        // NEW: Adjust payout orders in all affected groups
+        for (const { groupId, payoutOrder } of userMemberships) {
+          await tx.groupMembership.updateMany({
+            where: {
+              groupId,
+              payoutOrder: { gt: payoutOrder },
+            },
+            data: {
+              payoutOrder: { decrement: 1 },
+            },
+          });
+        }
   
         // Cancel subscriptions in database
         await tx.subscription.updateMany({

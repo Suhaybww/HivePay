@@ -5,7 +5,7 @@ import Image from "next/image";
 
 const Introduction = () => {
   return (
-    <section className="py-48">
+    <section className="py-24">
       <MaxWidthWrapper>
         {/* 
           Use flex-col on small devices and flex-row on larger screens,
