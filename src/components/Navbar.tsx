@@ -26,7 +26,8 @@ const Navbar = async () => {
         <div className='flex h-14 items-center justify-between'>
           <Link href='/' className='flex items-center z-40 space-x-2'>
             {/* HivePay Logo */}
-            <div className="relative w-20 h-20">
+            <div className="relative w-16 h-16">
+
               <Image
                 src='/images/NB.png'
                 alt='HivePay Logo'

@@ -362,8 +362,17 @@ export function GroupDetails({ group }: GroupDetailsProps) {
     .filter((m) => !m.hasBeenPaid)
     .sort((a, b) => a.payoutOrder - b.payoutOrder)[0];
 
+
+
   // Next cycle date => from schedule
   const { currentSchedule, futureCycleDates } = groupSchedule || {};
+    // Add this console.log to debug
+    console.log('Group Schedule:', {
+      currentSchedule,
+      futureCycleDates,
+      rawGroupSchedule: groupSchedule
+    });
+    
   let firstCycleDate: Date | null = null;
   if (futureCycleDates && futureCycleDates.length > 0) {
     firstCycleDate = new Date(futureCycleDates[0]);

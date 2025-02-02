@@ -336,42 +336,52 @@ export default function PaymentsPage() {
               </Alert>
             ) : (
               <div className="space-y-4">
-                {transactions?.map((transaction) => (
-                  <Card key={transaction.id}>
-                    <CardContent className="flex justify-between items-center p-4">
-                      <div>
-                        <p className="font-medium">{transaction.group.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {formatDate(transaction.createdAt)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p
-                          className={`font-medium ${
-                            transaction.transactionType === 'Credit'
-                              ? 'text-green-600'
-                              : 'text-red-600'
-                          }`}
-                        >
-                          {transaction.transactionType === 'Credit' ? '+' : '-'}
-                          {formatCurrency(transaction.amount)}
-                        </p>
+              {transactions?.map((transaction) => (
+                <Card key={transaction.id}>
+                  <CardContent className="flex justify-between items-center p-4">
+                    <div>
+                      <p className="font-medium">
+                        {transaction.groupName || 'Unnamed Group'}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {formatDate(transaction.date)}
+                        {transaction.paymentId && ` • Payment #${transaction.paymentId.slice(-4)}`}
+                        {transaction.payoutId && ` • Payout #${transaction.payoutId.slice(-4)}`}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p
+                        className={`font-medium ${
+                          transaction.type === 'Credit'
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                        }`}
+                      >
+                        {transaction.type === 'Credit' ? '+' : '-'}
+                        {formatCurrency(transaction.amount)}
+                      </p>
+                      <div className="mt-1">
                         <Badge
                           variant={
-                            transaction.transactionType === 'Credit'
-                              ? 'success'
-                              : 'default'
+                            transaction.status === 'Successful' 
+                              ? 'success' 
+                              : transaction.status === 'Failed' 
+                              ? 'destructive' 
+                              : 'outline'
                           }
+                          className="capitalize"
                         >
-                          {transaction.transactionType === 'Credit'
-                            ? 'Payout'
-                            : 'Contribution'}
+                          {transaction.status?.toLowerCase()}
                         </Badge>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {transaction.type === 'Credit' ? 'Payout' : 'Contribution'}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+                            </div>
             )}
           </div>
         )}

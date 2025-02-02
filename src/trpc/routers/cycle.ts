@@ -6,7 +6,7 @@ import { SchedulerService } from "../../lib/services/schedulerService";
 import { GroupStatus, MembershipStatus, Frequency } from "@prisma/client";
 import { retryAllPaymentsForGroup } from "@/src/lib/queue/processors";
 import { addWeeks, addMonths } from "date-fns";
-
+import { sendGroupCycleStartedEmail } from "@/src/lib/emailService";
 /**
  * buildFutureCycleDates
  * - e.g. if activeCount=3 => we produce 3 future monthly dates
@@ -108,12 +108,41 @@ export const cycleRouter = router({
           cycleStarted: true,
           status: GroupStatus.Active,
           pauseReason: null,
-          nextCycleDate: firstCycleDate, // we use this date for the first run
-          futureCyclesJson: futureDates, // the entire set
+          nextCycleDate: firstCycleDate,
+          // Make sure dates are serialized properly
+          futureCyclesJson: futureDates.map(date => date.toISOString()),
         },
       });
 
-      // 4) schedule the queue => picks up nextCycleDate
+      // 4) store the entire array => futureCyclesJson
+      const updatedGroup = await db.group.update({
+        where: { id: groupId },
+        data: {
+          cycleStarted: true,
+          status: GroupStatus.Active,
+          pauseReason: null,
+          nextCycleDate: firstCycleDate,
+          futureCyclesJson: futureDates,
+        },
+        include: {
+          groupMemberships: {
+            where: { status: MembershipStatus.Active },
+            include: { user: true }
+          }
+        }
+      });
+
+      // NEW: Get active members for email
+      const activeMembers = updatedGroup.groupMemberships.map(m => ({
+        email: m.user.email,
+        firstName: m.user.firstName,
+        lastName: m.user.lastName,
+      }));
+
+      // NEW: Send cycle started emails
+      await sendGroupCycleStartedEmail(updatedGroup.name, activeMembers);
+
+      // 5) schedule the queue
       await SchedulerService.scheduleContributionCycle(groupId);
 
       return {
@@ -123,11 +152,12 @@ export const cycleRouter = router({
         futureDates,
       };
     }),
-
-  getGroupSchedule: privateProcedure
+    getGroupSchedule: privateProcedure
     .input(z.object({ groupId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // must be in group
+      console.log('Getting schedule for group:', input.groupId);
+      
+      // Check membership
       const membership = await db.groupMembership.findFirst({
         where: {
           groupId: input.groupId,
@@ -135,13 +165,16 @@ export const cycleRouter = router({
           status: MembershipStatus.Active,
         },
       });
+      console.log('Membership found:', membership);
+  
       if (!membership) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Must be an active member to view schedule",
         });
       }
-
+  
+      // Get group
       const group = await db.group.findUnique({
         where: { id: input.groupId },
         select: {
@@ -153,22 +186,30 @@ export const cycleRouter = router({
           futureCyclesJson: true,
         },
       });
+      console.log('Group found:', group);
+      console.log('Future cycles JSON:', group?.futureCyclesJson);
+  
       if (!group) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Group not found" });
       }
-
+  
       let futureCycles: string[] = [];
       if (Array.isArray(group.futureCyclesJson)) {
         futureCycles = group.futureCyclesJson
-          .map((val) =>
-            typeof val === "string" && val.trim() !== ""
-              ? new Date(val).toISOString()
-              : null
-          )
+          .map((val) => {
+            console.log('Processing future cycle value:', val);
+            if (typeof val === "string" && val.trim() !== "") {
+              const dateStr = new Date(val).toISOString();
+              console.log('Converted to ISO string:', dateStr);
+              return dateStr;
+            }
+            return null;
+          })
           .filter((x): x is string => !!x);
       }
-
-      return {
+      console.log('Final future cycles:', futureCycles);
+  
+      const response = {
         currentSchedule: {
           nextCycleDate: group.nextCycleDate
             ? group.nextCycleDate.toISOString()
@@ -180,6 +221,9 @@ export const cycleRouter = router({
         },
         futureCycleDates: futureCycles,
       };
+      console.log('Returning response:', response);
+  
+      return response;
     }),
 
   retryAllPayments: privateProcedure

@@ -28,8 +28,8 @@ const Footer = () => {
               <Image 
                 src="/images/E.png" 
                 alt="HivePay Logo" 
-                width={96} 
-                height={96}
+                width={86} 
+                height={86}
               />
               <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
                 HivePay

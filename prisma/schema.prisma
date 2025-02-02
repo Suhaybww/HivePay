@@ -213,7 +213,7 @@ model GroupMembership {
   groupId       String
   userId        String
   joinDate      DateTime         @default(now())
-  payoutOrder   Int
+  payoutOrder   Int?
   isAdmin       Boolean          @default(false)
   status        MembershipStatus
   acceptedTOSAt DateTime?
@@ -235,6 +235,7 @@ model Payment {
   groupId               String
   amount                Decimal       @db.Decimal(10, 2)
   paymentDate           DateTime      @default(now())
+  payoutOrder           Int?
   status                PaymentStatus @default(Pending)
   stripePaymentIntentId String?       @unique
   mandateId             String?
@@ -257,7 +258,7 @@ model Payout {
   amount              Decimal       @db.Decimal(10, 2)
   status              PayoutStatus  @default(Pending)
   stripeTransferId    String?       @unique
-  payoutOrder         Int
+  payoutOrder         Int?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 

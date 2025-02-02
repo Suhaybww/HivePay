@@ -9,6 +9,36 @@ brevoClient.setApiKey(
   process.env.BREVO_API_KEY || ''
 );
 
+interface NotifySupportTeamParams {
+  ticketId: string;
+  user: {
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  subject: string;
+  priority: string;
+  message: string;
+}
+
+interface GroupStatusEmailParams {
+  groupName: string;
+  inactiveMembers: string[];  // Now using emails instead of names
+  recipient: GroupMemberInfo;
+}
+
+interface TicketEmailParams {
+  user: {
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  ticketId: string;
+  subject: string;
+  priority: string;
+  message: string;
+  aiResponse?: string;
+}
 
 interface FeedbackEmailParams {
   user: {
@@ -316,7 +346,7 @@ export async function sendContributionReminderEmail({
       
       ${actionButton(
         'Update Payment Details', 
-        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+        `${process.env.NEXT_PUBLIC_APP_URL}/payments`
       )}
     `)}
   `, `Upcoming contribution of ${formattedAmount} for ${groupName}`);
@@ -746,6 +776,136 @@ export async function sendFeedbackEmail(params: FeedbackEmailParams): Promise<vo
     console.log(`Feedback email sent to support team`);
   } catch (error) {
     console.error(`Failed to send feedback email:`, error);
+    throw error;
+  }
+}
+
+
+/**
+ * Sends an email to the user confirming their ticket submission.
+ */
+export async function sendTicketEmail(params: TicketEmailParams): Promise<void> {
+  const { user, ticketId, subject, priority, message } = params;
+
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        Thank you for contacting HivePay Support
+      </h2>
+      
+      <p>Hi ${user.firstName},</p>
+      
+      ${alertBox(`
+        We've received your support request and will get back to you as soon as possible.
+      `, 'info')}
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        Ticket Details
+      </h3>
+      
+      <ul style="
+        margin: 0;
+        padding-left: 20px;
+      ">
+        <li style="margin-bottom: 8px;"><strong>Ticket ID:</strong> ${ticketId}</li>
+        <li style="margin-bottom: 8px;"><strong>Subject:</strong> ${subject}</li>
+        <li style="margin-bottom: 8px;"><strong>Priority:</strong> ${priority}</li>
+      </ul>
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        Your Message
+      </h3>
+      
+      <p>${message}</p>
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        Need further assistance? Contact our 
+        <a href="mailto:support@hivepay.com.au" style="
+          color: ${theme.primaryColor};
+          text-decoration: none;
+        ">support team</a>
+      </p>
+    `)}
+  `, `Support Ticket Confirmation: ${subject}`);
+
+  const sendSmtpEmail = new SendSmtpEmail();
+  sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+  sendSmtpEmail.to = [{ email: user.email, name: `${user.firstName} ${user.lastName}` }];
+  sendSmtpEmail.subject = `Support Ticket Confirmation: ${subject}`;
+  sendSmtpEmail.htmlContent = htmlContent;
+
+  try {
+    await brevoClient.sendTransacEmail(sendSmtpEmail);
+    console.log(`Ticket confirmation email sent to ${user.email}`);
+  } catch (error) {
+    console.error(`Failed to send ticket confirmation email:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Sends an email to the support team notifying them of a new ticket.
+ */
+export async function notifySupportTeam(params: NotifySupportTeamParams): Promise<void> {
+  const { ticketId, user, subject, priority, message } = params;
+
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        New Support Ticket Created
+      </h2>
+      
+      <p>A new support ticket has been submitted by ${user.firstName} ${user.lastName}.</p>
+      
+      ${alertBox(`
+        <strong>Ticket ID:</strong> ${ticketId}<br>
+        <strong>Subject:</strong> ${subject}<br>
+        <strong>Priority:</strong> ${priority}
+      `, 'info')}
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        User Message
+      </h3>
+      
+      <p>${message}</p>
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        Please log in to the admin panel to view and respond to the ticket.
+      </p>
+    `)}
+  `, `New Support Ticket: ${subject}`);
+
+  const sendSmtpEmail = new SendSmtpEmail();
+  sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+  sendSmtpEmail.to = [{ email: 'support@hivepay.com.au', name: 'HivePay Support Team' }];
+  sendSmtpEmail.subject = `New Support Ticket: ${subject}`;
+  sendSmtpEmail.htmlContent = htmlContent;
+
+  try {
+    await brevoClient.sendTransacEmail(sendSmtpEmail);
+    console.log(`Support team notified about ticket ${ticketId}`);
+  } catch (error) {
+    console.error(`Failed to notify support team:`, error);
     throw error;
   }
 }

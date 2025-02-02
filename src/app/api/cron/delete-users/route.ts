@@ -12,22 +12,19 @@ const CRON_SECRET = process.env.CRON_SECRET;
 
 async function cleanupDeletedUsers() {
  // For testing in development, use current date instead of 30 days
- const deletionDate = process.env.NODE_ENV === 'development' 
-   ? new Date()  
-   : subDays(new Date(), 30);
+ const deletionDate = subDays(new Date(), 30); // Critical line - always 30 days back
+ console.log('Cleanup threshold date:', deletionDate.toISOString());
 
- console.log('Starting cleanup check for users deleted before:', deletionDate);
-
- try {
-   // Find users marked for deletion
-   const usersToDelete = await db.user.findMany({
-     where: {
-       isDeleted: true,
-       deletedAt: {
-         lte: deletionDate
-       }
-     },
-     include: {
+  try {
+    // Find users marked for deletion at least 30 days ago
+    const usersToDelete = await db.user.findMany({
+      where: {
+        isDeleted: true,
+        deletedAt: {
+          lte: deletionDate // Only users deleted 30+ days ago
+        }
+      },
+      include: {
        groupMemberships: true,
        groupsCreated: true,
      }

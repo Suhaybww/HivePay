@@ -1,5 +1,3 @@
-// src/trpc/routers/payment.ts
-
 import { router, privateProcedure } from '../trpc';
 import { z } from 'zod';
 import { db } from '../../db';
@@ -13,66 +11,68 @@ export const paymentRouter = router({
    * Returns all transactions for the user within a timeframe (week/month/year/all).
    * Also filters by type (contributions => Debit, payouts => Credit).
    */
-  getUserTransactions: privateProcedure
-    .input(z.object({
-      timeframe: z.enum(['all', 'week', 'month', 'year']).default('all'),
-      type: z.enum(['all', 'contributions', 'payouts']).default('all'),
-      status: z.enum(['all', 'pending', 'completed', 'failed']).default('all'),
-    }))
-    .query(async ({ ctx, input }) => {
-      const { userId } = ctx;
-      const { timeframe, type } = input;
+// Updated Query with Debugging Logs
+getUserTransactions: privateProcedure
+  .input(z.object({
+    timeframe: z.enum(['all', 'week', 'month', 'year']),
+    type: z.enum(['all', 'contributions', 'payouts']),
+  }))
+  .query(async ({ ctx, input }) => {
+    const { userId } = ctx;
+    const { timeframe, type } = input;
 
-      // 1) Build dateFilter
-      let dateFilter: any = {};
-      if (timeframe !== 'all') {
-        const startDate = new Date();
-        switch (timeframe) {
-          case 'week':
-            startDate.setDate(startDate.getDate() - 7);
-            break;
-          case 'month':
-            startDate.setMonth(startDate.getMonth() - 1);
-            break;
-          case 'year':
-            startDate.setFullYear(startDate.getFullYear() - 1);
-            break;
-        }
-        dateFilter = { gte: startDate };
-      }
+    // 1. Date Filtering (UTC)
+    let dateFilter = {};
+    const now = new Date();
+    switch (timeframe) {
+      case 'week':
+        dateFilter = { gte: new Date(now.setDate(now.getDate() - 7)) };
+        break;
+      case 'month':
+        dateFilter = { gte: new Date(now.setMonth(now.getMonth() - 1)) };
+        break;
+      case 'year':
+        dateFilter = { gte: new Date(now.setFullYear(now.getFullYear() - 1)) };
+        break;
+      case 'all':
+      default:
+        break;
+    }
 
-      // 2) Build transactionType filter (Debit for contributions, Credit for payouts)
-      let transactionTypeFilter: TransactionType[] | undefined;
-      if (type !== 'all') {
-        transactionTypeFilter = type === 'contributions' ? [TransactionType.Debit] : [TransactionType.Credit];
-      }
-
-      // 3) Query transactions
-      const transactions = await db.transaction.findMany({
-        where: {
-          userId,
-          ...(transactionTypeFilter && { transactionType: { in: transactionTypeFilter } }),
-          createdAt: dateFilter,
+    // 2. Fetch Transactions with Linked Payment/Payout
+    const transactions = await ctx.db.transaction.findMany({
+      where: {
+        userId,
+        createdAt: timeframe !== 'all' ? dateFilter : undefined,
+        transactionType: type === 'contributions' 
+          ? 'Debit' 
+          : type === 'payouts' 
+            ? 'Credit' 
+            : undefined,
+      },
+      include: {
+        group: {
+          select: { name: true }
         },
-        include: {
-          group: {
-            select: {
-              name: true,
-              contributionAmount: true,
-              // Renamed to cycleFrequency
-              cycleFrequency: true,
-            }
-          },
-          relatedPayment: true,
-          relatedPayout: true,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
+        relatedPayment: true, // Include Payment details
+        relatedPayout: true,  // Include Payout details
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-      return transactions;
-    }),
+    // 3. Map to Unified Response
+    return transactions.map((t) => ({
+      id: t.id,
+      amount: t.amount,
+      type: t.transactionType,
+      date: t.createdAt,
+      groupName: t.group?.name || 'N/A',
+      // Include payment/payout-specific details
+      paymentId: t.relatedPayment?.id,
+      payoutId: t.relatedPayout?.id,
+      status: t.relatedPayment?.status || t.relatedPayout?.status,
+    }));
+  }),
 
   /**
    * getUpcomingPayments

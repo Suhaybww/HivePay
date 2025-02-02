@@ -10,11 +10,12 @@ import {
   PayoutStatus,
   BECSSetupStatus,
   MembershipStatus,
-  GroupStatus
+  GroupStatus,
+  PauseReason
 } from '@prisma/client';
-import { sendGroupPausedEmail } from '@/src/lib/emailService';
+import { sendGroupPausedEmail, sendPayoutProcessedEmail } from '@/src/lib/emailService';
 import { Decimal } from "@prisma/client/runtime/library";
-
+import { SchedulerService } from '@/src/lib/services/schedulerService';
 // ----------------------------------------------------------
 // Helper to recalc group totals for Payment columns
 // ----------------------------------------------------------
@@ -220,125 +221,109 @@ export async function POST(request: Request) {
       }
 
 
-      case 'customer.subscription.updated': {
+      case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        
-        console.log('Processing subscription update:', {
+        console.log('Processing subscription deletion:', {
           subscriptionId: subscription.id,
-          customerId: subscription.customer,
-          cancelAtPeriodEnd: subscription.cancel_at_period_end,
-          status: subscription.status,
+          customerId: subscription.customer
         });
       
-        try {
-          const userForEmail = await db.user.findUnique({
-            where: { stripeCustomerId: subscription.customer as string },
+        await db.$transaction(async (transaction) => { // Renamed to transaction for clarity
+          const user = await transaction.user.findFirst({
+            where: { 
+              stripeCustomerId: subscription.customer as string 
+            },
             select: {
               id: true,
               email: true,
               firstName: true,
               lastName: true,
-              stripeCurrentPeriodEnd: true,
               groupMemberships: {
                 where: {
                   status: MembershipStatus.Active,
                 },
                 select: {
                   groupId: true,
-                },
-              },
-            },
-          });
-      
-          if (!userForEmail) {
-            console.log('No user found for customer:', subscription.customer);
-            break;
-          }
-      
-          // Update user's subscription status
-          let newStatus: SubscriptionStatus;
-          if (subscription.status === 'active') {
-            newStatus = subscription.cancel_at_period_end ? 
-              SubscriptionStatus.PendingCancel : 
-              SubscriptionStatus.Active;
-          } else {
-            newStatus = SubscriptionStatus.Inactive;
-          }
-      
-          await db.user.update({
-            where: { id: userForEmail.id },
-            data: {
-              subscriptionStatus: newStatus,
-              stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
-            },
-          });
-      
-          // Check groups for potential status changes
-          for (const membership of userForEmail.groupMemberships) {
-            const group = await db.group.findUnique({
-              where: { id: membership.groupId },
-              include: {
-                groupMemberships: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                        subscriptionStatus: true,
-                        stripeCurrentPeriodEnd: true,
+                  group: {
+                    select: {
+                      id: true,
+                      name: true,
+                      status: true,
+                      groupMemberships: {
+                        include: {
+                          user: {
+                            select: {
+                              id: true,
+                              email: true,
+                              firstName: true,
+                              lastName: true,
+                              subscriptionStatus: true,
+                            },
+                          },
+                        },
                       },
                     },
                   },
                 },
               },
+            },
+          });
+      
+          if (!user) {
+            console.log('No user found for customer:', subscription.customer);
+            return;
+          }
+      
+          // Update user subscription status
+          await transaction.user.update({
+            where: { id: user.id },
+            data: {
+              subscriptionStatus: SubscriptionStatus.Canceled,
+              stripeSubscriptionId: null,
+              stripePriceId: null,
+              stripeCurrentPeriodEnd: null,
+            },
+          });
+      
+          // Process each group the user is a member of
+          for (const membership of user.groupMemberships) {
+            const group = membership.group;
+            if (!group || group.status === GroupStatus.Paused) continue;
+      
+            // Pause group and notify members
+            await transaction.group.update({
+              where: { id: group.id },
+              data: { status: GroupStatus.Paused }
             });
       
-            if (!group) continue;
+            const inactiveMembers = group.groupMemberships
+              .filter((m: { user: { subscriptionStatus: SubscriptionStatus } }) => 
+                m.user?.subscriptionStatus !== SubscriptionStatus.Active
+              )
+              .map((m: { user?: { firstName?: string; lastName?: string } }) => 
+                m.user ? `${m.user.firstName} ${m.user.lastName}`.trim() : ''
+              )
+              .filter(Boolean);
       
-            const inactiveMembers = group.groupMemberships.filter(m => {
-              const user = m.user;
-              const currentDate = new Date();
-              return (
-                user.subscriptionStatus === SubscriptionStatus.Canceled ||
-                user.subscriptionStatus === SubscriptionStatus.Inactive ||
-                (user.subscriptionStatus === SubscriptionStatus.PendingCancel &&
-                 user.stripeCurrentPeriodEnd &&
-                 currentDate > new Date(user.stripeCurrentPeriodEnd))
-              );
-            });
-      
-            // If there are inactive members and group is active, pause it
-            if (inactiveMembers.length > 0 && group.status === GroupStatus.Active) {
-              await db.group.update({
-                where: { id: group.id },
-                data: { status: GroupStatus.Paused },
-              });
-      
-              // Send pause notifications to all members
-              const inactiveMemberNames = inactiveMembers
-                .map(m => `${m.user.firstName} ${m.user.lastName}`);
-      
-              const emailPromises = group.groupMemberships.map(m =>
+            const emailPromises = group.groupMemberships
+              .filter((m: { user?: { email?: string } }) => m.user?.email)
+              .map((m: { user: { email: string; firstName: string; lastName: string } }) => 
                 sendGroupPausedEmail({
                   groupName: group.name,
-                  inactiveMembers: inactiveMemberNames,
+                  inactiveMembers,
                   recipient: {
                     email: m.user.email,
                     firstName: m.user.firstName,
-                    lastName: m.user.lastName,
-                  },
+                    lastName: m.user.lastName
+                  }
                 })
               );
       
-              await Promise.allSettled(emailPromises);
-            }
+            await Promise.allSettled(emailPromises);
           }
-        } catch (error) {
-          console.error('Error in subscription.updated webhook:', error);
-          throw error;
-        }
+        });
+      
+        console.log('Successfully processed subscription deletion');
         break;
       }
 
@@ -492,44 +477,161 @@ case 'customer.subscription.deleted': {
      //==============================
       // Payment Intents (ROSCA or otherwise)
       //==============================
+  
       case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent;
         console.log(`PaymentIntent succeeded: ${pi.id}`);
-
+      
         // 1) Mark local Payment => Successful
         const { count } = await db.payment.updateMany({
           where: { stripePaymentIntentId: pi.id },
           data: { status: PaymentStatus.Successful },
         });
         console.log(`Marked ${count} Payment(s) as Successful for PI=${pi.id}`);
-
-        // 2) Recompute totals for each distinct group that used this PaymentIntent
+      
+        // 2) Get successful payments with all necessary fields
         const successPayments = await db.payment.findMany({
           where: { stripePaymentIntentId: pi.id },
-          select: { groupId: true },
+          select: {
+            id: true,
+            groupId: true,
+            cycleNumber: true,
+          },
         });
-
+      
+        // 3) Recompute totals for each distinct group
         const groupIds = new Set(successPayments.map((p) => p.groupId));
         for (const gid of groupIds) {
           await updateGroupPaymentStats(gid);
         }
-
-        break;
-      }
-
-      case 'transfer.created': {
-        const transfer = event.data.object as Stripe.Transfer;
-        await db.payout.updateMany({
-          where: { 
-            userId: transfer.destination as string,
-            stripeTransferId: null 
-          },
-          data: {
-            stripeTransferId: transfer.id,
-            status: PayoutStatus.Completed,
-            updatedAt: new Date()
+      
+        // 4) Check if all payments for the cycle are successful and process payout
+        for (const payment of successPayments) {
+          const { groupId, cycleNumber, id } = payment;
+      
+          // Validate cycleNumber
+          if (typeof cycleNumber !== 'number') {
+            throw new Error(`Invalid cycleNumber: ${cycleNumber} for payment ${id}`);
           }
-        });
+      
+          const allPayments = await db.payment.findMany({
+            where: { groupId, cycleNumber },
+          });
+      
+          // Get group details to calculate correct payout amount
+          const group = await db.group.findUnique({
+            where: { id: groupId },
+            include: {
+              groupMemberships: {
+                where: { status: MembershipStatus.Active },
+              },
+            },
+          });
+      
+          if (!group) continue;
+      
+          const allSuccessful = allPayments.every(p => p.status === PaymentStatus.Successful);
+          if (allSuccessful) {
+            await db.$transaction(async (tx) => {
+              // Find the payee for this cycle
+              const payee = await tx.groupMembership.findFirst({
+                where: {
+                  groupId,
+                  payoutOrder: cycleNumber,
+                },
+                include: { user: true },
+              });
+      
+              if (!payee) {
+                console.error(`Payee not found for cycle ${cycleNumber} in group ${groupId}`);
+                return;
+              }
+      
+              // Calculate payout based on total members (minus payee) × contribution amount
+              const totalMembers = group.groupMemberships.length;
+              const baseContribution = group.contributionAmount;
+      
+              if (!baseContribution) {
+                throw new Error(`Group ${groupId} has no contribution amount set`);
+              }
+      
+              const totalPayout = baseContribution.mul(totalMembers - 1); // Everyone except payee contributes
+      
+              console.log(`Calculating payout for cycle ${cycleNumber}:`, {
+                totalMembers,
+                baseContribution: baseContribution.toString(),
+                totalPayout: totalPayout.toString(),
+              });
+      
+                  // Create payout record with associated transaction
+          await tx.payout.create({
+            data: {
+              groupId,
+              userId: payee.userId,
+              scheduledPayoutDate: new Date(),
+              amount: totalPayout,
+              status: PayoutStatus.Completed,
+              payoutOrder: cycleNumber,
+              transactions: {
+                create: {
+                  userId: payee.userId,
+                  groupId,
+                  amount: totalPayout,
+                  transactionType: 'Credit',
+                  transactionDate: new Date(),
+                  description: `Payout for cycle ${cycleNumber}`,
+                  relatedPaymentId: null,
+                }
+              }
+            },
+          });
+      
+              // Mark payee as paid
+              await tx.groupMembership.update({
+                where: { id: payee.id },
+                data: { hasBeenPaid: true },
+              });
+      
+              // Send payout processed email
+              await sendPayoutProcessedEmail({
+                recipient: {
+                  email: payee.user.email,
+                  firstName: payee.user.firstName,
+                  lastName: payee.user.lastName,
+                },
+                groupName: group.name,
+                amount: totalPayout.toString(),
+              });
+      
+              // Update group's nextCycleDate and futureCyclesJson
+              const updatedGroup = await tx.group.findUnique({
+                where: { id: groupId },
+                select: { futureCyclesJson: true },
+              });
+      
+              if (updatedGroup?.futureCyclesJson) {
+                const futureCycles = updatedGroup.futureCyclesJson as unknown as Date[];
+                const remainingCycles = futureCycles.slice(1);
+                const nextCycleDate = remainingCycles[0] || null;
+      
+                await tx.group.update({
+                  where: { id: groupId },
+                  data: {
+                    nextCycleDate,
+                    futureCyclesJson: remainingCycles,
+                  },
+                });
+      
+                if (nextCycleDate) {
+                  console.log(`Scheduling next cycle for group ${groupId} at ${nextCycleDate}`);
+                  await SchedulerService.scheduleNextCycle(groupId);
+                } else {
+                  console.log(`No more future cycles for group ${groupId}`);
+                }
+              }
+            });
+          }
+        }
         break;
       }
 

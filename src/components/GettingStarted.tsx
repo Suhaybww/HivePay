@@ -1,5 +1,4 @@
 "use client";
-
 import React from "react";
 import MaxWidthWrapper from "./MaxWidthWrapper";
 import Image from "next/image";
@@ -21,7 +20,7 @@ const steps = [
     title: "Customize Your Group",
     description:
       "Set the payout amounts, contribution frequency, and event duration to fit your group's preferences.",
-    imageSrc: "/images/step22.png",
+    imageSrc: "/images/new1.png",
     altText: "Settings dashboard with adjustable sliders",
   },
   {
@@ -29,7 +28,7 @@ const steps = [
     title: "Authenticate Members",
     description:
       "Invite members to join and complete secure authentication for trust and transparency.",
-    imageSrc: "/images/step3.png",
+    imageSrc: "/images/new2.png",
     altText: "Members accepting invites with ID verification icons",
   },
   {
@@ -62,7 +61,6 @@ const GettingStarted = () => {
             Follow these easy steps to begin your group savings journey.
           </p>
         </div>
-
         <div className="space-y-16">
           {steps.map((step) => (
             <div
@@ -83,6 +81,16 @@ const GettingStarted = () => {
                       className="object-contain w-full h-full rounded-2xl"
                       priority
                     />
+                  ) : step.number === 3 ? (
+                    // Custom handling for step 3
+                    <Image
+                      src={step.imageSrc}
+                      alt={step.altText}
+                      fill
+                      className="object-contain rounded-2xl" // Use object-contain to avoid cropping
+                      priority
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
                   ) : (
                     <Image
                       src={step.imageSrc}
@@ -95,7 +103,6 @@ const GettingStarted = () => {
                   )}
                 </div>
               </div>
-
               {/* Content */}
               <div className="flex-1">
                 <div className="max-w-md mx-auto lg:mx-0 space-y-4">
@@ -115,7 +122,6 @@ const GettingStarted = () => {
             </div>
           ))}
         </div>
-
         {/* CTA Button */}
         <div className="text-center mt-16">
           <RegisterLink
