@@ -27,6 +27,7 @@ import {
 import type { GroupWithStats } from "../types/groups";
 
 // 1) Our AnalyticsData type must now accept `futureCycles?: string[]`.
+
 interface AnalyticsData {
   contributions: Array<{
     date: string;
@@ -43,6 +44,7 @@ interface AnalyticsData {
     member: string;
     amount: number;
     percentage: number;
+    payoutOrder?: number;
   }>;
   metrics: {
     totalMembers: number;
@@ -59,10 +61,9 @@ interface AnalyticsData {
     late: number;
     missed: number;
   };
-
-  // The new array of future cycle ISO strings
   futureCycles?: string[];
 }
+
 
 interface GroupAnalyticsProps {
   group: GroupWithStats;
@@ -81,6 +82,17 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
   const [activeSection, setActiveSection] =
     useState<"contributions" | "members" | "payouts">("contributions");
 
+// Parse future cycles from group data
+const futureCycles = group.futureCyclesJson 
+  ? (JSON.parse(JSON.stringify(group.futureCyclesJson)) as string[])
+  : [];
+
+// Get members with payout orders (using the members array from GroupWithStats)
+const membersWithPayouts = group.members
+  .filter((m: { payoutOrder: number | null }) => typeof m.payoutOrder === 'number' && m.payoutOrder >= 0)
+  .sort((a, b) => (a.payoutOrder || 0) - (b.payoutOrder || 0));
+
+  
   return (
     <div className="space-y-8">
       {/* Key Metrics - Always visible */}
