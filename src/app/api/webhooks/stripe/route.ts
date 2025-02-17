@@ -61,7 +61,7 @@ async function updateGroupPaymentStats(groupId: string) {
 }
 export async function POST(request: Request) {
   const body = await request.text();
-  const signature = headers().get('Stripe-Signature') ?? '';
+  const signature = (await headers()).get('Stripe-Signature') ?? '';
 
   let event: Stripe.Event;
 

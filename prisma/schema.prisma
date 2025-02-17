@@ -382,7 +382,7 @@ enum TicketPriority {
 enum InvitationStatus {
   PENDING
   ACCEPTED
-  EXPIRED
+  EXPIRED 
   CANCELLED
 }
 

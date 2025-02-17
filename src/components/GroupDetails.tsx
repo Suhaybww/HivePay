@@ -357,10 +357,14 @@ export function GroupDetails({ group }: GroupDetailsProps) {
       ? group.totalSuccessAmount
       : parseFloat(group.totalSuccessAmount || "0");
 
-  // Next in line => first membership without hasBeenPaid, sorted by payoutOrder
-  const nextInLine = [...group.members]
-    .filter((m) => !m.hasBeenPaid)
-    .sort((a, b) => a.payoutOrder - b.payoutOrder)[0];
+      const nextInLine = [...group.members]
+      .filter(m => !m.hasBeenPaid)
+      .sort((a, b) => {
+        // Handle null values by treating them as "infinite" (will sort last)
+        const aOrder = a.payoutOrder ?? Infinity;
+        const bOrder = b.payoutOrder ?? Infinity;
+        return aOrder - bOrder;
+      })[0];
 
 
 

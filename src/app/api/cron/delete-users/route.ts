@@ -143,10 +143,11 @@ async function cleanupDeletedUsers() {
 }
 
 export async function GET(request: Request) {
- console.log('Cron endpoint hit');
- 
- const headersList = headers();
- const authHeader = headersList.get('authorization');
+  console.log('Cron endpoint hit');
+  
+  // Add await for headers() call
+  const headersList = await headers();
+  const authHeader = headersList.get('authorization');
  
  console.log('Auth header received:', authHeader);
  console.log('Expected:', `Bearer ${CRON_SECRET}`);

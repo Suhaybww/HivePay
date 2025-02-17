@@ -295,24 +295,33 @@ removeMember: privateProcedure
         });
       }
 
+          // Add null check for payoutOrder
+          if (membershipToRemove.payoutOrder === null) {
+            await tx.groupMembership.delete({ where: { id: membershipToRemove.id } });
+            return { success: true };
+          }
+
       const deletedPayoutOrder = membershipToRemove.payoutOrder;
 
       // Delete the membership
       await tx.groupMembership.delete({ where: { id: membershipToRemove.id } });
 
-      // Adjust payout orders for remaining members
-      const membershipsToUpdate = await tx.groupMembership.findMany({
-        where: {
-          groupId,
-          payoutOrder: { gt: deletedPayoutOrder },
-        },
-      });
+     // Adjust payout orders for remaining members
+     const membershipsToUpdate = await tx.groupMembership.findMany({
+      where: {
+        groupId,
+        payoutOrder: { gt: deletedPayoutOrder },
+      },
+    });
 
       for (const mem of membershipsToUpdate) {
-        await tx.groupMembership.update({
-          where: { id: mem.id },
-          data: { payoutOrder: mem.payoutOrder - 1 },
-        });
+        // Additional null check for safety
+        if (mem.payoutOrder !== null) {
+          await tx.groupMembership.update({
+            where: { id: mem.id },
+            data: { payoutOrder: mem.payoutOrder - 1 },
+          });
+        }
       }
 
       return { success: true };
@@ -365,6 +374,13 @@ leaveGroup: privateProcedure
         });
       }
 
+          // Add null check for payoutOrder
+          if (membership.payoutOrder === null) {
+            await tx.groupMembership.delete({ where: { id: membership.id } });
+            return { success: true };
+          }
+    
+
       const deletedPayoutOrder = membership.payoutOrder;
 
       // Delete the membership
@@ -379,10 +395,13 @@ leaveGroup: privateProcedure
       });
 
       for (const mem of membershipsToUpdate) {
-        await tx.groupMembership.update({
-          where: { id: mem.id },
-          data: { payoutOrder: mem.payoutOrder - 1 },
-        });
+        // Additional null check for safety
+        if (mem.payoutOrder !== null) {
+          await tx.groupMembership.update({
+            where: { id: mem.id },
+            data: { payoutOrder: mem.payoutOrder - 1 },
+          });
+        }
       }
 
       // Log transaction

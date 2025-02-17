@@ -8,7 +8,7 @@ export type GroupMember = {
   email: string;
   gender: Gender | null;
   isAdmin: boolean;
-  payoutOrder: number;
+  payoutOrder: number | null; // Allow null
   stripeAccountId: string | null;
   hasBeenPaid: boolean;
 };

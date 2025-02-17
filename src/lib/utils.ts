@@ -7,12 +7,18 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function absoluteUrl(path: string) {
-  if (typeof window !== 'undefined') return path
+  // Remove the window check from the original function
   if (process.env.NEXT_PUBLIC_APP_URL)
     return `${process.env.NEXT_PUBLIC_APP_URL}${path}`
   if (process.env.VERCEL_URL)
     return `https://${process.env.VERCEL_URL}${path}`
   return `http://localhost:${process.env.PORT ?? 3000}${path}`
+}
+
+// Add a separate client-side URL resolver
+export function clientAbsoluteUrl(path: string) {
+  if (typeof window === 'undefined') return ''; // Return empty string for SSR
+  return `${window.location.origin}${path}`;
 }
 
 export function classNames(...classes: (string | boolean | undefined)[]) {
