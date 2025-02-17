@@ -15,7 +15,7 @@ import {
       trpc.createClient({
         links: [
           httpBatchLink({
-            url: absoluteUrl("https://www.hivepay.com.au/api/trpc"),
+            url: absoluteUrl("api/trpc"),
           }),
         ],
       })
