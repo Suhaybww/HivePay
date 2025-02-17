@@ -17,8 +17,8 @@ import { Button } from "@/src/components/ui/button";
 
 const defaultAnalyticsData = {
   contributions: [],
-  memberActivity: [],
-  payoutDistribution: [],
+  memberActivity: [], // Add this line
+  payoutDistribution: [], // Add this line
   metrics: {
     totalMembers: 0,
     memberGrowth: 0,
@@ -34,6 +34,7 @@ const defaultAnalyticsData = {
     late: 0,
     missed: 0,
   },
+  futureCycles: [], // Ensure this is included
 };
 
 export default function GroupPage() {

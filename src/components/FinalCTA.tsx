@@ -9,6 +9,7 @@ interface CTAProps {
 
 const CTASection: React.FC<CTAProps> = ({ className }) => {
   return (
+    <section className="w-full bg-white py-24">
     <div className={`relative w-full max-w-7xl mx-auto px-6 py-24 overflow-hidden ${className}`}>
       {/* Grid Pattern Overlay with Fade Effect */}
       <div className="absolute inset-0 bg-white dark:bg-black">
@@ -49,6 +50,7 @@ const CTASection: React.FC<CTAProps> = ({ className }) => {
         </div>
       </div>
     </div>
+  </section>
   );
 };
 

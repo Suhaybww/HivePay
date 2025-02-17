@@ -3,8 +3,14 @@ import { db } from '../db';
 import { getKindeServerSession } from '@kinde-oss/kinde-auth-nextjs/server';
 import Stripe from 'stripe';
 
+// Verify environment
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('STRIPE_SECRET_KEY missing from environment');
+}
+
+
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-01-27.acacia',
   typescript: true,
 });
 

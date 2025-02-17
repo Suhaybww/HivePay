@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "seed": "prisma db seed",
     "analyze": "cross-env ANALYZE=true next build",
     "build:vercel": "prisma generate && next build",
     "test:cron": "curl -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:3000/api/cron/delete-users",
@@ -19,10 +18,7 @@
     "test:reminders": "npm run seed:contribution-test && npm run test:contribution-reminder",
     "seed:schedule-test": "ts-node -r tsconfig-paths/register prisma/seed-schedule-test.ts",
     "test:scheduling": "npm run seed:schedule-test",
-    "queue": "ts-node queueRunner.ts"
-  },
-  "prisma": {
-    "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"
+    "queue": "NODE_OPTIONS='-r dotenv/config' ts-node -r tsconfig-paths/register queueRunner.ts"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^3.5.0",
@@ -72,11 +68,14 @@
     "cobe": "^0.6.3",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
+    "decimal.js": "^10.5.0",
+    "dotenv": "^16.4.7",
     "emoji-picker-react": "^4.12.0",
-    "framer-motion": "^11.11.17",
+    "framer-motion": "^11.18.2",
     "googleapis": "^144.0.0",
+    "gsap": "^3.12.7",
     "lucide-react": "^0.429.0",
-    "next": "13.4.12",
+    "next": "^15.1.7",
     "next-auth": "^4.24.10",
     "nodemailer": "^6.9.16",
     "openai": "^4.72.0",

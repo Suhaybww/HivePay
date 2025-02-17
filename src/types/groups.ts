@@ -1,4 +1,4 @@
-import { Frequency, Gender, GroupStatus, PayoutStatus, PaymentStatus, PauseReason } from "@prisma/client";
+import { Frequency, Gender, GroupStatus } from "@prisma/client";
 
 // Basic info for group members
 export type GroupMember = {
@@ -14,78 +14,41 @@ export type GroupMember = {
 };
 
 // The main GroupWithStats shape
-// The main GroupWithStats shape
 export interface GroupWithStats {
   id: string;
   name: string;
   description: string | null;
   createdById: string;
-  
-  // Financials (Decimal as string)
+
+  // numeric fields as strings
   contributionAmount: string | null;
-  totalDebitedAmount: string;
-  totalPendingAmount: string;
-  totalSuccessAmount: string;
-  futureCyclesJson?: string[]; // Parsed from Prisma's Json type
-  
-  // Cycle management
+
   cycleFrequency: Frequency | null;
   nextCycleDate: string | null;
+
   cycleStarted: boolean;
-  
-  // Status
   status: GroupStatus;
-  pauseReason: PauseReason | null;
-  
-  // Relationships
-  members: Array<{
-    id: string;
-    userId: string;
-    payoutOrder: number | null;
-    hasBeenPaid: boolean;
-    user: {
-      id: string;
-      firstName: string;
-      lastName: string;
-      email: string;
-    };
-  }>;
-  
-  // Payment relationships
-  payments: Array<{
-    id: string;
-    amount: string;
-    status: PaymentStatus;
-    cycleNumber: number | null;
-    createdAt: string;
-  }>;
-  
-  // Payout relationships
-  payouts: Array<{
-    id: string;
-    amount: string;
-    status: PayoutStatus;
-    payoutOrder: number | null;
-    scheduledPayoutDate: string;
-    createdAt: string;
-  }>;
-  
-  // Aggregate stats
+  pauseReason?: string | null;
+
+  // group stats
   _count: {
     groupMemberships: number;
-    payments: number;
-    payouts: number;
   };
-  
-  // Computed values
+  totalContributions: string;
   currentBalance: string;
+
+  // Admin
   isAdmin: boolean;
-  nextPayoutMember?: {
-    userId: string;
-    payoutOrder: number;
-    scheduledDate: string;
-  };
+
+  // The active members in this group
+  members: GroupMember[];
+
+  // NEW Payment columns
+  totalDebitedAmount?: string | null;
+  totalPendingAmount?: string | null;
+  totalSuccessAmount?: string | null;
 }
+
 // For scheduled events
 export interface ScheduledEvent {
   id: string;

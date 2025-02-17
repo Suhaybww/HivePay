@@ -11,11 +11,14 @@ import {
   BECSSetupStatus,
   MembershipStatus,
   GroupStatus,
-  PauseReason
+  PauseReason,
+  CycleStatus
 } from '@prisma/client';
 import { sendGroupPausedEmail, sendPayoutProcessedEmail } from '@/src/lib/emailService';
 import { Decimal } from "@prisma/client/runtime/library";
 import { SchedulerService } from '@/src/lib/services/schedulerService';
+import { checkAndFinalizeCycle } from '@/src/lib/queue/processors';
+
 // ----------------------------------------------------------
 // Helper to recalc group totals for Payment columns
 // ----------------------------------------------------------
@@ -518,12 +521,13 @@ case 'customer.subscription.deleted': {
             where: { groupId, cycleNumber },
           });
       
-          // Get group details to calculate correct payout amount
+          // Get group details with all memberships to check completion status
           const group = await db.group.findUnique({
             where: { id: groupId },
             include: {
               groupMemberships: {
                 where: { status: MembershipStatus.Active },
+                orderBy: { payoutOrder: 'asc' },
               },
             },
           });
@@ -531,7 +535,10 @@ case 'customer.subscription.deleted': {
           if (!group) continue;
       
           const allSuccessful = allPayments.every(p => p.status === PaymentStatus.Successful);
+      
           if (allSuccessful) {
+            console.log(`All payments successful for cycle ${cycleNumber} in group ${groupId}. Finalizing cycle...`);
+      
             await db.$transaction(async (tx) => {
               // Find the payee for this cycle
               const payee = await tx.groupMembership.findFirst({
@@ -555,42 +562,57 @@ case 'customer.subscription.deleted': {
                 throw new Error(`Group ${groupId} has no contribution amount set`);
               }
       
-              const totalPayout = baseContribution.mul(totalMembers - 1); // Everyone except payee contributes
+              const totalPayout = baseContribution.mul(totalMembers - 1);
       
-              console.log(`Calculating payout for cycle ${cycleNumber}:`, {
-                totalMembers,
-                baseContribution: baseContribution.toString(),
-                totalPayout: totalPayout.toString(),
+              // Process normal payout...
+              await tx.payout.create({
+                data: {
+                  groupId,
+                  userId: payee.userId,
+                  scheduledPayoutDate: new Date(),
+                  amount: totalPayout,
+                  status: PayoutStatus.Completed,
+                  payoutOrder: cycleNumber,
+                  transactions: {
+                    create: {
+                      userId: payee.userId,
+                      groupId,
+                      amount: totalPayout,
+                      transactionType: 'Credit',
+                      transactionDate: new Date(),
+                      description: `Payout for cycle ${cycleNumber}`,
+                      relatedPaymentId: null,
+                    }
+                  }
+                },
               });
       
-                  // Create payout record with associated transaction
-          await tx.payout.create({
-            data: {
-              groupId,
-              userId: payee.userId,
-              scheduledPayoutDate: new Date(),
-              amount: totalPayout,
-              status: PayoutStatus.Completed,
-              payoutOrder: cycleNumber,
-              transactions: {
-                create: {
-                  userId: payee.userId,
-                  groupId,
-                  amount: totalPayout,
-                  transactionType: 'Credit',
-                  transactionDate: new Date(),
-                  description: `Payout for cycle ${cycleNumber}`,
-                  relatedPaymentId: null,
-                }
-              }
-            },
-          });
-      
-              // Mark payee as paid
+              // Mark member as paid
               await tx.groupMembership.update({
                 where: { id: payee.id },
                 data: { hasBeenPaid: true },
               });
+      
+              // Fetch the latest group memberships to ensure consistency
+              const updatedMemberships = await tx.groupMembership.findMany({
+                where: { groupId, status: MembershipStatus.Active },
+              });
+      
+              // Debugging: Log the `hasBeenPaid` status of each member
+              console.log(
+                `Members' payment status for group ${groupId}:`,
+                updatedMemberships.map(m => ({ id: m.id, hasBeenPaid: m.hasBeenPaid }))
+              );
+      
+              // Check if all members have been paid
+              const allMembersPaid = updatedMemberships.every(member => member.hasBeenPaid);
+      
+              if (allMembersPaid) {
+                console.log(`All members have been paid. Finalizing cycle ${cycleNumber} for group ${groupId}.`);
+                await checkAndFinalizeCycle(tx, groupId, cycleNumber);
+              } else {
+                console.log(`Not all members have been paid yet. Continuing to next cycle.`);
+              }
       
               // Send payout processed email
               await sendPayoutProcessedEmail({
@@ -622,11 +644,11 @@ case 'customer.subscription.deleted': {
                   },
                 });
       
-                if (nextCycleDate) {
+                if (nextCycleDate && !allMembersPaid) {
                   console.log(`Scheduling next cycle for group ${groupId} at ${nextCycleDate}`);
                   await SchedulerService.scheduleNextCycle(groupId);
                 } else {
-                  console.log(`No more future cycles for group ${groupId}`);
+                  console.log(`No more cycles scheduled for group ${groupId}`);
                 }
               }
             });

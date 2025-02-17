@@ -909,3 +909,162 @@ export async function notifySupportTeam(params: NotifySupportTeamParams): Promis
     throw error;
   }
 }
+
+export async function sendCycleCompletedEmail({
+  recipient,
+  groupName,
+  amountReceived,
+  cycleNumber,
+}: {
+  recipient: GroupMemberInfo;
+  groupName: string;
+  amountReceived: string;
+  cycleNumber: number;
+}): Promise<void> {
+  const formattedAmount = new Intl.NumberFormat('en-AU', {
+    style: 'currency',
+    currency: 'AUD',
+  }).format(Number(amountReceived));
+
+  const htmlContent = baseTemplate(`
+    ${contentSection(`
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 20px;
+        color: ${theme.headingColor};
+      ">
+        Cycle Completed: ${groupName}
+      </h2>
+      
+      <p>Hi ${recipient.firstName},</p>
+      
+      ${alertBox(`
+        Your payout of <strong>${formattedAmount}</strong> 
+        for cycle <strong>#${cycleNumber}</strong> has been successfully processed!
+      `, 'success')}
+      
+      <h3 style="
+        margin: 24px 0 12px;
+        font-size: 16px;
+        color: ${theme.headingColor};
+      ">
+        Payment Details
+      </h3>
+      
+      <ul style="
+        margin: 0;
+        padding-left: 20px;
+      ">
+        <li style="margin-bottom: 8px;"><strong>Amount:</strong> ${formattedAmount}</li>
+        <li style="margin-bottom: 8px;"><strong>Cycle Number:</strong> ${cycleNumber}</li>
+        <li style="margin-bottom: 8px;"><strong>Group:</strong> ${groupName}</li>
+      </ul>
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        The funds should appear in your account within 1-2 business days.
+      </p>
+      
+      ${actionButton(
+        'View Transaction Details',
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
+      )}
+      
+      <p style="font-size: 14px; color: ${theme.textColor};">
+        Need help? Contact our 
+        <a href="mailto:support@hivepay.com.au" style="
+          color: ${theme.primaryColor};
+          text-decoration: none;
+        ">support team</a>
+      </p>
+    `)}
+  `, `Cycle #${cycleNumber} completed for ${groupName}`);
+
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
+  sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+  sendSmtpEmail.to = [{ email: recipient.email, name: `${recipient.firstName} ${recipient.lastName}` }];
+  sendSmtpEmail.subject = `Cycle Completed: ${groupName}`;
+  sendSmtpEmail.htmlContent = htmlContent;
+
+  try {
+    await brevoClient.sendTransacEmail(sendSmtpEmail);
+    console.log(`Cycle completion email sent to ${recipient.email}`);
+  } catch (error) {
+    console.error(`Failed to send cycle completion email:`, error);
+    throw error;
+  }
+}
+
+export async function sendGroupCycleCompletedEmail(
+  groupName: string,
+  members: GroupMemberInfo[]
+): Promise<void> {
+  const subject = 'Group Cycle Completed';
+  const body = `
+    The group "${groupName}" has successfully completed its current cycle.\n\n
+    All members have received their payouts, and the group is now ready to start a new cycle.\n\n
+    Thank you for being part of HivePay!
+  `;
+
+  for (const member of members) {
+    try {
+      const htmlContent = baseTemplate(`
+        ${contentSection(`
+          <h2 style="
+            margin: 0 0 16px;
+            font-size: 20px;
+            color: ${theme.headingColor};
+          ">
+            Group Cycle Completed: ${groupName}
+          </h2>
+          
+          <p>Hi ${member.firstName},</p>
+          
+          ${alertBox(`
+            The group "${groupName}" has successfully completed its current cycle.
+          `, 'success')}
+          
+          <h3 style="
+            margin: 24px 0 12px;
+            font-size: 16px;
+            color: ${theme.headingColor};
+          ">
+            What This Means
+          </h3>
+          
+          <ul style="
+            margin: 0;
+            padding-left: 20px;
+          ">
+            <li style="margin-bottom: 8px;">All members have received their payouts</li>
+            <li style="margin-bottom: 8px;">The group is ready to start a new cycle</li>
+            <li>Your contributions have been successfully processed</li>
+          </ul>
+          
+          ${actionButton(
+            'View Group Details',
+            `${process.env.NEXT_PUBLIC_APP_URL}/groups`
+          )}
+          
+          <p style="font-size: 14px; color: ${theme.textColor};">
+            Need help? Contact our 
+            <a href="mailto:support@hivepay.com.au" style="
+              color: ${theme.primaryColor};
+              text-decoration: none;
+            ">support team</a>
+          </p>
+        `)}
+      `, `Group cycle completed for ${groupName}`);
+
+      const sendSmtpEmail = new brevo.SendSmtpEmail();
+      sendSmtpEmail.sender = { name: senderName, email: senderEmail };
+      sendSmtpEmail.to = [{ email: member.email, name: `${member.firstName} ${member.lastName}` }];
+      sendSmtpEmail.subject = `Group Cycle Completed: ${groupName}`;
+      sendSmtpEmail.htmlContent = htmlContent;
+
+      await brevoClient.sendTransacEmail(sendSmtpEmail);
+      console.log(`Group cycle completion email sent to ${member.email}`);
+    } catch (error) {
+      console.error(`Failed to send group cycle completion email to ${member.email}:`, error);
+    }
+  }
+}

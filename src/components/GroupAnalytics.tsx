@@ -27,7 +27,6 @@ import {
 import type { GroupWithStats } from "../types/groups";
 
 // 1) Our AnalyticsData type must now accept `futureCycles?: string[]`.
-
 interface AnalyticsData {
   contributions: Array<{
     date: string;
@@ -44,7 +43,6 @@ interface AnalyticsData {
     member: string;
     amount: number;
     percentage: number;
-    payoutOrder?: number;
   }>;
   metrics: {
     totalMembers: number;
@@ -61,9 +59,10 @@ interface AnalyticsData {
     late: number;
     missed: number;
   };
+
+  // The new array of future cycle ISO strings
   futureCycles?: string[];
 }
-
 
 interface GroupAnalyticsProps {
   group: GroupWithStats;
@@ -82,17 +81,6 @@ export function GroupAnalytics({ group, analyticsData }: GroupAnalyticsProps) {
   const [activeSection, setActiveSection] =
     useState<"contributions" | "members" | "payouts">("contributions");
 
-// Parse future cycles from group data
-const futureCycles = group.futureCyclesJson 
-  ? (JSON.parse(JSON.stringify(group.futureCyclesJson)) as string[])
-  : [];
-
-// Get members with payout orders (using the members array from GroupWithStats)
-const membersWithPayouts = group.members
-  .filter((m: { payoutOrder: number | null }) => typeof m.payoutOrder === 'number' && m.payoutOrder >= 0)
-  .sort((a, b) => (a.payoutOrder || 0) - (b.payoutOrder || 0));
-
-  
   return (
     <div className="space-y-8">
       {/* Key Metrics - Always visible */}
@@ -160,11 +148,6 @@ const membersWithPayouts = group.members
                 </h2>
               </div>
               <TrendingUp className="h-8 w-8 text-yellow-500" />
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-muted-foreground">
-                Avg. {analyticsData.metrics.averagePayoutTime} days to payout
-              </span>
             </div>
           </CardContent>
         </Card>
@@ -236,103 +219,110 @@ const membersWithPayouts = group.members
         </div>
       </div>
 
-      {/* Contributions Section */}
-      {activeSection === "contributions" && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Contribution Trends</CardTitle>
-              <CardDescription>
-                Monthly contribution amounts over time
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={analyticsData.contributions}
-                  margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={(date) =>
-                      new Date(date).toLocaleDateString(undefined, { month: "short" })
-                    }
-                    tick={{ fill: "#666", fontSize: 12 }}
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    tickFormatter={(value) => formatter.format(value as number)}
-                    tick={{ fill: "#666", fontSize: 12 }}
-                    width={80}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    tickFormatter={(value) => `${value} payments`}
-                    tick={{ fill: "#666", fontSize: 12 }}
-                    width={80}
-                  />
-                  <Tooltip
-                    formatter={(value, name) => {
-                      if (name === "amount") return formatter.format(value as number);
-                      return `${value} payments`;
-                    }}
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      padding: "8px",
-                    }}
-                  />
-                  <Legend />
-                  <Bar yAxisId="left" dataKey="amount" name="Amount" fill="#EAB308" />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="count"
-                    name="Number of Payments"
-                    stroke="#FCD34D"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Status Distribution</CardTitle>
-              <CardDescription>On-time vs late vs missed payments</CardDescription>
-            </CardHeader>
-            <CardContent className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: "On Time", value: analyticsData.paymentStatus.onTime },
-                      { name: "Late", value: analyticsData.paymentStatus.late },
-                      { name: "Missed", value: analyticsData.paymentStatus.missed },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    fill="#7C3AED"
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {[0, 1, 2].map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => `${value} payments`} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+{/* Contributions Section */}
+{activeSection === "contributions" && (
+  <div className="grid gap-4 md:grid-cols-2">
+    <Card>
+      <CardHeader>
+        <CardTitle>Contribution Trends</CardTitle>
+        <CardDescription>
+          Current month&apos;s total contributions
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={[
+              analyticsData.contributions[
+                analyticsData.contributions.length - 1
+              ] || { date: new Date().toISOString(), amount: 0 },
+            ]}
+            margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(date) =>
+                new Date(date).toLocaleDateString(undefined, {
+                  month: "long",
+                  year: "numeric",
+                })
+              }
+              tick={{ fill: "#666", fontSize: 12 }}
+            />
+            <YAxis
+              tickFormatter={(value) => formatter.format(value as number)}
+              tick={{ fill: "#666", fontSize: 12 }}
+              width={80}
+            />
+            <Tooltip
+              formatter={(value) => formatter.format(value as number)}
+              contentStyle={{
+                backgroundColor: "white",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                padding: "8px",
+              }}
+            />
+            <Bar
+              dataKey="amount"
+              name="Total Contributions"
+              fill="#EAB308"
+              barSize={40}
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+        <div className="mt-4 text-center text-sm text-muted-foreground">
+          {analyticsData.contributions.length === 0
+            ? "No contribution data available"
+            : `Total for ${new Date(
+                analyticsData.contributions[
+                  analyticsData.contributions.length - 1
+                ].date
+              ).toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}`}
         </div>
-      )}
+      </CardContent>
+    </Card>
+
+    {/* Payment Status Distribution card remains unchanged */}
+    <Card>
+      <CardHeader>
+        <CardTitle>Payment Status Distribution</CardTitle>
+        <CardDescription>On-time vs late vs missed payments</CardDescription>
+      </CardHeader>
+      <CardContent className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={[
+                { name: "On Time", value: analyticsData.paymentStatus.onTime },
+                { name: "Late", value: analyticsData.paymentStatus.late },
+                { name: "Missed", value: analyticsData.paymentStatus.missed },
+              ]}
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={80}
+              fill="#7C3AED"
+              paddingAngle={5}
+              dataKey="value"
+            >
+              {[0, 1, 2].map((entry, idx) => (
+                <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value) => `${value} payments`} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  </div>
+)}
 
       {/* Members Section */}
       {activeSection === "members" && (
