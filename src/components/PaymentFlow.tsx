@@ -34,25 +34,30 @@ export function PaymentFlow() {
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    // Store the current reference in a local variable
+    const sectionRefValue = sectionRef.current;
+    
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsInView(entry.isIntersecting);
       },
       {
-        threshold: 0.2, // Triggers when 20% of the section is visible
+        threshold: 0.2,
       }
     );
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
+  
+    if (sectionRefValue) {
+      observer.observe(sectionRefValue);
     }
-
+  
+    // Use the stored value in cleanup
     return () => {
-      if (sectionRef.current) {
-        observer.unobserve(sectionRef.current);
+      if (sectionRefValue) {
+        observer.unobserve(sectionRefValue);
       }
     };
   }, []);
+  
 
   useEffect(() => {
     let interval: NodeJS.Timeout;

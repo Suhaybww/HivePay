@@ -548,10 +548,15 @@ export const userRouter = router({
   
         // NEW: Adjust payout orders in all affected groups
         for (const { groupId, payoutOrder } of userMemberships) {
+          // Add null check for payoutOrder
+          if (typeof payoutOrder !== 'number') continue;
+          
           await tx.groupMembership.updateMany({
             where: {
               groupId,
-              payoutOrder: { gt: payoutOrder },
+              payoutOrder: { 
+                gt: payoutOrder // Now guaranteed to be number
+              },
             },
             data: {
               payoutOrder: { decrement: 1 },
