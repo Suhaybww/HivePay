@@ -75,9 +75,9 @@ export const groupBaseRouter = router({
           email: membership.user!.email,
           gender: membership.user!.gender,
           isAdmin: membership.isAdmin,
-          payoutOrder: membership.payoutOrder,
+          payoutOrder: membership.payoutOrder ?? 0, // Default to 0 if null
           stripeAccountId: membership.user!.stripeAccountId,
-          hasBeenPaid: membership.hasBeenPaid, // <---- ADDED
+          hasBeenPaid: membership.hasBeenPaid,
         }));
 
         return {

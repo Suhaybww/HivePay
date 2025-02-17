@@ -29,8 +29,8 @@ const Hero = () => {
                 Group Savings
               </span>
             </h1>
-            <p className="w-full mx-auto text-base text-left text-gray-500 md:max-w-md sm:text-lg lg:text-2xl md:max-w-3xl md:text-center">
-              Experience <strong className="text-yellow-400">0% Interest Free Loans</strong> with HivePay, 
+            <p className="w-full mx-auto text-base text-left text-gray-500 md:max-w-md sm:text-lg lg:text-2xl md:text-center">
+            Experience <strong className="text-yellow-400">0% Interest Free Loans</strong> with HivePay, 
               a platform for secure and automated rotating savings. Save with friends or family 
               to achieve your financial goals—no extra fees or interest, just trust and transparency.
             </p>

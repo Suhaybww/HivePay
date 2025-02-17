@@ -29,7 +29,9 @@ export default async function RootLayout({
 }) {
   const { getUser } = getKindeServerSession();
   const kindeUser = await getUser();
-  const headersList = headers();
+  
+  // Fixed headers usage with await
+  const headersList = await headers();
   const pathname = headersList.get("x-invoke-path") || "";
 
   console.log("**DEBUG** Current pathname:", pathname);
@@ -100,8 +102,7 @@ export default async function RootLayout({
           ) : (
             /* PUBLIC (LOGGED-OUT) LAYOUT */
             <>
-              {/* High z-index wrapper. 
-                  We put DebugClickWrapper around Navbar so we can see if clicks happen. */}
+              {/* High z-index wrapper */}
               <div className="sticky top-0 z-[9999]">
                 <DebugClickWrapper>
                   <Navbar />
