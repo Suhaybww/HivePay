@@ -5,7 +5,7 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
-    "noEmit": true,
+    "noEmit": false,
     "esModuleInterop": true,
     "module": "CommonJS",
     "moduleResolution": "node",
@@ -13,13 +13,15 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "outDir": "./dist",
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/src/*": ["./src/*"],
+      "@/lib/*": ["./src/lib/*"]
     },
     "baseUrl": ".",
     "forceConsistentCasingInFileNames": true,
@@ -30,8 +32,11 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "prisma/**/*.ts"
-, "src/components/ui/infiniteScroll.txs"  ],
+    "prisma/**/*.ts",
+    "src/**/*",
+    "queueRunner.ts",
+    "src/components/ui/infiniteScroll.tsx"
+  ],
   "exclude": ["node_modules"],
   "ts-node": {
     "compilerOptions": {

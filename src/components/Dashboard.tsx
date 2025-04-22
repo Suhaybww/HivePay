@@ -208,7 +208,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                   <Skeleton className="h-14 w-full" />
                 </div>
               ) : recentActivity.length > 0 ? (
-                recentActivity.map((act) => {
+                recentActivity.slice(0, 3).map((act) => { 
                   const activityDate = new Date(act.createdAt);
                   const now = new Date();
                   const diffInHours = Math.floor(

@@ -65,10 +65,16 @@ import { MembershipStatus, PaymentStatus, GroupStatus } from "@prisma/client";
   
         // Fetch data for analytics
         const [contributions, memberships, payouts, payments] = await Promise.all([
-          // 1) Summaries for payment amounts
+          // 1) Fix: Changed createdAt to paymentDate
           db.payment.groupBy({
             by: ["paymentDate"],
-            where: { groupId, createdAt: { gte: startDate, lte: endDate } },
+            where: { 
+              groupId, 
+              paymentDate: {  // Changed from createdAt
+                gte: startDate, 
+                lte: endDate 
+              }
+            },
             _sum: { amount: true },
             _count: true,
           }),

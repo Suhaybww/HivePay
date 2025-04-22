@@ -1,10 +1,8 @@
+// src/lib/queue/groupStatusQueue.ts
 import Bull from 'bull';
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+import { bullOptions, defaultJobOptions } from './config';
 
-export const groupStatusQueue = new Bull('group-status', REDIS_URL, {
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 1000 },
-    removeOnComplete: true
-  }
+export const groupStatusQueue = new Bull('group-status', {
+  ...bullOptions,
+  defaultJobOptions
 });

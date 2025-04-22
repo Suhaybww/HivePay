@@ -36,3 +36,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+# Add these
+**/.terraform/
+*.tfstate
+*.tfvars
+.aws/
+.ssh/
+infra/.terraform.lock.hcl

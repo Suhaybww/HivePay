@@ -54,15 +54,6 @@ export const groupMembershipRouter = router({
       throw new TRPCError({ code: 'UNAUTHORIZED' });
     }
 
-    // Check user's plan limit
-    const userGroups = await db.group.count({ where: { createdById: userId } });
-    if (userGroups >= 5) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'You have reached the maximum number of groups you can create.',
-      });
-    }
-
     try {
       // Create group and admin membership in a transaction
       const result = await db.$transaction(async (tx) => {

@@ -18,6 +18,7 @@ import {
 } from "@/src/lib/emailService";
 import { paymentQueue } from "./paymentQueue";
 import { groupStatusQueue } from "../queue/groupStatusQueue";
+
 /**
  * Check if all payments for a cycle are completed and finalize the cycle if true.
  */
@@ -138,7 +139,7 @@ async function updateGroupPaymentStats(
  * Process contribution cycle for a group
  */
 export async function processContributionCycle(job: Job) {
-  const { groupId } = job.data;
+  const { groupId, testMode } = job.data;
   console.log(`\n=== processContributionCycle started for group=${groupId} ===`);
 
   try {
@@ -165,26 +166,26 @@ export async function processContributionCycle(job: Job) {
         throw new Error(`Invalid contributionAmount for group ${groupId}.`);
       }
 
-    // Send contribution reminders outside the transaction
-    const sendReminders = group.groupMemberships.map(member => {
-      // Ensure contributionAmount is not null
-      if (!group.contributionAmount) {
-        throw new Error(`Contribution amount is null for group ${groupId}.`);
-      }
+      // Send contribution reminders outside the transaction
+      const sendReminders = group.groupMemberships.map(member => {
+        // Ensure contributionAmount is not null
+        if (!group.contributionAmount) {
+          throw new Error(`Contribution amount is null for group ${groupId}.`);
+        }
 
-      return sendContributionReminderEmail({
-        groupName: group.name,
-        contributionAmount: group.contributionAmount, // Now guaranteed to be Decimal
-        contributionDate: new Date(),
-        recipient: {
-          email: member.user.email,
-          firstName: member.user.firstName,
-          lastName: member.user.lastName,
-        },
+        return sendContributionReminderEmail({
+          groupName: group.name,
+          contributionAmount: group.contributionAmount, // Now guaranteed to be Decimal
+          contributionDate: new Date(),
+          recipient: {
+            email: member.user.email,
+            firstName: member.user.firstName,
+            lastName: member.user.lastName,
+          },
+        });
       });
-    });
 
-    await Promise.all(sendReminders);
+      await Promise.all(sendReminders);
 
       const nextUnpaidMember = group.groupMemberships.find(m => !m.hasBeenPaid);
       if (!nextUnpaidMember) {
@@ -347,19 +348,51 @@ export async function processContributionCycle(job: Job) {
 
     console.log(`=== processContributionCycle success for group=${groupId} ===\n`);
 
-    // Post-transaction group checks
+    // Post-transaction group check with detailed debug info
     const updatedGroup = await db.group.findUnique({
       where: { id: groupId },
-      select: { id: true, status: true, pauseReason: true, nextCycleDate: true },
+      select: { 
+        id: true, 
+        status: true, 
+        pauseReason: true, 
+        nextCycleDate: true,
+        cyclesCompleted: true,
+        cycleStarted: true,
+        totalGroupCyclesCompleted: true,
+        currentMemberCycleNumber: true
+      },
     });
 
+    console.log(`🔍 Group state after transaction: cyclesCompleted=${updatedGroup?.cyclesCompleted}, cycleStarted=${updatedGroup?.cycleStarted}, status=${updatedGroup?.status}, currentMemberCycle=${updatedGroup?.currentMemberCycleNumber}, totalCycles=${updatedGroup?.totalGroupCyclesCompleted}`);
+
     if (updatedGroup?.status === GroupStatus.Paused) {
+      // If paused, add to pause queue
       await groupStatusQueue.add('handle-group-pause', {
         groupId: updatedGroup.id,
         reason: updatedGroup.pauseReason,
       });
     } else if (updatedGroup) {
-      await SchedulerService.scheduleNextCycle(updatedGroup.id);
+      // Only schedule next cycle if cycles are not completed
+      if (!updatedGroup.cyclesCompleted) {
+        console.log(`✅ Scheduling next cycle for group ${groupId}`);
+        await SchedulerService.scheduleNextCycle(updatedGroup.id);
+      } else {
+        console.log(`⏹️ Cycle completed for group ${groupId}, no more cycles will be scheduled`);
+        
+        // Option for test mode to reset cycles
+        if (testMode === true) {
+          console.log(`🧪 Test mode detected - resetting cycle flags for continued testing`);
+          await db.group.update({
+            where: { id: groupId },
+            data: { 
+              cyclesCompleted: false,
+              cycleStarted: false
+            }
+          });
+          console.log(`🔄 Reset cycle flags for group ${groupId}, now scheduling next test cycle`);
+          await SchedulerService.scheduleNextCycle(updatedGroup.id);
+        }
+      }
     }
   } catch (error) {
     console.error(`Contribution cycle failed for group ${groupId}:`, error);

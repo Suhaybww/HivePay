@@ -1,5 +1,3 @@
-// src/trpc/routers/group/groupMessages.ts
-
 import { privateProcedure, router } from '../../trpc';
 import { TRPCError } from '@trpc/server';
 import { db } from '../../../db';
