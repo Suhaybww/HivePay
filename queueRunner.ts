@@ -1,3 +1,4 @@
+import Bull from 'bull';
 import 'dotenv/config';
 import path from 'path';
 import { setupQueues } from '@/src/lib/queue/setup';
@@ -117,13 +118,13 @@ function setupQueueEventListeners() {
 
   queues.forEach(queue => {
     queue
-      .on('active', (job) => {
+      .on('active', (job: Bull.Job) => {
         console.log(`🏁 Job ${job.id} started processing (queue: ${queue.name})`);
       })
-      .on('completed', (job) => {
+      .on('completed', (job: Bull.Job) => {
         console.log(`🎉 Job ${job.id} completed successfully (queue: ${queue.name})`);
       })
-      .on('failed', (job, err) => {
+      .on('failed', (job: Bull.Job, err: Error) => {
         console.error(`💥 Job ${job.id} failed (queue: ${queue.name}):`, err);
         
         // Enhanced error reporting
@@ -142,13 +143,13 @@ function setupQueueEventListeners() {
           console.error('🔍 Error stack trace:', err.stack);
         }
       })
-      .on('stalled', (job) => {
+      .on('stalled', (job: Bull.Job) => {
         console.warn(`⚠️ Job ${job.id} stalled (queue: ${queue.name})`);
       })
-      .on('waiting', (jobId) => {
+      .on('waiting', (jobId: string) => {
         console.log(`⏳ Job ${jobId} waiting in queue (queue: ${queue.name})`);
       })
-      .on('error', (error) => {
+      .on('error', (error: Error) => {
         console.error(`‼️ Queue ${queue.name} error:`, error);
       });
   });
@@ -181,29 +182,6 @@ async function testDatabaseConnection() {
       // Just test the connection with a simple query
       await db.$queryRaw`SELECT 1`;
       console.log('✅ Database connection successful');
-      
-      // Get test group details
-      try {
-        const testGroup = await db.group.findUnique({
-          where: { id: 'cm7a5zl550003rcnc7jnt7bnb' },
-          select: { 
-            id: true,
-            name: true,
-            status: true,
-            cycleStarted: true,
-            cyclesCompleted: true,
-            nextCycleDate: true
-          }
-        });
-        
-        if (testGroup) {
-          console.log('📊 Test group data:', testGroup);
-        } else {
-          console.warn('⚠️ Test group not found in database');
-        }
-      } catch (groupError) {
-        console.error('❌ Error fetching test group:', groupError);
-      }
     } catch (dbError) {
       console.error('❌ Database query failed', dbError);
     }
@@ -220,54 +198,6 @@ async function cleanFailedJobs() {
     console.log(`🧹 Cleaning all failed jobs from ${queue.name}...`);
     const removedCount = await queue.clean(0, 'failed'); // 0 = clean all failed jobs regardless of age
     console.log(`✅ Removed ${removedCount} failed jobs from ${queue.name}`);
-  }
-}
-
-// Add a test job directly to the queue
-async function addTestJob() {
-  try {
-    console.log('🧪 ADDING TEST JOB TO CONTRIBUTION QUEUE...');
-    const testJobId = `test-job-${Date.now()}`;
-    
-    // Add the job with immediate execution (no delay)
-    const testJob = await contributionQueue.add(
-      'start-contribution',
-      { 
-        groupId: 'cm7a5zl550003rcnc7jnt7bnb', 
-        testMode: true,
-        timestamp: new Date().toISOString()
-      },
-      { 
-        delay: 0, // Execute immediately
-        jobId: testJobId,
-        attempts: 3
-      }
-    );
-    
-    console.log('✅ TEST JOB ADDED SUCCESSFULLY:', {
-      id: testJob.id,
-      data: testJob.data,
-      opts: testJob.opts
-    });
-    
-    // List all waiting jobs to verify
-    const waitingJobs = await contributionQueue.getJobs(['waiting']);
-    console.log(`📋 Current waiting jobs (${waitingJobs.length}):`, 
-      waitingJobs.map(j => ({ id: j.id, data: j.data }))
-    );
-    
-    // List all delayed jobs to verify
-    const delayedJobs = await contributionQueue.getJobs(['delayed']);
-    console.log(`📋 Current delayed jobs (${delayedJobs.length}):`, 
-      delayedJobs.map(j => ({ 
-        id: j.id, 
-        data: j.data,
-        delay: j.opts.delay,
-        willProcessAt: new Date(Date.now() + (j.opts.delay || 0)).toISOString()
-      }))
-    );
-  } catch (error) {
-    console.error('‼️ FAILED TO ADD TEST JOB:', error);
   }
 }
 
@@ -292,10 +222,7 @@ async function main() {
 
     console.log('✅ Queue worker is fully operational');
     
-    // Add a test job 5 seconds after startup
-    setTimeout(addTestJob, 5000);
-    
-    // Check queues again after 15 seconds
+    // Check queues after 15 seconds
     setTimeout(async () => {
       console.log('🔍 RECHECKING QUEUES AFTER 15 SECONDS:');
       const waitingJobs = await contributionQueue.getJobs(['waiting']);
@@ -306,7 +233,7 @@ async function main() {
       console.log(`Queue status: waiting=${waitingJobs.length}, active=${activeJobs.length}, completed=${completedJobs.length}, failed=${failedJobs.length}`);
       
       if (failedJobs.length > 0) {
-        console.log('❌ FAILED JOBS:', failedJobs.map(j => ({ 
+        console.log('❌ FAILED JOBS:', failedJobs.map((j: Bull.Job) => ({ 
           id: j.id, 
           data: j.data,
           failedReason: j.failedReason

@@ -2,7 +2,7 @@
 import { db } from "@/src/db";
 import { defaultJobOptions } from "../queue/config";
 import { contributionQueue } from "../queue/contributionQueue";
-import { GroupStatus } from "@prisma/client";
+import { GroupStatus, MembershipStatus } from "@prisma/client";
 import { toZonedTime, formatInTimeZone } from "date-fns-tz";
 
 export class SchedulerService {
@@ -17,6 +17,7 @@ export class SchedulerService {
   static async scheduleContributionCycle(groupId: string): Promise<void> {
     try {
       console.log(`🔍 DEBUG: scheduleContributionCycle called for group ${groupId}`);
+      console.log(`🔥 CRITICAL PATH: Scheduling contribution cycle for group ${groupId}`);
       
       // Prevent duplicate scheduling
       if (this.scheduledGroups.has(groupId)) {
@@ -33,7 +34,12 @@ export class SchedulerService {
           status: true,
           cycleStarted: true,
           cyclesCompleted: true,
-          name: true
+          name: true,
+          futureCyclesJson: true,
+          groupMemberships: {
+            where: { status: MembershipStatus.Active },
+            select: { hasBeenPaid: true }
+          }
         },
       });
 
@@ -43,7 +49,9 @@ export class SchedulerService {
         status: group?.status,
         cycleStarted: group?.cycleStarted,
         cyclesCompleted: group?.cyclesCompleted,
-        name: group?.name
+        name: group?.name,
+        membersPaid: group?.groupMemberships.filter(m => m.hasBeenPaid).length,
+        totalMembers: group?.groupMemberships.length
       });
 
       if (!group) {
@@ -53,12 +61,6 @@ export class SchedulerService {
 
       if (group.status !== GroupStatus.Active) {
         console.log(`⏸️  Group ${groupId} is not active (status: ${group.status})`);
-        return;
-      }
-
-      // Check if cycle is already started to prevent double-processing
-      if (group.cycleStarted) {
-        console.log(`⏸️  Group ${groupId} cycle already started, skipping scheduling`);
         return;
       }
 
@@ -80,7 +82,7 @@ export class SchedulerService {
       };
 
       console.log(`🔍 DEBUG: Calculating next run for group ${groupId} with nextCycleDate:`, group.nextCycleDate);
-      const { nextRun, delay } = await this.calculateAndSetNextRun(groupId, group.nextCycleDate);
+      const { nextRun, delay } = await this.calculateAndSetNextRun(groupId, group.nextCycleDate, group.cycleStarted);
       
       jobDetails.options.delay = delay;
 
@@ -127,7 +129,9 @@ export class SchedulerService {
           status: true,
           nextCycleDate: true,
           cycleStarted: true,
-          cyclesCompleted: true
+          cyclesCompleted: true,
+          futureCyclesJson: true,
+          totalGroupCyclesCompleted: true
         },
       });
 
@@ -136,7 +140,8 @@ export class SchedulerService {
         status: group?.status,
         nextCycleDate: group?.nextCycleDate,
         cycleStarted: group?.cycleStarted,
-        cyclesCompleted: group?.cyclesCompleted
+        cyclesCompleted: group?.cyclesCompleted,
+        totalCycles: group?.totalGroupCyclesCompleted
       });
 
       if (!group) {
@@ -149,15 +154,44 @@ export class SchedulerService {
         return;
       }
 
-      // Check if cycle is already started to prevent double-processing
-      if (group.cycleStarted) {
-        console.log(`⏸️  Group ${groupId} cycle already started, skipping scheduling`);
+      // Check if all cycles are completed
+      if (group.cyclesCompleted) {
+        console.log(`⏹️  Group ${groupId} cycles already completed, skipping scheduling`);
         return;
       }
 
-      if (group.cyclesCompleted) {
-        console.log(`⏸️  Group ${groupId} cycles already completed, skipping scheduling`);
-        return;
+      // FIXED: Instead of blocking on cycleStarted, check for remaining unpaid members
+      if (group.cycleStarted) {
+        // Check if there are remaining unpaid members in the current cycle
+        const remainingUnpaidMembers = await db.groupMembership.count({
+          where: {
+            groupId,
+            status: MembershipStatus.Active,
+            hasBeenPaid: false
+          }
+        });
+
+        console.log(`🔍 DEBUG: Group ${groupId} has ${remainingUnpaidMembers} unpaid members remaining`);
+
+        if (remainingUnpaidMembers === 0) {
+          console.log(`✅ All members paid in group ${groupId}, cycle is complete`);
+          
+          // Update the group to mark the full cycle as complete
+          await db.group.update({
+            where: { id: groupId },
+            data: { 
+              cyclesCompleted: true,
+              // Reset for the next full cycle when needed
+              cycleStarted: false 
+            }
+          });
+          
+          console.log(`🔄 Updated group ${groupId} state: cyclesCompleted=true, cycleStarted=false`);
+          return;
+        } else {
+          console.log(`🔄 Group ${groupId} cycle in progress with ${remainingUnpaidMembers} unpaid members remaining`);
+          // Continue with the current cycle - don't return here
+        }
       }
 
       console.log(`✅ Validations passed, proceeding to schedule group ${groupId}`);
@@ -171,9 +205,11 @@ export class SchedulerService {
 
   private static async calculateAndSetNextRun(
     groupId: string,
-    currentDate: Date | null
+    currentDate: Date | null,
+    cycleStarted: boolean = false
   ): Promise<{ nextRun: Date; delay: number }> {
     console.log(`🔍 DEBUG: calculateAndSetNextRun for group ${groupId} with currentDate:`, currentDate);
+    console.log(`🔍 DEBUG: Cycle already started: ${cycleStarted}`);
     
     const now = new Date();
     let nextRun = currentDate ? new Date(currentDate) : new Date();
@@ -182,18 +218,16 @@ export class SchedulerService {
     console.log(`🔍 DEBUG: Current time:`, now);
     console.log(`🔍 DEBUG: Is nextRun in the past?`, nextRun <= now);
     
-    // Instead of advancing to the next month, use a small buffer for immediate execution
-    // This respects the user's chosen date while ensuring it's in the future
     if (nextRun <= now) {
       // Add a small buffer (30 seconds) to ensure we're in the future
       nextRun = new Date(now.getTime() + 30000);
       console.log(`⏩ Setting immediate execution with buffer: ${nextRun.toISOString()}`);
     }
-
-    // Don't update the database date - we want to keep the user's selected date
-    // This way we're not overriding the user's choice with our adjusted execution time
-    // The queue will still process at the adjusted time without changing the stored date
-
+    
+    // Important: In a ROSCA, if cycle has started and there are still members to be paid,
+    // we should NOT update the nextCycleDate in the database, as this would shift the cycle
+    // for future members. We only schedule the immediate execution time.
+    
     const delay = nextRun.getTime() - Date.now();
     
     // Ensure delay is never negative and has a minimum value
@@ -212,13 +246,24 @@ export class SchedulerService {
   }): Promise<void> {
     try {
       console.log(`🔍 DEBUG: addQueueJob called for group ${jobDetails.groupId} with options:`, jobDetails.options);
+      console.log(`🔥 CRITICAL PATH: Queue job attempt for group ${jobDetails.groupId}`);
+      console.log(`🔍 Redis URL in use: ${process.env.REDIS_URL?.replace(/(redis:\/\/|rediss:\/\/)(.*?)@/g, '$1****@')}`);
       
       // Check if queue is ready
       try {
         const isReady = await contributionQueue.isReady();
         console.log(`🔍 DEBUG: Contribution queue ready check: ${isReady}`);
       } catch (readyError) {
-        console.error(`‼️ Queue ready check failed:`, readyError);
+        console.error(`❌ CRITICAL: Queue ready check FAILED with error:`, readyError);
+        // Try to recover by forcing a ping to diagnose connection
+        try {
+          if (contributionQueue.client) {
+            await contributionQueue.client.ping();
+            console.log(`✅ Forced Redis ping succeeded despite ready check failure`);
+          }
+        } catch (pingError) {
+          console.error(`❌ Forced Redis ping also failed:`, pingError);
+        }
       }
       
       // Clear any existing jobs for this group before adding a new one
@@ -249,9 +294,19 @@ export class SchedulerService {
         attempts: jobDetails.options.attempts
       });
       
+      // Direct debugging of queue instance
+      console.log(`Queue instance details:`, {
+        name: contributionQueue.name,
+        hasClient: !!contributionQueue.client,
+        clientType: contributionQueue.client ? typeof contributionQueue.client : 'none'
+      });
+      
       const job = await contributionQueue.add(
         "start-contribution",
-        { groupId: jobDetails.groupId },
+        { 
+          groupId: jobDetails.groupId,
+          timestamp: new Date().toISOString() 
+        },
         jobDetails.options
       );
 
@@ -279,17 +334,75 @@ export class SchedulerService {
         
         if (!foundJob) {
           console.warn(`⚠️ Added job ${job.id} not found in queue - this could indicate an issue`);
+          
+          // Try direct add as a fallback
+          console.log(`🔄 Attempting fallback direct queue operation...`);
+          const backupJob = await contributionQueue.add(
+            "start-contribution", 
+            { 
+              groupId: jobDetails.groupId, 
+              timestamp: new Date().toISOString(),
+              fallback: true
+            },
+            { 
+              attempts: 3, 
+              jobId: `fallback-${jobDetails.groupId}-${Date.now()}`,
+              delay: jobDetails.options.delay || 0
+            }
+          );
+          console.log(`✅ Fallback job added: ${backupJob.id}`);
         }
       } catch (verifyError) {
         console.error(`‼️ Failed to verify job addition:`, verifyError);
+        
+        // Try direct add as a fallback
+        console.log(`🔄 Attempting fallback direct queue operation...`);
+        try {
+          const backupJob = await contributionQueue.add(
+            "start-contribution", 
+            { 
+              groupId: jobDetails.groupId, 
+              timestamp: new Date().toISOString(),
+              fallback: true
+            },
+            { 
+              attempts: 3, 
+              jobId: `fallback-${jobDetails.groupId}-${Date.now()}`,
+              delay: jobDetails.options.delay || 0
+            }
+          );
+          console.log(`✅ Fallback job added: ${backupJob.id}`);
+        } catch (fallbackError) {
+          console.error(`💥 Even fallback attempt failed:`, fallbackError);
+        }
       }
 
     } catch (error) {
-      console.error(`‼️ Failed to add job to queue:`, {
+      console.error(`🚨 CRITICAL ERROR: Failed to add job to queue:`, {
         groupId: jobDetails.groupId,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : 'No stack trace available'
       });
+      
+      // Last-ditch fallback attempt with different options
+      try {
+        console.log(`🔄 Attempting last-ditch direct queue operation...`);
+        const backupJob = await contributionQueue.add(
+          "start-contribution", 
+          { 
+            groupId: jobDetails.groupId, 
+            emergency: true
+          },
+          { 
+            attempts: 3, 
+            jobId: `emergency-${jobDetails.groupId}-${Date.now()}` 
+          }
+        );
+        console.log(`✅ Emergency job added: ${backupJob.id}`);
+      } catch (fallbackError) {
+        console.error(`💥 All attempts failed:`, fallbackError);
+      }
+      
       throw error;
     }
   }

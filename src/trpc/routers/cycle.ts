@@ -7,6 +7,8 @@ import { GroupStatus, MembershipStatus, Frequency } from "@prisma/client";
 import { retryAllPaymentsForGroup } from "@/src/lib/queue/processors";
 import { addWeeks, addMonths } from "date-fns";
 import { sendGroupCycleStartedEmail } from "@/src/lib/emailService";
+import { contributionQueue } from "@/src/lib/queue/contributionQueue";
+
 /**
  * buildFutureCycleDates
  * - e.g. if activeCount=3 => we produce 3 future monthly dates
@@ -98,23 +100,10 @@ export const cycleRouter = router({
         activeCount
       );
 
-      // 2) set nextCycleDate to the first date => we’ll run the queue for that date
+      // 2) set nextCycleDate to the first date => we'll run the queue for that date
       const firstCycleDate = futureDates[0];
 
-      // 3) store the entire array => futureCyclesJson
-      await db.group.update({
-        where: { id: groupId },
-        data: {
-          cycleStarted: true,
-          status: GroupStatus.Active,
-          pauseReason: null,
-          nextCycleDate: firstCycleDate,
-          // Make sure dates are serialized properly
-          futureCyclesJson: futureDates.map(date => date.toISOString()),
-        },
-      });
-
-      // 4) store the entire array => futureCyclesJson
+      // 3) Update the group with all necessary data in a single operation
       const updatedGroup = await db.group.update({
         where: { id: groupId },
         data: {
@@ -122,7 +111,8 @@ export const cycleRouter = router({
           status: GroupStatus.Active,
           pauseReason: null,
           nextCycleDate: firstCycleDate,
-          futureCyclesJson: futureDates,
+          // Make sure dates are properly serialized
+          futureCyclesJson: futureDates.map(date => date.toISOString()),
         },
         include: {
           groupMemberships: {
@@ -142,8 +132,33 @@ export const cycleRouter = router({
       // NEW: Send cycle started emails
       await sendGroupCycleStartedEmail(updatedGroup.name, activeMembers);
 
-      // 5) schedule the queue
-      await SchedulerService.scheduleContributionCycle(groupId);
+      // 5) schedule the queue - using multiple methods to ensure it works
+      try {
+        // Try the SchedulerService approach first
+        console.log(`🔄 Calling SchedulerService.scheduleContributionCycle for group ${groupId}`);
+        await SchedulerService.scheduleContributionCycle(groupId);
+        
+        // DIRECT QUEUE ADDITION as a backup approach
+        console.log(`🔄 Adding direct queue job for group ${groupId}`);
+        const jobId = `direct-contribution-${groupId}-${Date.now()}`;
+        await contributionQueue.add(
+          "start-contribution",
+          { 
+            groupId, 
+            timestamp: new Date().toISOString(),
+            directAdd: true // flag to identify this method
+          },
+          { 
+            attempts: 3,
+            jobId,
+            delay: 0 // immediate execution
+          }
+        );
+        console.log(`✅ Direct queue job added with ID: ${jobId}`);
+      } catch (queueError) {
+        console.error(`⚠️ Failed to add queue job, but continuing:`, queueError);
+        // Don't throw - still return success to the user
+      }
 
       return {
         success: true,
@@ -240,7 +255,27 @@ export const cycleRouter = router({
       }
 
       try {
+        // Attempt to add directly to the queue first
+        console.log(`🔄 Adding direct retry job for group ${input.groupId}`);
+        const jobId = `direct-retry-payments-${input.groupId}-${Date.now()}`;
+        await contributionQueue.add(
+          "start-contribution",
+          { 
+            groupId: input.groupId, 
+            timestamp: new Date().toISOString(),
+            retryPayments: true
+          },
+          { 
+            attempts: 3,
+            jobId,
+            delay: 0
+          }
+        );
+        console.log(`✅ Direct retry job added with ID: ${jobId}`);
+
+        // Then try the service method as backup
         await retryAllPaymentsForGroup(input.groupId);
+        
         return { success: true, message: "Retry triggered successfully" };
       } catch (error) {
         console.error("Failed to retry payments:", error);
