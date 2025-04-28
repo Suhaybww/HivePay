@@ -28,44 +28,45 @@ model GroupCycle {
 }
 
 model User {
-  id                        String             @id @unique
+  id                        String               @id @unique
   firstName                 String
   lastName                  String
-  email                     String             @unique
+  email                     String               @unique
   phoneNumber               String
   gender                    Gender?
   age                       Int?
-  stripeCustomerId          String?            @unique @map("stripe_customer_id")
-  stripeAccountId           String?            @unique
-  stripeSubscriptionId      String?            @unique @map("stripe_subscription_id")
-  stripePriceId             String?            @map("stripe_price_id")
-  stripeCurrentPeriodEnd    DateTime?          @map("stripe_current_period_end")
+  stripeCustomerId          String?              @unique @map("stripe_customer_id")
+  stripeAccountId           String?              @unique
+  stripeSubscriptionId      String?              @unique @map("stripe_subscription_id")
+  stripePriceId             String?              @map("stripe_price_id")
+  stripeCurrentPeriodEnd    DateTime?            @map("stripe_current_period_end")
   stripeSetupIntentId       String?
   stripeBecsPaymentMethodId String?
-  becsSetupStatus           BECSSetupStatus    @default(Pending)
+  becsSetupStatus           BECSSetupStatus      @default(Pending)
   stripeMandateId           String?
   subscriptionStatus        SubscriptionStatus
-  onboardingStatus          OnboardingStatus   @default(Pending)
+  onboardingStatus          OnboardingStatus     @default(Pending)
   onboardingDate            DateTime?
-  createdAt                 DateTime           @default(now())
-  updatedAt                 DateTime           @updatedAt
-  isDeleted                 Boolean            @default(false)
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  isDeleted                 Boolean              @default(false)
   deletedAt                 DateTime?
   deletionReason            String?
-  subscriptions             Subscription[]     @relation("UserSubscriptions")
+  subscriptions             Subscription[]       @relation("UserSubscriptions")
   groupMemberships          GroupMembership[]
   payments                  Payment[]
   payouts                   Payout[]
   transactions              Transaction[]
-  groupsCreated             Group[]            @relation("UserGroupsCreated")
+  groupsCreated             Group[]              @relation("UserGroupsCreated")
   notifications             Notification[]
-  messagesSent              Message[]          @relation("MessagesSent")
+  messagesSent              Message[]            @relation("MessagesSent")
   supportTickets            SupportTicket[]
   ticketResponses           TicketResponse[]
   feedback                  Feedback[]
   contracts                 Contract[]
-  invitationsSent           Invitation[]       @relation("UserInvitesSent")
+  invitationsSent           Invitation[]         @relation("UserInvitesSent")
   payeeForCycles            GroupCycle[]
+  paymentRecoveryLogs       PaymentRecoveryLog[]
 }
 
 model Plan {
@@ -96,27 +97,27 @@ model Subscription {
 }
 
 model Group {
-  id                        String            @id @default(cuid())
+  id                        String               @id @default(cuid())
   name                      String
   description               String?
   createdById               String
-  contributionAmount        Decimal?          @db.Decimal(10, 2)
+  contributionAmount        Decimal?             @db.Decimal(10, 2)
   cycleFrequency            Frequency?
   nextCycleDate             DateTime?
-  cycleStarted              Boolean           @default(false)
-  status                    GroupStatus       @default(Active)
+  cycleStarted              Boolean              @default(false)
+  status                    GroupStatus          @default(Active)
   pauseReason               PauseReason?
   futureCyclesJson          Json?
-  totalPendingAmount        Decimal?          @default(0)
-  totalSuccessAmount        Decimal?          @default(0)
-  createdAt                 DateTime          @default(now())
-  updatedAt                 DateTime          @updatedAt
-  totalDebitedAmount        Decimal?          @default(0)
-  totalGroupCyclesCompleted Int               @default(0)
-  currentMemberCycleNumber  Int               @default(1)
+  totalPendingAmount        Decimal?             @default(0)
+  totalSuccessAmount        Decimal?             @default(0)
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  totalDebitedAmount        Decimal?             @default(0)
+  totalGroupCyclesCompleted Int                  @default(0)
+  currentMemberCycleNumber  Int                  @default(1)
   nextMemberPayoutOrder     Int?
-  cyclesCompleted           Boolean           @default(false)
-  createdBy                 User              @relation("UserGroupsCreated", fields: [createdById], references: [id])
+  cyclesCompleted           Boolean              @default(false)
+  createdBy                 User                 @relation("UserGroupsCreated", fields: [createdById], references: [id])
   groupMemberships          GroupMembership[]
   payouts                   Payout[]
   payments                  Payment[]
@@ -125,6 +126,9 @@ model Group {
   contracts                 Contract[]
   invitations               Invitation[]
   cycles                    GroupCycle[]
+  scheduledJobLogs          ScheduledJobLog[]
+  groupRecoveryLogs         GroupRecoveryLog[]
+  paymentRecoveryLogs       PaymentRecoveryLog[]
 }
 
 model GroupMembership {
@@ -147,24 +151,25 @@ model GroupMembership {
 }
 
 model Payment {
-  id                    String        @id @default(cuid())
+  id                    String               @id @default(cuid())
   userId                String
   groupId               String
-  amount                Decimal       @db.Decimal(10, 2)
-  paymentDate           DateTime      @default(now())
-  status                PaymentStatus @default(Pending)
-  stripePaymentIntentId String?       @unique
+  amount                Decimal              @db.Decimal(10, 2)
+  paymentDate           DateTime             @default(now())
+  status                PaymentStatus        @default(Pending)
+  stripePaymentIntentId String?              @unique
   mandateId             String?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
-  retryCount            Int           @default(0)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  retryCount            Int                  @default(0)
   cycleNumber           Int?
   payoutOrder           Int?
   groupCycleNumber      Int?
   memberCycleNumber     Int?
-  user                  User          @relation(fields: [userId], references: [id])
-  group                 Group         @relation(fields: [groupId], references: [id])
+  user                  User                 @relation(fields: [userId], references: [id])
+  group                 Group                @relation(fields: [groupId], references: [id])
   transactions          Transaction[]
+  paymentRecoveryLogs   PaymentRecoveryLog[]
 }
 
 model Payout {
@@ -382,7 +387,7 @@ enum TicketPriority {
 enum InvitationStatus {
   PENDING
   ACCEPTED
-  EXPIRED 
+  EXPIRED
   CANCELLED
 }
 
@@ -398,4 +403,96 @@ enum CycleStatus {
   Completed
   Partial
   Failed
+}
+
+// These models are for tracking job scheduling and recovery
+
+// Model for tracking scheduled jobs
+model ScheduledJobLog {
+  id            String   @id @default(cuid())
+  groupId       String
+  jobId         String
+  jobType       String
+  scheduledTime DateTime
+  delayMs       Int
+  status        String // SCHEDULED, PROCESSING, COMPLETED, FAILED, RECOVERED, RECOVERY_FAILED
+  metadata      String? // JSON string with additional data
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Define relation if your model supports it
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@index([groupId])
+  @@index([status])
+  @@index([jobType])
+}
+
+// Model for tracking group recovery attempts
+model GroupRecoveryLog {
+  id           String   @id @default(cuid())
+  groupId      String
+  recoveryType String // CYCLE_RECOVERY, STATUS_RECOVERY, etc.
+  cycleNumber  Int?
+  jobId        String?
+  details      String? // JSON string with recovery details
+  createdAt    DateTime @default(now())
+
+  // Define relation if your model supports it
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@index([groupId])
+  @@index([recoveryType])
+}
+
+// Model for tracking payment recovery attempts
+model PaymentRecoveryLog {
+  id           String   @id @default(cuid())
+  paymentId    String
+  groupId      String
+  userId       String
+  recoveryType String // PAYMENT_RETRY, etc.
+  jobId        String?
+  details      String? // JSON string with recovery details
+  createdAt    DateTime @default(now())
+
+  // Define relations if your model supports them
+  payment Payment @relation(fields: [paymentId], references: [id])
+  group   Group   @relation(fields: [groupId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([paymentId])
+  @@index([groupId])
+  @@index([userId])
+}
+
+// Model for tracking worker health
+model WorkerHealthLog {
+  id                String   @id @default(cuid())
+  workerId          String // A unique identifier for the worker instance
+  status            String // STARTED, HEALTHY, UNHEALTHY, SHUTDOWN
+  queueMetrics      String? // JSON string with queue metrics
+  memoryUsage       Float? // Memory usage in MB
+  cpuUsage          Float? // CPU usage percentage
+  redisConnected    Boolean // Whether Redis is connected
+  databaseConnected Boolean // Whether the database is connected
+  details           String? // Additional details
+  createdAt         DateTime @default(now())
+
+  @@index([workerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Model for worker heartbeats to detect stalled workers
+model WorkerHeartbeat {
+  id            String   @id @default(cuid())
+  workerId      String   @unique // A unique identifier for the worker instance
+  lastHeartbeat DateTime
+  startedAt     DateTime
+  hostname      String?
+  details       String? // JSON string with worker details
+
+  @@index([workerId])
+  @@index([lastHeartbeat])
 }
