@@ -2,7 +2,83 @@
 require('dotenv').config();
 const express = require('express');
 const Bull = require('bull');
-const { createRedisClient } = require('./src/lib/redis/redisClient');
+const Redis = require('ioredis');
+const EventEmitter = require('events');
+
+// Properly initialize EventEmitter
+const redisEvents = new EventEmitter();
+const clientCache = new Map();
+
+function createRedisClient(role, config = {}) {
+  const cacheKey = `${role}-${JSON.stringify(config)}`;
+  
+  // Check if we already have a client for this role and config
+  if (clientCache.has(cacheKey)) {
+    return clientCache.get(cacheKey);
+  }
+  
+  // Basic Redis options with safety settings
+  const baseRedisOptions = {
+    tls: { rejectUnauthorized: false },
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    showFriendlyErrorStack: true,
+    retryStrategy: (times) => {
+      const delay = Math.min(times * 500, 10000);
+      console.log(`Redis reconnection attempt ${times}. Next attempt in ${delay}ms`);
+      return delay;
+    },
+    enableAutoPipelining: true,
+    connectTimeout: 20000,
+    enableOfflineQueue: true,
+    lazyConnect: false
+  };
+  
+  // Create a new client with merged options
+  const client = new Redis(process.env.REDIS_URL, {
+    ...baseRedisOptions,
+    ...config,
+    connectionName: `hivepay-${role}`
+  });
+  
+  // Attach event handlers
+  client.on('connect', () => {
+    console.log(`Redis ${role} connected`);
+    redisEvents.emit('connect', role);
+  });
+  
+  client.on('error', (error) => {
+    console.error(`Redis ${role} error:`, error);
+    redisEvents.emit('error', { role, error });
+  });
+  
+  client.on('close', () => {
+    console.warn(`Redis ${role} connection closed`);
+    redisEvents.emit('close', role);
+    clientCache.delete(cacheKey);
+  });
+  
+  client.on('reconnecting', () => {
+    console.log(`Redis ${role} reconnecting...`);
+    redisEvents.emit('reconnecting', role);
+  });
+  
+  client.on('ready', () => {
+    console.log(`Redis ${role} ready`);
+    redisEvents.emit('ready', role);
+  });
+  
+  client.on('end', () => {
+    console.log(`Redis ${role} connection ended`);
+    redisEvents.emit('end', role);
+    clientCache.delete(cacheKey);
+  });
+  
+  // Store in cache
+  clientCache.set(cacheKey, client);
+  
+  return client;
+}
 
 // Create express app
 const app = express();
@@ -47,6 +123,243 @@ const groupStatusQueue = new Bull('group-status', {
 
 // Enable JSON middleware
 app.use(express.json());
+
+// Root dashboard route
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>HivePay Queue Monitor</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+          :root { --bs-body-bg: #f8f9fa; }
+          .queue-card { transition: transform 0.2s; }
+          .queue-card:hover { transform: translateY(-5px); }
+          .bg-purple { background: #6f42c1; }
+          .bg-pink { background: #d63384; }
+          .chart-container { height: 300px; }
+        </style>
+      </head>
+      <body class="bg-light">
+        <nav class="navbar navbar-dark bg-dark mb-4">
+          <div class="container">
+            <span class="navbar-brand">HivePay Queue Monitor</span>
+          </div>
+        </nav>
+
+        <div class="container">
+          <div class="row mb-4" id="queueStats">
+            <!-- Dynamic stats will be loaded here -->
+          </div>
+
+          <div class="card mb-4">
+            <div class="card-body">
+              <h5 class="card-title">Queue Actions</h5>
+              
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <div class="card">
+                    <div class="card-body">
+                      <h6 class="card-subtitle mb-2 text-muted">Get Jobs</h6>
+                      <form id="jobsForm" onsubmit="event.preventDefault(); fetchJobs()">
+                        <div class="mb-3">
+                          <select class="form-select" id="jobsQueue" required>
+                            <option value="">Select Queue</option>
+                            <option value="contribution">Contribution</option>
+                            <option value="payment">Payment</option>
+                            <option value="groupStatus">Group Status</option>
+                          </select>
+                        </div>
+                        <div class="mb-3">
+                          <select class="form-select" id="jobsState" required>
+                            <option value="">Select State</option>
+                            <option value="waiting">Waiting</option>
+                            <option value="active">Active</option>
+                            <option value="failed">Failed</option>
+                            <option value="completed">Completed</option>
+                            <option value="delayed">Delayed</option>
+                          </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Get Jobs</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="card">
+                    <div class="card-body">
+                      <h6 class="card-subtitle mb-2 text-muted">Clean Jobs</h6>
+                      <form id="cleanForm" onsubmit="event.preventDefault(); cleanJobs()">
+                        <div class="mb-3">
+                          <select class="form-select" id="cleanQueue" required>
+                            <option value="">Select Queue</option>
+                            <option value="contribution">Contribution</option>
+                            <option value="payment">Payment</option>
+                            <option value="groupStatus">Group Status</option>
+                          </select>
+                        </div>
+                        <div class="mb-3">
+                          <select class="form-select" id="cleanState" required>
+                            <option value="">Select State</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                          </select>
+                        </div>
+                        <button type="submit" class="btn btn-warning w-100">Clean Jobs</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-4">
+                  <div class="card">
+                    <div class="card-body">
+                      <h6 class="card-subtitle mb-2 text-muted">Retry Job</h6>
+                      <form id="retryForm" onsubmit="event.preventDefault(); retryJob()">
+                        <div class="mb-3">
+                          <select class="form-select" id="retryQueue" required>
+                            <option value="">Select Queue</option>
+                            <option value="contribution">Contribution</option>
+                            <option value="payment">Payment</option>
+                            <option value="groupStatus">Group Status</option>
+                          </select>
+                        </div>
+                        <div class="mb-3">
+                          <input type="text" class="form-control" id="jobId" 
+                                 placeholder="Job ID" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Retry Job</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert-container position-fixed bottom-0 end-0 p-3"></div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+          // Load initial queue stats
+          async function loadStats() {
+            try {
+              const res = await fetch('/api/queue-counts');
+              const data = await res.json();
+              
+              const statsHtml = \`
+                <div class="col-md-4 mb-3">
+                  <div class="card queue-card bg-purple text-white">
+                    <div class="card-body">
+                      <h5>Contribution Queue</h5>
+                      <div>Waiting: \${data.contributionQueue.waiting}</div>
+                      <div>Active: \${data.contributionQueue.active}</div>
+                      <div>Failed: \${data.contributionQueue.failed}</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <div class="card queue-card bg-pink text-white">
+                    <div class="card-body">
+                      <h5>Payment Queue</h5>
+                      <div>Waiting: \${data.paymentQueue.waiting}</div>
+                      <div>Active: \${data.paymentQueue.active}</div>
+                      <div>Failed: \${data.paymentQueue.failed}</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                  <div class="card queue-card bg-primary text-white">
+                    <div class="card-body">
+                      <h5>Group Status Queue</h5>
+                      <div>Waiting: \${data.groupStatusQueue.waiting}</div>
+                      <div>Active: \${data.groupStatusQueue.active}</div>
+                      <div>Failed: \${data.groupStatusQueue.failed}</div>
+                    </div>
+                  </div>
+                </div>
+              \`;
+              
+              document.getElementById('queueStats').innerHTML = statsHtml;
+            } catch (error) {
+              showAlert('Error loading queue stats', 'danger');
+            }
+          }
+
+          // Form handlers
+          async function fetchJobs() {
+            const queue = document.getElementById('jobsQueue').value;
+            const state = document.getElementById('jobsState').value;
+            
+            try {
+              const res = await fetch(\`/api/jobs/\${queue}/\${state}?limit=50\`);
+              const data = await res.json();
+              window.open(\`/api/jobs/\${queue}/\${state}?limit=50\`, '_blank');
+            } catch (error) {
+              showAlert('Error fetching jobs: ' + error.message, 'danger');
+            }
+          }
+
+          async function cleanJobs() {
+            const queue = document.getElementById('cleanQueue').value;
+            const state = document.getElementById('cleanState').value;
+            
+            try {
+              const res = await fetch(\`/api/clean/\${queue}/\${state}\`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ grace: 3600000 })
+              });
+              
+              const result = await res.json();
+              showAlert(\`Cleaned \${result.cleaned} jobs from \${queue} queue\`, 'success');
+              loadStats();
+            } catch (error) {
+              showAlert('Error cleaning jobs: ' + error.message, 'danger');
+            }
+          }
+
+          async function retryJob() {
+            const queue = document.getElementById('retryQueue').value;
+            const jobId = document.getElementById('jobId').value;
+            
+            try {
+              const res = await fetch(\`/api/retry-job/\${queue}/\${jobId}\`, {
+                method: 'POST'
+              });
+              
+              const result = await res.json();
+              showAlert(\`Job \${jobId} retried successfully\`, 'success');
+              loadStats();
+            } catch (error) {
+              showAlert('Error retrying job: ' + error.message, 'danger');
+            }
+          }
+
+          function showAlert(message, type) {
+            const alert = document.createElement('div');
+            alert.className = \`alert alert-\${type} alert-dismissible fade show\`;
+            alert.role = 'alert';
+            alert.innerHTML = \`
+              \${message}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            \`;
+            
+            document.querySelector('.alert-container').appendChild(alert);
+            setTimeout(() => alert.remove(), 5000);
+          }
+
+          // Initial load
+          loadStats();
+          setInterval(loadStats, 10000);
+        </script>
+      </body>
+    </html>
+  `);
+});
+
 
 // Simple health check endpoint
 app.get('/health', async (req, res) => {

@@ -47,3 +47,7 @@ const isAuth = middleware(async (opts) => {
 export const router = t.router;
 export const publicProcedure = t.procedure;
 export const privateProcedure = t.procedure.use(isAuth);
+
+
+
+// currently the way im deploying my worker queues for my payment flow logic is , putting it as a docker image, then deploying it to my ec2 in aws. then having it run 24/7. it is also linked to my upstash. is this the best? what do you recommend? I want something that's stable, but not expensive and is good pricing and easy to use.
