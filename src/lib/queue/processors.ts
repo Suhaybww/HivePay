@@ -22,7 +22,7 @@ import { groupStatusQueue } from "../queue/groupStatusQueue";
 /**
  * Check if all payments for a cycle are completed and finalize the cycle if true.
  * IMPORTANT: Only advances to the next cycle date when all members in current cycle are paid.
- */
+ */parseFutureCyclesJson
 export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupId: string, cycleNumber: number) {
   const group = await tx.group.findUnique({
     where: { id: groupId },
@@ -41,7 +41,7 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
     throw new Error(`Group ${groupId} not found.`);
   }
 
-  // Ensure all members have been paid
+  // Ensure all members have been paid in this MEMBER cycle
   const allMembersPaid = group.groupMemberships.every(member => member.hasBeenPaid);
 
   if (!allMembersPaid) {
@@ -94,40 +94,77 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
   let nextCycleDate: Date | null = null;
   const completedCycleIndex = group.totalGroupCyclesCompleted;
   
+  // Debug the raw JSON to help diagnose issues
+  console.log(`DEBUG: futureCyclesJson raw data: ${JSON.stringify(group.futureCyclesJson)}`);
+  
   // Handle the futureCyclesJson type-safely
   if (group.futureCyclesJson) {
-    // Cast to proper type - we know it's an array of date strings
+    // Parse the future cycles array with enhanced debugging
     const futureDates = parseFutureCyclesJson(group.futureCyclesJson);
-    console.log(`Found futureCyclesJson with ${futureDates.length} dates`);
+    console.log(`Found futureCyclesJson with ${futureDates.length} dates. Current index: ${completedCycleIndex}, Next index: ${completedCycleIndex + 1}`);
+    
+    // Print the first few dates for debugging
+    if (futureDates.length > 0) {
+      console.log(`First few cycle dates: ${futureDates.slice(0, Math.min(3, futureDates.length)).join(', ')}`);
+    }
     
     // If there are more cycles in the future, use the next one
     if (completedCycleIndex + 1 < futureDates.length) {
       const nextCycleDateStr = futureDates[completedCycleIndex + 1];
       if (nextCycleDateStr) {
         nextCycleDate = new Date(nextCycleDateStr);
-        console.log(`📅 Advancing to next cycle date: ${nextCycleDate}`);
+        console.log(`📅 Advancing to next cycle date: ${nextCycleDate.toISOString()}`);
       }
     } else {
-      console.log(`🏁 All cycles completed - no more future dates available`);
+      console.log(`🏁 All planned future cycles completed - no more dates available in futureCyclesJson`);
     }
   } else {
     console.log(`⚠️ No futureCyclesJson found, cannot determine next cycle date`);
   }
 
+  // Check if all ROSCA members have been paid overall (completed a full ROSCA cycle)
+  const fullROSCACycleCompleted = group.currentMemberCycleNumber >= group.groupMemberships.length;
+  console.log(`Current member cycle: ${group.currentMemberCycleNumber}/${group.groupMemberships.length} - Full ROSCA cycle completed: ${fullROSCACycleCompleted}`);
+
+  // FIXED UPDATE DATA LOGIC
   // Update group status
   const updateData: any = {
     totalGroupCyclesCompleted: group.totalGroupCyclesCompleted + 1,
-    currentMemberCycleNumber: 1, // Reset to first member
     cycleStarted: false,
   };
   
-  // Only set the next cycle date if we found one
-  if (nextCycleDate) {
-    updateData.nextCycleDate = nextCycleDate;
-    updateData.cyclesCompleted = false; // There are more cycles to process
+  // Determine next member cycle number
+  if (fullROSCACycleCompleted) {
+    // If we've gone through all members, reset to first member
+    updateData.currentMemberCycleNumber = 1;
+    console.log(`Full ROSCA cycle completed, resetting to first member`);
   } else {
-    updateData.cyclesCompleted = true; // No more cycles to process
+    // Otherwise, advance to next member
+    updateData.currentMemberCycleNumber = group.currentMemberCycleNumber + 1;
+    console.log(`Advancing to next member, cycle ${group.currentMemberCycleNumber + 1}`);
   }
+  
+  // IMPROVED CYCLE COMPLETION LOGIC
+  // Only set cyclesCompleted=true if there are no more future dates AND we've completed a full ROSCA cycle
+  if (nextCycleDate) {
+    // We have another future date, so we're not done
+    updateData.nextCycleDate = nextCycleDate;
+    updateData.cyclesCompleted = false;
+    console.log(`Next cycle scheduled for ${nextCycleDate.toISOString()}`);
+  } else {
+    // No more future dates
+    if (fullROSCACycleCompleted) {
+      // Only mark as complete if we've gone through all members
+      updateData.cyclesCompleted = true;
+      console.log(`🏁 ALL CYCLES TRULY COMPLETED - No more dates and full ROSCA cycle finished`);
+    } else {
+      // Force continue until full ROSCA cycle is done, even without dates
+      updateData.cyclesCompleted = false;
+      console.log(`⚠️ No more dates but ROSCA cycle not complete - forcing continuation`);
+    }
+  }
+  
+  console.log(`Updating group with data: ${JSON.stringify(updateData)}`);
   
   await tx.group.update({
     where: { id: groupId },
@@ -135,7 +172,7 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
   });
 
   // Reset all members' hasBeenPaid status for the next cycle
-  if (nextCycleDate) {
+  if (nextCycleDate || !fullROSCACycleCompleted) {
     await tx.groupMembership.updateMany({
       where: { 
         groupId: group.id,
@@ -151,24 +188,31 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
   console.log(`Cycle ${cycleNumber} completed for group ${groupId}.`);
   
   if (nextCycleDate) {
-    console.log(`Next cycle scheduled for: ${nextCycleDate}`);
+    console.log(`Next cycle scheduled for: ${nextCycleDate.toISOString()}`);
   } else {
-    console.log(`No more cycles scheduled - all cycles completed`);
+    console.log(`No more cycles scheduled - ${fullROSCACycleCompleted ? 'all cycles completed' : 'missing future dates'}`);
   }
 }
 
 /**
  * Helper function to safely parse the futureCyclesJson from the database
- * Handles the type conversion safely
+ * Handles the type conversion safely with enhanced debugging
  */
 function parseFutureCyclesJson(json: unknown): string[] {
-  if (!json) return [];
+  if (!json) {
+    console.log(`parseFutureCyclesJson received empty input`);
+    return [];
+  }
   
   try {
+    console.log(`Parsing futureCyclesJson of type: ${typeof json}`);
+    
     // If it's already an array, check each element
     if (Array.isArray(json)) {
+      console.log(`Input is an array with ${json.length} elements`);
+      
       return json
-        .map(item => {
+        .map((item, index) => {
           // Ensure each item is a string
           if (typeof item === 'string') {
             return item;
@@ -177,10 +221,11 @@ function parseFutureCyclesJson(json: unknown): string[] {
           } else if (item && typeof item === 'object' && 'toISOString' in item) {
             // Handle date-like objects
             return (item as Date).toISOString();
+          } else {
+            // Debug the problematic item
+            console.log(`⚠️ Invalid date at index ${index} in futureCyclesJson: ${JSON.stringify(item)}`);
+            return null;
           }
-          // Skip invalid items
-          console.log(`⚠️ Skipping invalid date in futureCyclesJson:`, item);
-          return null;
         })
         .filter((item): item is string => item !== null); // Type guard to ensure non-null
     }
@@ -188,14 +233,38 @@ function parseFutureCyclesJson(json: unknown): string[] {
     // If it's a string, try to parse it as JSON
     if (typeof json === 'string') {
       try {
+        console.log(`Input is a string, attempting to parse as JSON`);
         const parsed = JSON.parse(json);
         if (Array.isArray(parsed)) {
+          console.log(`Successfully parsed string to array with ${parsed.length} elements`);
           return parseFutureCyclesJson(parsed); // Recursively parse
+        } else {
+          console.log(`Parsed JSON is not an array: ${typeof parsed}`);
         }
       } catch (e) {
         console.error(`Error parsing futureCyclesJson string:`, e);
       }
     }
+    
+    // Handle potential object with specific format
+    if (json && typeof json === 'object' && !Array.isArray(json)) {
+      console.log(`Input is an object, checking for dates property`);
+      // Some systems might store as {dates: [...]} or similar
+      if ('dates' in json && Array.isArray((json as any).dates)) {
+        console.log(`Found dates array in object with ${(json as any).dates.length} elements`);
+        return parseFutureCyclesJson((json as any).dates);
+      }
+      
+      // Try to convert to array if it has numeric keys
+      const objKeys = Object.keys(json);
+      if (objKeys.length > 0 && objKeys.every(k => !isNaN(Number(k)))) {
+        console.log(`Object appears to be array-like with ${objKeys.length} elements`);
+        const values = objKeys.map(k => (json as any)[k]);
+        return parseFutureCyclesJson(values);
+      }
+    }
+    
+    console.log(`Could not parse futureCyclesJson, unsupported format: ${JSON.stringify(json).substring(0, 100)}...`);
   } catch (error) {
     console.error(`Error parsing futureCyclesJson:`, error);
   }
@@ -256,6 +325,7 @@ export async function processContributionCycle(job: Job) {
         id: true,
         userId: true,
         hasBeenPaid: true,
+        payoutOrder: true,
         user: {
           select: {
             firstName: true,
@@ -267,7 +337,7 @@ export async function processContributionCycle(job: Job) {
     
     console.log(`🔍 DEBUG: Member payment status BEFORE transaction:`);
     beforeMembers.forEach(m => {
-      console.log(`Member ${m.user.firstName} ${m.user.lastName} (${m.id}): hasBeenPaid=${m.hasBeenPaid}`);
+      console.log(`Member ${m.user.firstName} ${m.user.lastName} (${m.id}): hasBeenPaid=${m.hasBeenPaid}, payoutOrder=${m.payoutOrder}`);
     });
 
     // Increase transaction timeout to 30 seconds
@@ -293,53 +363,72 @@ export async function processContributionCycle(job: Job) {
         throw new Error(`Invalid contributionAmount for group ${groupId}.`);
       }
 
+      // CRITICAL FIX: Identify the CORRECT payee for the current cycle
+      const currentCyclePayee = group.groupMemberships.find(
+        m => m.payoutOrder === group.currentMemberCycleNumber
+      );
+
+      if (!currentCyclePayee) {
+        console.error(`Cannot find payee with payoutOrder=${group.currentMemberCycleNumber}`);
+        throw new Error(`No payee found for current cycle ${group.currentMemberCycleNumber}`);
+      }
+
+      console.log(`🎯 Current cycle payee: ${currentCyclePayee.user.firstName} ${currentCyclePayee.user.lastName} (order=${currentCyclePayee.payoutOrder})`);
+
+      // If the payee has already been marked as paid, finalize the cycle
+      if (currentCyclePayee.hasBeenPaid) {
+        console.log(`✅ Payee already marked as paid. Finalizing cycle.`);
+        await checkAndFinalizeCycle(tx, groupId, group.currentMemberCycleNumber);
+        return;
+      }
+
       // IMPROVED FIX: Handle socket timeouts in email service
       try {
         console.log(`Sending contribution reminders for ${group.groupMemberships.length} members`);
         
         // Create array of promises with longer timeout
-    const sendReminders = group.groupMemberships.map(member => {
-      // Ensure contributionAmount is not null
-      if (!group.contributionAmount) {
-        console.warn(`Contribution amount is null for group ${groupId}.`);
-        return Promise.resolve(); // Don't fail, just skip
-      }
+        const sendReminders = group.groupMemberships.map(member => {
+          // Ensure contributionAmount is not null
+          if (!group.contributionAmount) {
+            console.warn(`Contribution amount is null for group ${groupId}.`);
+            return Promise.resolve(); // Don't fail, just skip
+          }
 
-      // Store the contribution amount to avoid TypeScript errors
-      const contributionAmount = group.contributionAmount; // This is now guaranteed to be non-null
+          // Store the contribution amount to avoid TypeScript errors
+          const contributionAmount = group.contributionAmount; // This is now guaranteed to be non-null
 
-      // Create a promise with timeout handling
-      return new Promise((resolve) => {
-        // Set a timeout to resolve the promise after 3 seconds even if hanging
-        const timeoutId = setTimeout(() => {
-          console.log(`Email to ${member.user.email} took too long - assuming sent and continuing...`);
-          resolve(true);
-        }, 3000); // 3 second timeout
-        
-        // Try to send the email
-        sendContributionReminderEmail({
-          groupName: group.name,
-          contributionAmount: contributionAmount, // Use the safely extracted value
-          contributionDate: new Date(),
-          recipient: {
-            email: member.user.email,
-            firstName: member.user.firstName,
-            lastName: member.user.lastName,
-          },
-        })
-        .then(() => {
-          clearTimeout(timeoutId); // Clear timeout if email succeeds quickly
-          console.log(`Email sent successfully to ${member.user.email}`);
-          resolve(true);
-        })
-        .catch(error => {
-          clearTimeout(timeoutId); // Clear timeout on error
-          console.error(`Email error for ${member.user.email}:`, error.message);
-          // Assume email was actually sent despite the error
-          resolve(true);
+          // Create a promise with timeout handling
+          return new Promise((resolve) => {
+            // Set a timeout to resolve the promise after 3 seconds even if hanging
+            const timeoutId = setTimeout(() => {
+              console.log(`Email to ${member.user.email} took too long - assuming sent and continuing...`);
+              resolve(true);
+            }, 3000); // 3 second timeout
+            
+            // Try to send the email
+            sendContributionReminderEmail({
+              groupName: group.name,
+              contributionAmount: contributionAmount, // Use the safely extracted value
+              contributionDate: new Date(),
+              recipient: {
+                email: member.user.email,
+                firstName: member.user.firstName,
+                lastName: member.user.lastName,
+              },
+            })
+            .then(() => {
+              clearTimeout(timeoutId); // Clear timeout if email succeeds quickly
+              console.log(`Email sent successfully to ${member.user.email}`);
+              resolve(true);
+            })
+            .catch(error => {
+              clearTimeout(timeoutId); // Clear timeout on error
+              console.error(`Email error for ${member.user.email}:`, error.message);
+              // Assume email was actually sent despite the error
+              resolve(true);
+            });
+          });
         });
-      });
-    });
 
         // Wait for all email sending operations to complete or time out
         await Promise.all(sendReminders);
@@ -348,43 +437,43 @@ export async function processContributionCycle(job: Job) {
         console.error(`Error in batch email sending, continuing anyway:`, error);
       }
 
-      const nextUnpaidMember = group.groupMemberships.find(m => !m.hasBeenPaid);
-      if (!nextUnpaidMember) {
-        console.log(`✅ No unpaid members found, finalizing cycle`);
-        await checkAndFinalizeCycle(tx, groupId, group.currentMemberCycleNumber);
-        return;
-      }
-
-      const nextCycleNumber = nextUnpaidMember.payoutOrder;
-      if (typeof nextCycleNumber !== 'number' || nextCycleNumber <= 0) {
-        throw new Error(`Invalid cycle number for group ${groupId}`);
-      }
-
       const totalMembers = group.groupMemberships.length;
       const safeDecimal = group.contributionAmount;
       const expectedTotal = safeDecimal.mul(totalMembers - 1);
 
-      console.log(`Processing cycle ${nextCycleNumber}:`, {
-        payee: `${nextUnpaidMember.user.firstName} ${nextUnpaidMember.user.lastName}`,
+      console.log(`Processing cycle ${group.currentMemberCycleNumber}:`, {
+        payee: `${currentCyclePayee.user.firstName} ${currentCyclePayee.user.lastName}`,
         totalMembers,
         contributionAmount: safeDecimal.toString(),
         expectedTotal: expectedTotal.toString()
       });
 
       const payeeUser = await tx.user.findUnique({
-        where: { id: nextUnpaidMember.userId },
+        where: { id: currentCyclePayee.userId },
         select: { stripeAccountId: true, email: true },
       });
 
       if (!payeeUser?.stripeAccountId) {
-        throw new Error(`Payee missing Stripe ID: ${nextUnpaidMember.userId}`);
+        throw new Error(`Payee missing Stripe ID: ${currentCyclePayee.userId}`);
       }
 
-      // Process payments
+      // Get existing payments for this cycle
+      const existingPayments = await tx.payment.findMany({
+        where: {
+          groupId: group.id,
+          cycleNumber: group.currentMemberCycleNumber
+        }
+      });
+      
+      console.log(`Found ${existingPayments.length} existing payments for cycle ${group.currentMemberCycleNumber}`);
+
+      // Process payments for everyone EXCEPT the current payee
       for (const membership of group.groupMemberships) {
         const user = membership.user;
-        if (user.id === nextUnpaidMember.userId) {
-          console.log(`Skipping payee: ${user.id}`);
+        
+        // CRITICAL FIX: Skip the current cycle's payee - they should receive, not contribute
+        if (user.id === currentCyclePayee.userId) {
+          console.log(`Skipping payee: ${user.id} (${user.firstName} ${user.lastName})`);
           continue;
         }
 
@@ -394,11 +483,15 @@ export async function processContributionCycle(job: Job) {
         }
 
         const existing = await tx.payment.findFirst({
-          where: { userId: user.id, groupId: group.id, cycleNumber: nextCycleNumber },
+          where: { 
+            userId: user.id, 
+            groupId: group.id, 
+            cycleNumber: group.currentMemberCycleNumber 
+          },
         });
 
         if (existing) {
-          console.log(`Payment exists for user ${user.id}, cycle ${nextCycleNumber}`);
+          console.log(`Payment exists for user ${user.id}, cycle ${group.currentMemberCycleNumber}`);
           continue;
         }
 
@@ -422,7 +515,7 @@ export async function processContributionCycle(job: Job) {
             metadata: {
               groupId: group.id,
               userId: user.id,
-              cycleNumber: nextCycleNumber.toString(),
+              cycleNumber: group.currentMemberCycleNumber.toString(),
               nextPayoutUser: payeeUser.email,
             },
           });
@@ -431,7 +524,7 @@ export async function processContributionCycle(job: Job) {
             data: {
               userId: user.id,
               groupId: group.id,
-              cycleNumber: nextCycleNumber,
+              cycleNumber: group.currentMemberCycleNumber,
               amount: safeDecimal,
               status: PaymentStatus.Pending,
               stripePaymentIntentId: pi.id,
@@ -443,7 +536,7 @@ export async function processContributionCycle(job: Job) {
                   amount: safeDecimal,
                   transactionType: 'Debit',
                   transactionDate: new Date(),
-                  description: `Contribution for cycle ${nextCycleNumber}`
+                  description: `Contribution for cycle ${group.currentMemberCycleNumber}`
                 }
               }
             },
@@ -455,7 +548,7 @@ export async function processContributionCycle(job: Job) {
             data: {
               userId: user.id,
               groupId: group.id,
-              cycleNumber: nextCycleNumber,
+              cycleNumber: group.currentMemberCycleNumber,
               amount: safeDecimal,
               status: PaymentStatus.Failed,
               retryCount: 1,
@@ -466,7 +559,7 @@ export async function processContributionCycle(job: Job) {
                   amount: safeDecimal,
                   transactionType: 'Debit',
                   transactionDate: new Date(),
-                  description: `Failed contribution - cycle ${nextCycleNumber}`
+                  description: `Failed contribution - cycle ${group.currentMemberCycleNumber}`
                 }
               }
             },
@@ -489,48 +582,47 @@ export async function processContributionCycle(job: Job) {
             });
           }
 
-    // Use the same timeout approach for payment failure emails
-    try {
-      // Use the same timeout approach for payment failure emails
-      await new Promise((resolve) => {
-        const timeoutId = setTimeout(() => {
-          console.log(`Payment failure email to ${user.email} took too long - assuming sent and continuing...`);
-          resolve(true);
-        }, 3000); // 3 second timeout
-        
-        // Safely extract the amount to avoid TypeScript errors
-        const amountStr = safeDecimal.toString();
-        
-        sendPaymentFailureEmail({
-          recipient: {
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-          },
-          groupName: group.name,
-          amount: amountStr,
-        })
-        .then(() => {
-          clearTimeout(timeoutId);
-          console.log(`Payment failure email sent to ${user.email}`);
-          resolve(true);
-        })
-        .catch(error => {
-          clearTimeout(timeoutId);
-          console.error(`Failed to send payment failure email to ${user.email}:`, error.message);
-          resolve(true); // Continue processing
-        });
-      });
-    } catch (emailError) {
-      console.error(`Error in payment failure email handling:`, emailError);
-      // Continue processing, don't let email failure stop the process
-    }
+          // Use the same timeout approach for payment failure emails
+          try {
+            await new Promise((resolve) => {
+              const timeoutId = setTimeout(() => {
+                console.log(`Payment failure email to ${user.email} took too long - assuming sent and continuing...`);
+                resolve(true);
+              }, 3000); // 3 second timeout
+              
+              // Safely extract the amount to avoid TypeScript errors
+              const amountStr = safeDecimal.toString();
+              
+              sendPaymentFailureEmail({
+                recipient: {
+                  email: user.email,
+                  firstName: user.firstName,
+                  lastName: user.lastName,
+                },
+                groupName: group.name,
+                amount: amountStr,
+              })
+              .then(() => {
+                clearTimeout(timeoutId);
+                console.log(`Payment failure email sent to ${user.email}`);
+                resolve(true);
+              })
+              .catch(error => {
+                clearTimeout(timeoutId);
+                console.error(`Failed to send payment failure email to ${user.email}:`, error.message);
+                resolve(true); // Continue processing
+              });
+            });
+          } catch (emailError) {
+            console.error(`Error in payment failure email handling:`, emailError);
+            // Continue processing, don't let email failure stop the process
+          }
         }
       }
 
       await updateGroupPaymentStats(tx, group.id);
       
-      // Mark that we're processing members within the same cycle
+      // Mark that we're processing this cycle if not already
       if (!group.cycleStarted) {
         await tx.group.update({
           where: { id: group.id },
@@ -539,30 +631,57 @@ export async function processContributionCycle(job: Job) {
         console.log(`🔄 Updated group to mark cycle as started`);
       }
       
-      // CRITICAL FIX: Mark the current member as paid and verify it worked
-      console.log(`🔍 CRITICAL: Marking member ${nextUnpaidMember.id} (${nextUnpaidMember.user.firstName} ${nextUnpaidMember.user.lastName}) as paid`);
-      
-      await tx.groupMembership.update({
+      // Re-fetch payments to check if all required ones have been made
+      const cyclePayments = await tx.payment.findMany({
         where: {
-          id: nextUnpaidMember.id
-        },
-        data: {
-          hasBeenPaid: true
+          groupId: group.id,
+          cycleNumber: group.currentMemberCycleNumber,
+          status: PaymentStatus.Successful
         }
       });
       
-      // Verify within transaction that update worked
-      const verifyMember = await tx.groupMembership.findUnique({
-        where: { id: nextUnpaidMember.id },
-        select: { hasBeenPaid: true }
-      });
+      // CRITICAL FIX: Calculate expected number of payments for this cycle
+      // Everyone except the payee should make a payment
+      const expectedPayments = totalMembers - 1;
+      const successfulPayments = cyclePayments.length;
       
-      console.log(`🔍 Member ${nextUnpaidMember.id} status: hasBeenPaid=${verifyMember?.hasBeenPaid}`);
+      console.log(`Expected payments: ${expectedPayments}, Successful: ${successfulPayments}`);
       
-      if (!verifyMember?.hasBeenPaid) {
-        console.error(`⚠️ WARNING: Failed to update hasBeenPaid status for member ${nextUnpaidMember.id}`);
+      // Check if all expected payments have been processed successfully
+      // Mark payee as paid only if ALL expected payments are successful
+      // Note: In a real system, you might want a more flexible approach, but this ensures
+      // the payee is only marked after all expected payments are confirmed successful
+      if (successfulPayments >= expectedPayments) {
+        console.log(`🔍 CRITICAL: All expected payments received, marking payee ${currentCyclePayee.id} as paid`);
+        
+        // CRITICAL FIX: Mark ONLY the current cycle's payee as having been paid
+        await tx.groupMembership.update({
+          where: {
+            id: currentCyclePayee.id
+          },
+          data: {
+            hasBeenPaid: true
+          }
+        });
+        
+        // Verify within transaction that update worked
+        const verifyMember = await tx.groupMembership.findUnique({
+          where: { id: currentCyclePayee.id },
+          select: { hasBeenPaid: true }
+        });
+        
+        console.log(`🔍 Verifying payee ${currentCyclePayee.id} status: hasBeenPaid=${verifyMember?.hasBeenPaid}`);
+        
+        if (!verifyMember?.hasBeenPaid) {
+          console.error(`⚠️ WARNING: Failed to update hasBeenPaid status for payee ${currentCyclePayee.id}`);
+        } else {
+          console.log(`✅ Successfully marked payee ${currentCyclePayee.id} as paid`);
+          
+          // Now that the payee is marked as paid, check if we should finalize the cycle
+          await checkAndFinalizeCycle(tx, groupId, group.currentMemberCycleNumber);
+        }
       } else {
-        console.log(`✅ Successfully marked member ${nextUnpaidMember.id} as paid`);
+        console.log(`⏳ Not all payments successful yet. Waiting for more payments before marking payee as paid.`);
       }
       
     }, {
@@ -580,6 +699,7 @@ export async function processContributionCycle(job: Job) {
         id: true,
         userId: true,
         hasBeenPaid: true,
+        payoutOrder: true,
         user: {
           select: {
             firstName: true,
@@ -591,7 +711,7 @@ export async function processContributionCycle(job: Job) {
     
     console.log(`🔍 DEBUG: Member payment status AFTER transaction:`);
     afterMembers.forEach(m => {
-      console.log(`Member ${m.user.firstName} ${m.user.lastName} (${m.id}): hasBeenPaid=${m.hasBeenPaid}`);
+      console.log(`Member ${m.user.firstName} ${m.user.lastName} (${m.id}): hasBeenPaid=${m.hasBeenPaid}, payoutOrder=${m.payoutOrder}`);
     });
 
     // CRITICAL FIX: Force an accurate unpaid members count
@@ -615,7 +735,7 @@ export async function processContributionCycle(job: Job) {
         futureCyclesJson: true,
         groupMemberships: {
           where: { status: MembershipStatus.Active },
-          select: { id: true, hasBeenPaid: true, userId: true }
+          select: { id: true, hasBeenPaid: true, userId: true, payoutOrder: true }
         }
       },
     });
@@ -680,6 +800,7 @@ export async function processContributionCycle(job: Job) {
     throw error;
   }
 }
+
 /**
  * retryAllPaymentsForGroup => unpause & re-schedule from existing futureCyclesJson
  */

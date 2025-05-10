@@ -188,146 +188,211 @@ export class SchedulerService {
       }
     }
   }
-
-  /**
-   * Enhanced scheduleNextCycle with cycle validation, date advancement,
-   * and improved error handling
-   */
-  static async scheduleNextCycle(groupId: string, options: { 
-    retryAttempt?: number,
-    forceLock?: boolean
-  } = {}): Promise<void> {
-    const retryAttempt = options.retryAttempt || 0;
-    const startTime = Date.now();
+/**
+ * Enhanced scheduleNextCycle with cycle validation, date advancement,
+ * and improved error handling
+ */
+static async scheduleNextCycle(groupId: string, options: { 
+  retryAttempt?: number,
+  forceLock?: boolean
+} = {}): Promise<void> {
+  const retryAttempt = options.retryAttempt || 0;
+  const startTime = Date.now();
+  
+  // Helper function to parse future cycle dates - simplified version for scheduler
+  const parseFutureCyclesJson = (json: unknown): string[] => {
+    if (!json) return [];
     
     try {
-      console.log(`🔍 DEBUG: scheduleNextCycle called for group ${groupId} (attempt: ${retryAttempt})`);
-
-      // Prevent duplicate scheduling unless forced
-      if (this.scheduledGroups.has(groupId) && !options.forceLock) {
-        console.log(`🔄 Group ${groupId} already has a scheduled next cycle, skipping`);
-        return;
+      if (Array.isArray(json)) {
+        return json
+          .filter(item => item !== null && item !== undefined)
+          .map(item => {
+            if (typeof item === 'string') return item;
+            if (item instanceof Date) return item.toISOString();
+            if (item && typeof item === 'object' && 'toISOString' in item) {
+              return (item as any).toISOString();
+            }
+            return null;
+          })
+          .filter((item): item is string => !!item);
       }
-
-      console.log(`🔁 Attempting to schedule next cycle for group ${groupId}`);
       
-      // Fetch group with all necessary data
-      const group = await db.group.findUnique({
-        where: { id: groupId },
-        select: { 
-          id: true,
-          name: true,
-          status: true,
-          nextCycleDate: true,
-          cycleStarted: true,
-          cyclesCompleted: true,
-          futureCyclesJson: true,
-          totalGroupCyclesCompleted: true,
-          contributionAmount: true,
-          groupMemberships: {
-            where: { status: MembershipStatus.Active },
-            select: { hasBeenPaid: true }
-          }
-        },
-      });
-
-      console.log(`🔍 DEBUG: Group state in scheduleNextCycle:`, {
-        groupId,
-        status: group?.status,
-        nextCycleDate: group?.nextCycleDate,
-        cycleStarted: group?.cycleStarted,
-        cyclesCompleted: group?.cyclesCompleted,
-        totalCycles: group?.totalGroupCyclesCompleted,
-        name: group?.name,
-        memberCount: group?.groupMemberships.length
-      });
-
-      if (!group) {
-        console.error(`❌ Group ${groupId} not found during next cycle scheduling`);
-        return;
+      if (typeof json === 'string') {
+        try {
+          const parsed = JSON.parse(json);
+          if (Array.isArray(parsed)) return parseFutureCyclesJson(parsed);
+        } catch (e) {
+          console.error(`Error parsing futureCyclesJson string in scheduler:`, e);
+        }
       }
+    } catch (error) {
+      console.error(`Error parsing futureCyclesJson in scheduler:`, error);
+    }
+    
+    return [];
+  };
+  
+  try {
+    console.log(`🔍 DEBUG: scheduleNextCycle called for group ${groupId} (attempt: ${retryAttempt})`);
 
-      if (group.status !== GroupStatus.Active) {
-        console.log(`⏸️  Skipping inactive group: ${groupId} (status: ${group.status})`);
-        return;
-      }
+    // Prevent duplicate scheduling unless forced
+    if (this.scheduledGroups.has(groupId) && !options.forceLock) {
+      console.log(`🔄 Group ${groupId} already has a scheduled next cycle, skipping`);
+      return;
+    }
 
-      // Check if all cycles are completed
-      if (group.cyclesCompleted) {
-        console.log(`⏹️  Group ${groupId} cycles already completed, skipping scheduling`);
-        return;
-      }
+    console.log(`🔁 Attempting to schedule next cycle for group ${groupId}`);
+    
+    // Fetch group with all necessary data
+    const group = await db.group.findUnique({
+      where: { id: groupId },
+      select: { 
+        id: true,
+        name: true,
+        status: true,
+        nextCycleDate: true,
+        cycleStarted: true,
+        cyclesCompleted: true,
+        futureCyclesJson: true,
+        totalGroupCyclesCompleted: true,
+        contributionAmount: true,
+        currentMemberCycleNumber: true,
+        groupMemberships: {
+          where: { status: MembershipStatus.Active },
+          select: { id: true, hasBeenPaid: true, payoutOrder: true }
+        }
+      },
+    });
 
-      // FIXED: Instead of blocking on cycleStarted, check for remaining unpaid members
-      if (group.cycleStarted) {
-        // Count unpaid members directly to avoid another DB query
-        const remainingUnpaidMembers = group.groupMemberships.filter(m => !m.hasBeenPaid).length;
+    console.log(`🔍 DEBUG: Group state in scheduleNextCycle:`, {
+      groupId,
+      status: group?.status,
+      nextCycleDate: group?.nextCycleDate,
+      cycleStarted: group?.cycleStarted,
+      cyclesCompleted: group?.cyclesCompleted,
+      totalCycles: group?.totalGroupCyclesCompleted,
+      currentMemberCycle: group?.currentMemberCycleNumber,
+      totalMembers: group?.groupMemberships.length,
+      name: group?.name,
+    });
 
-        console.log(`🔍 DEBUG: Group ${groupId} has ${remainingUnpaidMembers} unpaid members remaining`);
+    if (!group) {
+      console.error(`❌ Group ${groupId} not found during next cycle scheduling`);
+      return;
+    }
 
-        if (remainingUnpaidMembers === 0) {
-          console.log(`✅ All members paid in group ${groupId}, cycle is complete`);
+    if (group.status !== GroupStatus.Active) {
+      console.log(`⏸️  Skipping inactive group: ${groupId} (status: ${group.status})`);
+      return;
+    }
+
+    // IMPROVED COMPLETION CHECK: Ensure both flags are checked
+    if (group.cyclesCompleted) {
+      console.log(`⏹️  Group ${groupId} cycles already marked as completed, validating...`);
+      
+      // Double-check if this is legitimate or if there's an issue
+      if (group.futureCyclesJson) {
+        const futureDates = parseFutureCyclesJson(group.futureCyclesJson);
+        
+        if (futureDates.length > group.totalGroupCyclesCompleted) {
+          console.log(`⚠️ WARNING: Group ${groupId} marked as completed but still has future dates! This may be an error.`);
           
-          // Update the group to mark the full cycle as complete
+          await db.group.update({
+            where: { id: groupId },
+            data: { 
+              cyclesCompleted: false,
+              cycleStarted: false
+            }
+          });
+          console.log(`🔄 FIXED: Reset cyclesCompleted to false for group ${groupId}`);
+        }
+      }
+      
+      return;
+    }
+
+    // FIXED: More detailed check of cycle progress
+    if (group.cycleStarted) {
+      // Count unpaid members directly to avoid another DB query
+      const remainingUnpaidMembers = group.groupMemberships.filter(m => !m.hasBeenPaid).length;
+      const totalMembers = group.groupMemberships.length;
+      const currentMemberCycle = group.currentMemberCycleNumber || 1;
+
+      console.log(`🔍 DEBUG: Group ${groupId} cycle status:`, {
+        unpaidMembers: remainingUnpaidMembers,
+        totalMembers,
+        currentMemberCycle,
+      });
+
+      if (remainingUnpaidMembers === 0) {
+        // IMPORTANT FIX: Don't automatically mark cycles as complete
+        // This should happen only in checkAndFinalizeCycle
+        console.log(`✅ All members paid in current cycle ${currentMemberCycle}/${totalMembers}`);
+        
+        // Instead, check if we should reset for the next member in the ROSCA
+        const isFullROSCACycleComplete = currentMemberCycle >= totalMembers;
+        
+        if (isFullROSCACycleComplete && !group.nextCycleDate) {
+          console.log(`🔄 Full ROSCA cycle complete and no more dates - finalizing group ${groupId}`);
+          // This is a legitimate completion - all members have been paid in a full rotation
           await db.group.update({
             where: { id: groupId },
             data: { 
               cyclesCompleted: true,
-              // Reset for the next full cycle when needed
               cycleStarted: false 
             }
           });
-          
-          console.log(`🔄 Updated group ${groupId} state: cyclesCompleted=true, cycleStarted=false`);
           return;
-        } else {
-          console.log(`🔄 Group ${groupId} cycle in progress with ${remainingUnpaidMembers} unpaid members remaining`);
-          // Continue with the current cycle
         }
-      }
-
-      console.log(`✅ Validations passed, proceeding to schedule group ${groupId}`);
-      
-      // Now call scheduleContributionCycle to handle the actual scheduling
-      await this.scheduleContributionCycle(groupId, { 
-        retryAttempt, 
-        forceLock: options.forceLock 
-      });
-      
-      // Record metrics for successful next cycle scheduling
-      MetricsService.recordQueueEvent('scheduler', 'next_cycle_scheduled');
-      
-      // Calculate elapsed time and record it
-      const elapsed = Date.now() - startTime;
-      MetricsService.recordJobProcessingTime('scheduler', 'scheduleNextCycle', elapsed);
-      
-    } catch (error) {
-      console.error(`‼️ Next cycle scheduling failed for group ${groupId}:`, error);
-      
-      // Record the error
-      MetricsService.recordJobFailure(
-        'scheduler', 
-        'scheduleNextCycle', 
-        error instanceof Error ? error.message : 'Unknown error'
-      );
-      
-      // Retry logic for transient failures
-      if (retryAttempt < MAX_RETRY_ATTEMPTS) {
-        const nextRetryDelay = RETRY_DELAY_MS * Math.pow(2, retryAttempt);
-        console.log(`🔄 Retrying in ${nextRetryDelay}ms (attempt ${retryAttempt + 1}/${MAX_RETRY_ATTEMPTS})`);
-        
-        setTimeout(() => {
-          this.scheduleNextCycle(groupId, { 
-            retryAttempt: retryAttempt + 1,
-            forceLock: true
-          });
-        }, nextRetryDelay);
       } else {
-        // After max retries, rethrow for higher-level handling
-        throw error;
+        console.log(`🔄 Group ${groupId} cycle in progress with ${remainingUnpaidMembers} unpaid members remaining`);
+        // Continue with the current cycle
       }
     }
+
+    console.log(`✅ Validations passed, proceeding to schedule group ${groupId}`);
+    
+    // Now call scheduleContributionCycle to handle the actual scheduling
+    await this.scheduleContributionCycle(groupId, { 
+      retryAttempt, 
+      forceLock: options.forceLock 
+    });
+    
+    // Record metrics for successful next cycle scheduling
+    MetricsService.recordQueueEvent('scheduler', 'next_cycle_scheduled');
+    
+    // Calculate elapsed time and record it
+    const elapsed = Date.now() - startTime;
+    MetricsService.recordJobProcessingTime('scheduler', 'scheduleNextCycle', elapsed);
+    
+  } catch (error) {
+    console.error(`‼️ Next cycle scheduling failed for group ${groupId}:`, error);
+    
+    // Record the error
+    MetricsService.recordJobFailure(
+      'scheduler', 
+      'scheduleNextCycle', 
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+    
+    // Retry logic for transient failures
+    if (retryAttempt < MAX_RETRY_ATTEMPTS) {
+      const nextRetryDelay = RETRY_DELAY_MS * Math.pow(2, retryAttempt);
+      console.log(`🔄 Retrying in ${nextRetryDelay}ms (attempt ${retryAttempt + 1}/${MAX_RETRY_ATTEMPTS})`);
+      
+      setTimeout(() => {
+        this.scheduleNextCycle(groupId, { 
+          retryAttempt: retryAttempt + 1,
+          forceLock: true
+        });
+      }, nextRetryDelay);
+    } else {
+      // After max retries, rethrow for higher-level handling
+      throw error;
+    }
   }
+}
 
   /**
    * Calculate the next run time for a contribution cycle
