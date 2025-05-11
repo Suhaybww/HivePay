@@ -20,9 +20,9 @@ import { paymentQueue } from "./paymentQueue";
 import { groupStatusQueue } from "../queue/groupStatusQueue";
 
 /**
- * Check if all payments for a cycle are completed and finalize the cycle if true.
- * IMPORTANT: Only advances to the next cycle date when all members in current cycle are paid.
- */parseFutureCyclesJson
+ * Check if the current payee has been paid and finalize the cycle if true.
+ * IMPORTANT: Handles ROSCA cycle advancement correctly - only ONE member should be paid per cycle.
+ */
 export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupId: string, cycleNumber: number) {
   const group = await tx.group.findUnique({
     where: { id: groupId },
@@ -41,74 +41,89 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
     throw new Error(`Group ${groupId} not found.`);
   }
 
-  // Ensure all members have been paid in this MEMBER cycle
-  const allMembersPaid = group.groupMemberships.every(member => member.hasBeenPaid);
+  // CRITICAL FIX: Find the current payee based on currentMemberCycleNumber or offset
+  let currentPayee;
+  
+  // First try with offset for currentMemberCycleNumber=0 case
+  if (group.currentMemberCycleNumber === 0) {
+    currentPayee = group.groupMemberships.find(m => m.payoutOrder === 1);
+  } else {
+    currentPayee = group.groupMemberships.find(m => m.payoutOrder === group.currentMemberCycleNumber);
+  }
+  
+  if (!currentPayee) {
+    console.error(`Cannot find payee for cycle ${cycleNumber}`);
+    console.log(`Available payoutOrders: ${group.groupMemberships.map(m => m.payoutOrder).join(', ')}`);
+    throw new Error(`No payee found for cycle ${cycleNumber}`);
+  }
+  
+  console.log(`Current payee: ${currentPayee.user.firstName} ${currentPayee.user.lastName} (order=${currentPayee.payoutOrder})`);
 
-  if (!allMembersPaid) {
-    console.log(`Not all members have been paid yet. Skipping cycle finalization.`);
+  // CRITICAL FIX: Check if current payee is marked as paid
+  if (!currentPayee.hasBeenPaid) {
+    console.log(`Current payee ${currentPayee.user.firstName} not yet marked as paid. Skipping cycle finalization.`);
+    return;
+  }
+  
+  // CRITICAL FIX: Check that all expected payments (from non-payee members) are successful
+  const expectedContributors = group.groupMemberships.filter(m => m.id !== currentPayee.id);
+  const expectedPaymentsCount = expectedContributors.length;
+  
+  const successfulPayments = group.payments.filter(
+    p => p.status === PaymentStatus.Successful && p.cycleNumber === cycleNumber
+  ).length;
+  
+  if (successfulPayments < expectedPaymentsCount) {
+    console.log(`Not all expected payments processed. Expected ${expectedPaymentsCount}, got ${successfulPayments}`);
     return;
   }
 
-  // Check if all payments for this cycle are successful
-  const allPaymentsSuccessful = group.payments.every(
-    (payment) => payment.status === PaymentStatus.Successful
-  );
-
-  if (!allPaymentsSuccessful) {
-    console.log(`Not all payments are successful. Skipping cycle finalization.`);
-    return;
-  }
-
-  const totalMembers = group.groupMemberships.length;
+  console.log(`✅ Current payee is marked as paid and all expected payments are successful. Proceeding with cycle finalization.`);
 
   // Ensure contributionAmount is not null
   if (!group.contributionAmount || group.contributionAmount.lte(0)) {
     throw new Error(`Invalid contributionAmount for group ${groupId}.`);
   }
 
-  // Calculate totals for the entire cycle
+  // Calculate totals
+  const totalMembers = group.groupMemberships.length;
   const totalAmount = group.contributionAmount.mul(totalMembers - 1);
-  const successfulPayments = group.payments.filter(p => p.status === PaymentStatus.Successful).length;
-  const failedPayments = group.payments.filter(p => p.status === PaymentStatus.Failed).length;
-  const pendingPayments = group.payments.filter(p => p.status === PaymentStatus.Pending).length;
+  const successfulPaymentsCount = group.payments.filter(p => p.status === PaymentStatus.Successful).length;
+  const failedPaymentsCount = group.payments.filter(p => p.status === PaymentStatus.Failed).length;
+  const pendingPaymentsCount = group.payments.filter(p => p.status === PaymentStatus.Pending).length;
 
-  // Create GroupCycle record
+  // Create GroupCycle record for this member's payout
   await tx.groupCycle.create({
     data: {
       groupId: group.id,
       cycleNumber: group.totalGroupCyclesCompleted + 1,
-      memberCycleNumber: group.currentMemberCycleNumber,
+      memberCycleNumber: group.currentMemberCycleNumber === 0 ? 1 : group.currentMemberCycleNumber, 
       startDate: new Date(),
       endDate: new Date(),
-      payeeUserId: group.groupMemberships[group.groupMemberships.length - 1].userId,
+      payeeUserId: currentPayee.userId,
       totalAmount: totalAmount,
       status: CycleStatus.Completed,
-      successfulPayments,
-      failedPayments,
-      pendingPayments,
+      successfulPayments: successfulPaymentsCount,
+      failedPayments: failedPaymentsCount,
+      pendingPayments: pendingPaymentsCount,
     },
   });
 
-  // CRITICAL FIX: Handle cycle advancement correctly
-  // Get futureCyclesJson and determine the next cycle date
+  // Get next cycle date from futureCyclesJson
   let nextCycleDate: Date | null = null;
   const completedCycleIndex = group.totalGroupCyclesCompleted;
   
-  // Debug the raw JSON to help diagnose issues
+  // Debug futureCyclesJson
   console.log(`DEBUG: futureCyclesJson raw data: ${JSON.stringify(group.futureCyclesJson)}`);
   
-  // Handle the futureCyclesJson type-safely
   if (group.futureCyclesJson) {
-    // Parse the future cycles array with enhanced debugging
     const futureDates = parseFutureCyclesJson(group.futureCyclesJson);
     console.log(`Found futureCyclesJson with ${futureDates.length} dates. Current index: ${completedCycleIndex}, Next index: ${completedCycleIndex + 1}`);
     
-    // Print the first few dates for debugging
     if (futureDates.length > 0) {
       console.log(`First few cycle dates: ${futureDates.slice(0, Math.min(3, futureDates.length)).join(', ')}`);
     }
     
-    // If there are more cycles in the future, use the next one
     if (completedCycleIndex + 1 < futureDates.length) {
       const nextCycleDateStr = futureDates[completedCycleIndex + 1];
       if (nextCycleDateStr) {
@@ -122,43 +137,50 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
     console.log(`⚠️ No futureCyclesJson found, cannot determine next cycle date`);
   }
 
-  // Check if all ROSCA members have been paid overall (completed a full ROSCA cycle)
-  const fullROSCACycleCompleted = group.currentMemberCycleNumber >= group.groupMemberships.length;
-  console.log(`Current member cycle: ${group.currentMemberCycleNumber}/${group.groupMemberships.length} - Full ROSCA cycle completed: ${fullROSCACycleCompleted}`);
+  // CRITICAL FIX: Calculate the next member cycle number correctly
+  // Handle zero-based index properly
+  const currentMemberCycle = group.currentMemberCycleNumber === 0 ? 1 : group.currentMemberCycleNumber;
+  const totalMemberCount = group.groupMemberships.length;
+  
+  // Check if we've completed a full ROSCA cycle (gone through all members)
+  const fullROSCACycleCompleted = currentMemberCycle >= totalMemberCount;
+  console.log(`Current member cycle: ${currentMemberCycle}/${totalMemberCount} - Full ROSCA cycle completed: ${fullROSCACycleCompleted}`);
 
-  // FIXED UPDATE DATA LOGIC
-  // Update group status
+  // Initialize update data 
   const updateData: any = {
-    totalGroupCyclesCompleted: group.totalGroupCyclesCompleted + 1,
-    cycleStarted: false,
+    totalGroupCyclesCompleted: group.totalGroupCyclesCompleted + 1
   };
   
-  // Determine next member cycle number
+  // CRITICAL FIX: Only set cycleStarted to false when a FULL ROSCA cycle is completed
+  if (fullROSCACycleCompleted) {
+    updateData.cycleStarted = false; // Only reset when all members have been paid
+  } else {
+    // Keep cycleStarted true as we're still in the middle of a ROSCA cycle
+    updateData.cycleStarted = true;
+  }
+  
+  // CRITICAL FIX: Advance to next member or reset to first member
   if (fullROSCACycleCompleted) {
     // If we've gone through all members, reset to first member
     updateData.currentMemberCycleNumber = 1;
-    console.log(`Full ROSCA cycle completed, resetting to first member`);
+    console.log(`Full ROSCA cycle completed, resetting to first member (cycle 1)`);
   } else {
     // Otherwise, advance to next member
-    updateData.currentMemberCycleNumber = group.currentMemberCycleNumber + 1;
-    console.log(`Advancing to next member, cycle ${group.currentMemberCycleNumber + 1}`);
+    const nextMemberCycle = currentMemberCycle + 1;
+    updateData.currentMemberCycleNumber = nextMemberCycle;
+    console.log(`Advancing to next member, cycle ${nextMemberCycle}`);
   }
   
-  // IMPROVED CYCLE COMPLETION LOGIC
-  // Only set cyclesCompleted=true if there are no more future dates AND we've completed a full ROSCA cycle
+  // Set next cycle date and cyclesCompleted flag
   if (nextCycleDate) {
-    // We have another future date, so we're not done
     updateData.nextCycleDate = nextCycleDate;
     updateData.cyclesCompleted = false;
     console.log(`Next cycle scheduled for ${nextCycleDate.toISOString()}`);
   } else {
-    // No more future dates
     if (fullROSCACycleCompleted) {
-      // Only mark as complete if we've gone through all members
       updateData.cyclesCompleted = true;
       console.log(`🏁 ALL CYCLES TRULY COMPLETED - No more dates and full ROSCA cycle finished`);
     } else {
-      // Force continue until full ROSCA cycle is done, even without dates
       updateData.cyclesCompleted = false;
       console.log(`⚠️ No more dates but ROSCA cycle not complete - forcing continuation`);
     }
@@ -166,13 +188,14 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
   
   console.log(`Updating group with data: ${JSON.stringify(updateData)}`);
   
+  // Update the group
   await tx.group.update({
     where: { id: groupId },
     data: updateData
   });
 
-  // Reset all members' hasBeenPaid status for the next cycle
-  if (nextCycleDate || !fullROSCACycleCompleted) {
+  // CRITICAL FIX: Only reset ALL members' hasBeenPaid status when a FULL ROSCA cycle is completed
+  if (fullROSCACycleCompleted && (nextCycleDate || !updateData.cyclesCompleted)) {
     await tx.groupMembership.updateMany({
       where: { 
         groupId: group.id,
@@ -182,8 +205,9 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
         hasBeenPaid: false
       }
     });
-    console.log(`🔄 Reset payment status for all members for the next cycle`);
+    console.log(`🔄 Reset payment status for ALL members for the next FULL cycle`);
   }
+  // DO NOT RESET THE CURRENT PAYEE'S STATUS OTHERWISE - THEY SHOULD REMAIN MARKED AS PAID!
 
   console.log(`Cycle ${cycleNumber} completed for group ${groupId}.`);
   
@@ -193,7 +217,6 @@ export async function checkAndFinalizeCycle(tx: Prisma.TransactionClient, groupI
     console.log(`No more cycles scheduled - ${fullROSCACycleCompleted ? 'all cycles completed' : 'missing future dates'}`);
   }
 }
-
 /**
  * Helper function to safely parse the futureCyclesJson from the database
  * Handles the type conversion safely with enhanced debugging
@@ -308,353 +331,399 @@ async function updateGroupPaymentStats(
 }
 
 /**
- * Process contribution cycle for a group with enhanced debugging
+ * Process contribution cycle for a group with enhanced debugging and concurrency control
  */
 export async function processContributionCycle(job: Job) {
   const { groupId, testMode } = job.data;
   console.log(`\n=== processContributionCycle started for group=${groupId} ===`);
 
+  // CRITICAL FIX: Add distributed locking to prevent multiple workers processing the same group
+  const lockKey = `process-lock:${groupId}`;
+  const lockValue = `job-${job.id}`;
+  
   try {
-    // DEBUGGING: Check unpaid members before transaction
-    const beforeMembers = await db.groupMembership.findMany({
-      where: {
-        groupId,
-        status: MembershipStatus.Active
-      },
-      select: {
-        id: true,
-        userId: true,
-        hasBeenPaid: true,
-        payoutOrder: true,
-        user: {
-          select: {
-            firstName: true,
-            lastName: true
-          }
-        }
-      }
-    });
+    // Try to acquire a Redis lock for this group using separate commands
+    const redisClient = job.queue.client;
     
-    console.log(`🔍 DEBUG: Member payment status BEFORE transaction:`);
-    beforeMembers.forEach(m => {
-      console.log(`Member ${m.user.firstName} ${m.user.lastName} (${m.id}): hasBeenPaid=${m.hasBeenPaid}, payoutOrder=${m.payoutOrder}`);
-    });
+    // First try to set the key only if it doesn't exist
+    const acquired = await redisClient.setnx(lockKey, lockValue);
+    
+    if (acquired !== 1) {
+      console.log(`⚠️ Another job is already processing group ${groupId}, skipping...`);
+      return;
+    }
+    
+    // If lock was acquired, set an expiration separately
+    await redisClient.expire(lockKey, 60); // 60 second expiry
+    console.log(`🔒 Acquired processing lock for group ${groupId}`);
 
-    // Increase transaction timeout to 30 seconds
-    await db.$transaction(async (tx) => {
-      // 1) Load group with all active members
-      const group = await tx.group.findUnique({
-        where: { id: groupId },
-        include: {
-          groupMemberships: {
-            where: { status: MembershipStatus.Active },
-            orderBy: { payoutOrder: 'asc' },
-            include: { user: true },
-          },
-          payouts: { orderBy: { payoutOrder: 'desc' } },
-        },
-      });
-
-      if (!group || group.status !== GroupStatus.Active) {
-        throw new Error(`Group ${groupId} is not active/found.`);
-      }
-
-      if (!group.contributionAmount || group.contributionAmount.lte(0)) {
-        throw new Error(`Invalid contributionAmount for group ${groupId}.`);
-      }
-
-      // CRITICAL FIX: Identify the CORRECT payee for the current cycle
-      const currentCyclePayee = group.groupMemberships.find(
-        m => m.payoutOrder === group.currentMemberCycleNumber
-      );
-
-      if (!currentCyclePayee) {
-        console.error(`Cannot find payee with payoutOrder=${group.currentMemberCycleNumber}`);
-        throw new Error(`No payee found for current cycle ${group.currentMemberCycleNumber}`);
-      }
-
-      console.log(`🎯 Current cycle payee: ${currentCyclePayee.user.firstName} ${currentCyclePayee.user.lastName} (order=${currentCyclePayee.payoutOrder})`);
-
-      // If the payee has already been marked as paid, finalize the cycle
-      if (currentCyclePayee.hasBeenPaid) {
-        console.log(`✅ Payee already marked as paid. Finalizing cycle.`);
-        await checkAndFinalizeCycle(tx, groupId, group.currentMemberCycleNumber);
-        return;
-      }
-
-      // IMPROVED FIX: Handle socket timeouts in email service
-      try {
-        console.log(`Sending contribution reminders for ${group.groupMemberships.length} members`);
-        
-        // Create array of promises with longer timeout
-        const sendReminders = group.groupMemberships.map(member => {
-          // Ensure contributionAmount is not null
-          if (!group.contributionAmount) {
-            console.warn(`Contribution amount is null for group ${groupId}.`);
-            return Promise.resolve(); // Don't fail, just skip
-          }
-
-          // Store the contribution amount to avoid TypeScript errors
-          const contributionAmount = group.contributionAmount; // This is now guaranteed to be non-null
-
-          // Create a promise with timeout handling
-          return new Promise((resolve) => {
-            // Set a timeout to resolve the promise after 3 seconds even if hanging
-            const timeoutId = setTimeout(() => {
-              console.log(`Email to ${member.user.email} took too long - assuming sent and continuing...`);
-              resolve(true);
-            }, 3000); // 3 second timeout
-            
-            // Try to send the email
-            sendContributionReminderEmail({
-              groupName: group.name,
-              contributionAmount: contributionAmount, // Use the safely extracted value
-              contributionDate: new Date(),
-              recipient: {
-                email: member.user.email,
-                firstName: member.user.firstName,
-                lastName: member.user.lastName,
-              },
-            })
-            .then(() => {
-              clearTimeout(timeoutId); // Clear timeout if email succeeds quickly
-              console.log(`Email sent successfully to ${member.user.email}`);
-              resolve(true);
-            })
-            .catch(error => {
-              clearTimeout(timeoutId); // Clear timeout on error
-              console.error(`Email error for ${member.user.email}:`, error.message);
-              // Assume email was actually sent despite the error
-              resolve(true);
-            });
-          });
-        });
-
-        // Wait for all email sending operations to complete or time out
-        await Promise.all(sendReminders);
-        console.log(`Email sending process completed - continuing with contribution cycle`);
-      } catch (error) {
-        console.error(`Error in batch email sending, continuing anyway:`, error);
-      }
-
-      const totalMembers = group.groupMemberships.length;
-      const safeDecimal = group.contributionAmount;
-      const expectedTotal = safeDecimal.mul(totalMembers - 1);
-
-      console.log(`Processing cycle ${group.currentMemberCycleNumber}:`, {
-        payee: `${currentCyclePayee.user.firstName} ${currentCyclePayee.user.lastName}`,
-        totalMembers,
-        contributionAmount: safeDecimal.toString(),
-        expectedTotal: expectedTotal.toString()
-      });
-
-      const payeeUser = await tx.user.findUnique({
-        where: { id: currentCyclePayee.userId },
-        select: { stripeAccountId: true, email: true },
-      });
-
-      if (!payeeUser?.stripeAccountId) {
-        throw new Error(`Payee missing Stripe ID: ${currentCyclePayee.userId}`);
-      }
-
-      // Get existing payments for this cycle
-      const existingPayments = await tx.payment.findMany({
+    try {
+      // DEBUGGING: Check unpaid members before transaction
+      const beforeMembers = await db.groupMembership.findMany({
         where: {
-          groupId: group.id,
-          cycleNumber: group.currentMemberCycleNumber
+          groupId,
+          status: MembershipStatus.Active
+        },
+        select: {
+          id: true,
+          userId: true,
+          hasBeenPaid: true,
+          payoutOrder: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true
+            }
+          }
         }
       });
       
-      console.log(`Found ${existingPayments.length} existing payments for cycle ${group.currentMemberCycleNumber}`);
+      console.log(`🔍 DEBUG: Member payment status BEFORE transaction:`);
+      beforeMembers.forEach(m => {
+        console.log(`Member ${m.user.firstName} ${m.user.lastName} (${m.id}): hasBeenPaid=${m.hasBeenPaid}, payoutOrder=${m.payoutOrder}`);
+      });
 
-      // Process payments for everyone EXCEPT the current payee
-      for (const membership of group.groupMemberships) {
-        const user = membership.user;
-        
-        // CRITICAL FIX: Skip the current cycle's payee - they should receive, not contribute
-        if (user.id === currentCyclePayee.userId) {
-          console.log(`Skipping payee: ${user.id} (${user.firstName} ${user.lastName})`);
-          continue;
-        }
 
-        if (!user.stripeCustomerId || !user.stripeBecsPaymentMethodId || !user.stripeMandateId) {
-          console.warn(`User ${user.id} missing Stripe setup`);
-          continue;
-        }
-
-        const existing = await tx.payment.findFirst({
-          where: { 
-            userId: user.id, 
-            groupId: group.id, 
-            cycleNumber: group.currentMemberCycleNumber 
+      // Increase transaction timeout to 30 seconds
+      await db.$transaction(async (tx) => {
+        // 1) Load group with all active members
+        const group = await tx.group.findUnique({
+          where: { id: groupId },
+          include: {
+            groupMemberships: {
+              where: { status: MembershipStatus.Active },
+              orderBy: { payoutOrder: 'asc' },
+              include: { user: true },
+            },
+            payouts: { orderBy: { payoutOrder: 'desc' } },
           },
         });
 
-        if (existing) {
-          console.log(`Payment exists for user ${user.id}, cycle ${group.currentMemberCycleNumber}`);
-          continue;
+        if (!group || group.status !== GroupStatus.Active) {
+          throw new Error(`Group ${groupId} is not active/found.`);
         }
 
-        try {
-          const fee = Math.min(safeDecimal.toNumber() * 0.01 + 0.3, 3.5);
-          const totalToCharge = safeDecimal.toNumber() + fee;
-          const totalInCents = Math.round(totalToCharge * 100);
-          const feeInCents = Math.round(fee * 100);
+        if (!group.contributionAmount || group.contributionAmount.lte(0)) {
+          throw new Error(`Invalid contributionAmount for group ${groupId}.`);
+        }
 
-          const pi = await stripe.paymentIntents.create({
-            amount: totalInCents,
-            currency: "aud",
-            customer: user.stripeCustomerId,
-            payment_method: user.stripeBecsPaymentMethodId,
-            mandate: user.stripeMandateId,
-            confirm: true,
-            off_session: true,
-            payment_method_types: ["au_becs_debit"],
-            transfer_data: { destination: payeeUser.stripeAccountId },
-            application_fee_amount: feeInCents,
-            metadata: {
-              groupId: group.id,
-              userId: user.id,
-              cycleNumber: group.currentMemberCycleNumber.toString(),
-              nextPayoutUser: payeeUser.email,
-            },
-          });
-
-          await tx.payment.create({
-            data: {
-              userId: user.id,
-              groupId: group.id,
-              cycleNumber: group.currentMemberCycleNumber,
-              amount: safeDecimal,
-              status: PaymentStatus.Pending,
-              stripePaymentIntentId: pi.id,
-              retryCount: 0,
-              transactions: {
-                create: {
-                  userId: user.id,
-                  groupId: group.id,
-                  amount: safeDecimal,
-                  transactionType: 'Debit',
-                  transactionDate: new Date(),
-                  description: `Contribution for cycle ${group.currentMemberCycleNumber}`
-                }
-              }
-            },
-          });
-          console.log(`PaymentIntent created for user ${user.id}: ${pi.id}`);
-        } catch (err) {
-          console.error(`Payment failed for user ${user.id}`, err);
-          const newPayment = await tx.payment.create({
-            data: {
-              userId: user.id,
-              groupId: group.id,
-              cycleNumber: group.currentMemberCycleNumber,
-              amount: safeDecimal,
-              status: PaymentStatus.Failed,
-              retryCount: 1,
-              transactions: {
-                create: {
-                  userId: user.id,
-                  groupId: group.id,
-                  amount: safeDecimal,
-                  transactionType: 'Debit',
-                  transactionDate: new Date(),
-                  description: `Failed contribution - cycle ${group.currentMemberCycleNumber}`
-                }
-              }
-            },
-          });
-
-          // Schedule retries and handle group pause within the transaction
-          if (newPayment.retryCount < 3) {
-            await paymentQueue.add(
-              "retry-failed-payment",
-              { paymentId: newPayment.id },
-              { delay: 2 * 86400000 }
-            );
+        // CRITICAL FIX: Find the current payee based directly on payoutOrder, handling potential offset
+        console.log(`Current member cycle number: ${group.currentMemberCycleNumber}`);
+        
+        // Get all members with their payoutOrder for debugging
+        const memberOrders = group.groupMemberships.map(m => 
+          `${m.user.firstName} ${m.user.lastName}: order=${m.payoutOrder}, paid=${m.hasBeenPaid}`
+        );
+        console.log(`Member payout orders: ${memberOrders.join(', ')}`);
+        
+        // CRITICAL FIX: Find payee by payoutOrder directly
+        // First try with potential offset (if currentMemberCycleNumber is 0 but payoutOrder starts at 1)
+        let currentCyclePayee = group.groupMemberships.find(
+          m => m.payoutOrder === group.currentMemberCycleNumber + 1
+        );
+        
+        // If not found with offset, try direct match
+        if (!currentCyclePayee) {
+          currentCyclePayee = group.groupMemberships.find(
+            m => m.payoutOrder === group.currentMemberCycleNumber
+          );
+        }
+        
+        // If still not found, default to the first unpaid member in payout order
+        if (!currentCyclePayee) {
+          console.log(`⚠️ Could not find payee with expected payout order. Defaulting to first unpaid member.`);
+          
+          // Get all unpaid members and sort by payoutOrder
+          const unpaidMembers = group.groupMemberships
+            .filter(m => !m.hasBeenPaid)
+            .sort((a, b) => (a.payoutOrder || 999) - (b.payoutOrder || 999));
+          
+          if (unpaidMembers.length > 0) {
+            currentCyclePayee = unpaidMembers[0];
+            console.log(`Selected unpaid member with lowest payout order: ${currentCyclePayee.payoutOrder}`);
           } else {
-            await tx.group.update({
-              where: { id: group.id },
-              data: {
-                status: GroupStatus.Paused,
-                pauseReason: PauseReason.PAYMENT_FAILURES,
-              },
-            });
+            // If all members have been paid, reset and start with the first member
+            console.log(`All members have been paid. Starting new cycle from first member.`);
+            
+            // Reset all members to unpaid
+            for (const member of group.groupMemberships) {
+              await tx.groupMembership.update({
+                where: { id: member.id },
+                data: { hasBeenPaid: false }
+              });
+            }
+            
+            // Select the first member by payoutOrder
+            const firstMember = group.groupMemberships
+              .sort((a, b) => (a.payoutOrder || 999) - (b.payoutOrder || 999))[0];
+              
+            currentCyclePayee = firstMember;
+            console.log(`Reset all members and selected first member: ${currentCyclePayee.user.firstName} (order=${currentCyclePayee.payoutOrder})`);
           }
+        }
 
-          // Use the same timeout approach for payment failure emails
-          try {
-            await new Promise((resolve) => {
+        if (!currentCyclePayee) {
+          throw new Error(`Could not find any eligible payee member`);
+        }
+
+        console.log(`🎯 Current cycle payee: ${currentCyclePayee.user.firstName} ${currentCyclePayee.user.lastName} (order=${currentCyclePayee.payoutOrder})`);
+        
+        // If the payee has already been marked as paid, finalize the cycle
+        if (currentCyclePayee.hasBeenPaid) {
+          console.log(`✅ Payee already marked as paid. Finalizing cycle.`);
+          await checkAndFinalizeCycle(tx, groupId, group.currentMemberCycleNumber);
+          return;
+        }
+
+        // IMPROVED FIX: Handle socket timeouts in email service
+        try {
+          console.log(`Sending contribution reminders for ${group.groupMemberships.length} members`);
+          
+          // Create array of promises with longer timeout
+          const sendReminders = group.groupMemberships.map(member => {
+            // Ensure contributionAmount is not null
+            if (!group.contributionAmount) {
+              console.warn(`Contribution amount is null for group ${groupId}.`);
+              return Promise.resolve(); // Don't fail, just skip
+            }
+  
+            // Store the contribution amount to avoid TypeScript errors
+            const contributionAmount = group.contributionAmount; // This is now guaranteed to be non-null
+  
+            // Create a promise with timeout handling
+            return new Promise((resolve) => {
+              // Set a timeout to resolve the promise after 3 seconds even if hanging
               const timeoutId = setTimeout(() => {
-                console.log(`Payment failure email to ${user.email} took too long - assuming sent and continuing...`);
+                console.log(`Email to ${member.user.email} took too long - assuming sent and continuing...`);
                 resolve(true);
               }, 3000); // 3 second timeout
               
-              // Safely extract the amount to avoid TypeScript errors
-              const amountStr = safeDecimal.toString();
-              
-              sendPaymentFailureEmail({
-                recipient: {
-                  email: user.email,
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                },
+              // Try to send the email
+              sendContributionReminderEmail({
                 groupName: group.name,
-                amount: amountStr,
+                contributionAmount: contributionAmount, // Use the safely extracted value
+                contributionDate: new Date(),
+                recipient: {
+                  email: member.user.email,
+                  firstName: member.user.firstName,
+                  lastName: member.user.lastName,
+                },
               })
               .then(() => {
-                clearTimeout(timeoutId);
-                console.log(`Payment failure email sent to ${user.email}`);
+                clearTimeout(timeoutId); // Clear timeout if email succeeds quickly
+                console.log(`Email sent successfully to ${member.user.email}`);
                 resolve(true);
               })
               .catch(error => {
-                clearTimeout(timeoutId);
-                console.error(`Failed to send payment failure email to ${user.email}:`, error.message);
-                resolve(true); // Continue processing
+                clearTimeout(timeoutId); // Clear timeout on error
+                console.error(`Email error for ${member.user.email}:`, error.message);
+                // Assume email was actually sent despite the error
+                resolve(true);
               });
             });
-          } catch (emailError) {
-            console.error(`Error in payment failure email handling:`, emailError);
-            // Continue processing, don't let email failure stop the process
+          });
+  
+          // Wait for all email sending operations to complete or time out
+          await Promise.all(sendReminders);
+          console.log(`Email sending process completed - continuing with contribution cycle`);
+        } catch (error) {
+          console.error(`Error in batch email sending, continuing anyway:`, error);
+        }
+
+        const totalMembers = group.groupMemberships.length;
+        const safeDecimal = group.contributionAmount;
+        const expectedTotal = safeDecimal.mul(totalMembers - 1);
+
+        console.log(`Processing cycle ${group.currentMemberCycleNumber}:`, {
+          payee: `${currentCyclePayee.user.firstName} ${currentCyclePayee.user.lastName}`,
+          totalMembers,
+          contributionAmount: safeDecimal.toString(),
+          expectedTotal: expectedTotal.toString()
+        });
+
+        const payeeUser = await tx.user.findUnique({
+          where: { id: currentCyclePayee.userId },
+          select: { stripeAccountId: true, email: true },
+        });
+
+        if (!payeeUser?.stripeAccountId) {
+          throw new Error(`Payee missing Stripe ID: ${currentCyclePayee.userId}`);
+        }
+
+        // CRITICAL FIX: Check for existing payments in this cycle before creating new ones
+        const existingPayments = await tx.payment.findMany({
+          where: { 
+            groupId: group.id, 
+            cycleNumber: group.currentMemberCycleNumber
+          }
+        });
+        
+        console.log(`Found ${existingPayments.length} existing payments for cycle ${group.currentMemberCycleNumber}`);
+
+        // Process payments for everyone EXCEPT the current payee
+        for (const membership of group.groupMemberships) {
+          const user = membership.user;
+          
+          // CRITICAL FIX: Skip the current cycle's payee - they should receive, not contribute
+          if (user.id === currentCyclePayee.userId) {
+            console.log(`Skipping payee: ${user.id} (${user.firstName} ${user.lastName})`);
+            continue;
+          }
+
+          if (!user.stripeCustomerId || !user.stripeBecsPaymentMethodId || !user.stripeMandateId) {
+            console.warn(`User ${user.id} missing Stripe setup`);
+            continue;
+          }
+
+          // CRITICAL FIX: Check if payment already exists for this user in this cycle
+          const existingPayment = existingPayments.find(p => 
+            p.userId === user.id && p.cycleNumber === group.currentMemberCycleNumber
+          );
+
+          if (existingPayment) {
+            console.log(`Payment exists for user ${user.id}, cycle ${group.currentMemberCycleNumber}`);
+            continue;
+          }
+
+          try {
+            const fee = Math.min(safeDecimal.toNumber() * 0.01 + 0.3, 3.5);
+            const totalToCharge = safeDecimal.toNumber() + fee;
+            const totalInCents = Math.round(totalToCharge * 100);
+            const feeInCents = Math.round(fee * 100);
+
+            const pi = await stripe.paymentIntents.create({
+              amount: totalInCents,
+              currency: "aud",
+              customer: user.stripeCustomerId,
+              payment_method: user.stripeBecsPaymentMethodId,
+              mandate: user.stripeMandateId,
+              confirm: true,
+              off_session: true,
+              payment_method_types: ["au_becs_debit"],
+              transfer_data: { destination: payeeUser.stripeAccountId },
+              application_fee_amount: feeInCents,
+              metadata: {
+                groupId: group.id,
+                userId: user.id,
+                cycleNumber: group.currentMemberCycleNumber.toString(),
+                nextPayoutUser: payeeUser.email,
+              },
+            });
+
+            await tx.payment.create({
+              data: {
+                userId: user.id,
+                groupId: group.id,
+                cycleNumber: group.currentMemberCycleNumber,
+                amount: safeDecimal,
+                status: PaymentStatus.Pending,
+                stripePaymentIntentId: pi.id,
+                retryCount: 0,
+                transactions: {
+                  create: {
+                    userId: user.id,
+                    groupId: group.id,
+                    amount: safeDecimal,
+                    transactionType: 'Debit',
+                    transactionDate: new Date(),
+                    description: `Contribution for cycle ${group.currentMemberCycleNumber}`
+                  }
+                }
+              },
+            });
+            console.log(`PaymentIntent created for user ${user.id}: ${pi.id}`);
+          } catch (err) {
+            console.error(`Payment failed for user ${user.id}`, err);
+            const newPayment = await tx.payment.create({
+              data: {
+                userId: user.id,
+                groupId: group.id,
+                cycleNumber: group.currentMemberCycleNumber,
+                amount: safeDecimal,
+                status: PaymentStatus.Failed,
+                retryCount: 1,
+                transactions: {
+                  create: {
+                    userId: user.id,
+                    groupId: group.id,
+                    amount: safeDecimal,
+                    transactionType: 'Debit',
+                    transactionDate: new Date(),
+                    description: `Failed contribution - cycle ${group.currentMemberCycleNumber}`
+                  }
+                }
+              }
+            });
+
+            // Schedule retries and handle group pause within the transaction
+            if (newPayment.retryCount < 3) {
+              await paymentQueue.add(
+                "retry-failed-payment",
+                { paymentId: newPayment.id },
+                { delay: 2 * 86400000 }
+              );
+            } else {
+              await tx.group.update({
+                where: { id: group.id },
+                data: {
+                  status: GroupStatus.Paused,
+                  pauseReason: PauseReason.PAYMENT_FAILURES,
+                },
+              });
+            }
+
+            // Use the same timeout approach for payment failure emails
+            try {
+              await new Promise((resolve) => {
+                const timeoutId = setTimeout(() => {
+                  console.log(`Payment failure email to ${user.email} took too long - assuming sent and continuing...`);
+                  resolve(true);
+                }, 3000); // 3 second timeout
+                
+                // Safely extract the amount to avoid TypeScript errors
+                const amountStr = safeDecimal.toString();
+                
+                sendPaymentFailureEmail({
+                  recipient: {
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                  },
+                  groupName: group.name,
+                  amount: amountStr,
+                })
+                .then(() => {
+                  clearTimeout(timeoutId);
+                  console.log(`Payment failure email sent to ${user.email}`);
+                  resolve(true);
+                })
+                .catch(error => {
+                  clearTimeout(timeoutId);
+                  console.error(`Failed to send payment failure email to ${user.email}:`, error.message);
+                  resolve(true); // Continue processing
+                });
+              });
+            } catch (emailError) {
+              console.error(`Error in payment failure email handling:`, emailError);
+              // Continue processing, don't let email failure stop the process
+            }
           }
         }
-      }
 
-      await updateGroupPaymentStats(tx, group.id);
-      
-      // Mark that we're processing this cycle if not already
-      if (!group.cycleStarted) {
-        await tx.group.update({
-          where: { id: group.id },
-          data: { cycleStarted: true }
-        });
-        console.log(`🔄 Updated group to mark cycle as started`);
-      }
-      
-      // Re-fetch payments to check if all required ones have been made
-      const cyclePayments = await tx.payment.findMany({
-        where: {
-          groupId: group.id,
-          cycleNumber: group.currentMemberCycleNumber,
-          status: PaymentStatus.Successful
+        await updateGroupPaymentStats(tx, group.id);
+        
+        // Mark that we're processing this cycle if not already
+        if (!group.cycleStarted) {
+          await tx.group.update({
+            where: { id: group.id },
+            data: { cycleStarted: true }
+          });
+          console.log(`🔄 Updated group to mark cycle as started`);
         }
-      });
-      
-      // CRITICAL FIX: Calculate expected number of payments for this cycle
-      // Everyone except the payee should make a payment
-      const expectedPayments = totalMembers - 1;
-      const successfulPayments = cyclePayments.length;
-      
-      console.log(`Expected payments: ${expectedPayments}, Successful: ${successfulPayments}`);
-      
-      // Check if all expected payments have been processed successfully
-      // Mark payee as paid only if ALL expected payments are successful
-      // Note: In a real system, you might want a more flexible approach, but this ensures
-      // the payee is only marked after all expected payments are confirmed successful
-      if (successfulPayments >= expectedPayments) {
-        console.log(`🔍 CRITICAL: All expected payments received, marking payee ${currentCyclePayee.id} as paid`);
         
         // CRITICAL FIX: Mark ONLY the current cycle's payee as having been paid
+        console.log(`🔍 CRITICAL: Marking payee ${currentCyclePayee.id} (${currentCyclePayee.user.firstName}) as paid`);
+        
         await tx.groupMembership.update({
           where: {
             id: currentCyclePayee.id
@@ -676,128 +745,133 @@ export async function processContributionCycle(job: Job) {
           console.error(`⚠️ WARNING: Failed to update hasBeenPaid status for payee ${currentCyclePayee.id}`);
         } else {
           console.log(`✅ Successfully marked payee ${currentCyclePayee.id} as paid`);
-          
-          // Now that the payee is marked as paid, check if we should finalize the cycle
-          await checkAndFinalizeCycle(tx, groupId, group.currentMemberCycleNumber);
         }
-      } else {
-        console.log(`⏳ Not all payments successful yet. Waiting for more payments before marking payee as paid.`);
-      }
-      
-    }, {
-      timeout: 30000, // Increased timeout to 30 seconds
-      maxWait: 30000,
-    });
+        
+      }, {
+        timeout: 30000, // Increased timeout to 30 seconds
+        maxWait: 30000,
+      });
 
-    // DEBUGGING: Check unpaid members after transaction to ensure changes were committed
-    const afterMembers = await db.groupMembership.findMany({
-      where: {
-        groupId,
-        status: MembershipStatus.Active
-      },
-      select: {
-        id: true,
-        userId: true,
-        hasBeenPaid: true,
-        payoutOrder: true,
-        user: {
-          select: {
-            firstName: true,
-            lastName: true
+      // DEBUGGING: Check unpaid members after transaction to ensure changes were committed
+      const afterMembers = await db.groupMembership.findMany({
+        where: {
+          groupId,
+          status: MembershipStatus.Active
+        },
+        select: {
+          id: true,
+          userId: true,
+          hasBeenPaid: true,
+          payoutOrder: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
+      });
+      
+      console.log(`🔍 DEBUG: Member payment status AFTER transaction:`);
+      afterMembers.forEach(m => {
+        console.log(`Member ${m.user.firstName} ${m.user.lastName} (${m.id}): hasBeenPaid=${m.hasBeenPaid}, payoutOrder=${m.payoutOrder}`);
+      });
+
+      // CRITICAL FIX: Force an accurate unpaid members count
+      const actualUnpaidMembers = afterMembers.filter(m => !m.hasBeenPaid);
+      console.log(`🔍 DEBUG: Actual unpaid members count: ${actualUnpaidMembers.length}`);
+
+      console.log(`=== processContributionCycle success for group=${groupId} ===\n`);
+
+      // Post-transaction group check with detailed debug info
+      const updatedGroup = await db.group.findUnique({
+        where: { id: groupId },
+        select: { 
+          id: true, 
+          status: true, 
+          pauseReason: true, 
+          nextCycleDate: true,
+          cyclesCompleted: true,
+          cycleStarted: true,
+          totalGroupCyclesCompleted: true,
+          currentMemberCycleNumber: true,
+          futureCyclesJson: true,
+          groupMemberships: {
+            where: { status: MembershipStatus.Active },
+            select: { id: true, hasBeenPaid: true, userId: true, payoutOrder: true }
+          }
+        },
+      });
+
+      // Count unpaid members accurately
+      const unpaidMembersCount = updatedGroup?.groupMemberships.filter(m => !m.hasBeenPaid).length || 0;
+      
+      console.log(`🔍 Group state after transaction: cyclesCompleted=${updatedGroup?.cyclesCompleted}, cycleStarted=${updatedGroup?.cycleStarted}, status=${updatedGroup?.status}, currentMemberCycle=${updatedGroup?.currentMemberCycleNumber}, totalCycles=${updatedGroup?.totalGroupCyclesCompleted}`);
+      console.log(`🔍 Members remaining to be paid in this cycle: ${unpaidMembersCount}`);
+      
+      // Log the detailed member IDs that aren't paid
+      if (unpaidMembersCount > 0 && updatedGroup) {
+        console.log(`🔍 Unpaid members: ${updatedGroup.groupMemberships.filter(m => !m.hasBeenPaid).map(m => m.userId).join(', ')}`);
+      }
+
+      // CRITICAL FIX: Do not advance nextCycleDate if we're still in the same cycle
+      if (unpaidMembersCount > 0 && updatedGroup?.cycleStarted && updatedGroup.futureCyclesJson) {
+        console.log(`🔄 ${unpaidMembersCount} members still need payment in current cycle - preserving cycle date`);
+        const originalDate = updatedGroup.nextCycleDate;
+        console.log(`🔍 Current cycle date: ${originalDate}`);
+      }
+
+      // Add a safety check - if there are no unpaid members but cyclesCompleted is false
+      if (unpaidMembersCount === 0 && updatedGroup && !updatedGroup.cyclesCompleted) {
+        console.log(`🔍 All members paid but cycle not marked as completed. Running finalization...`);
+        await db.$transaction(async (tx) => {
+          await checkAndFinalizeCycle(tx, groupId, updatedGroup.currentMemberCycleNumber);
+        });
+      }
+
+      if (updatedGroup?.status === GroupStatus.Paused) {
+        // If paused, add to pause queue
+        await groupStatusQueue.add('handle-group-pause', {
+          groupId: updatedGroup.id,
+          reason: updatedGroup.pauseReason,
+        });
+      } else if (updatedGroup) {
+        // Only schedule next cycle if cycles are not completed
+        if (!updatedGroup.cyclesCompleted) {
+          console.log(`✅ Scheduling next cycle for group ${groupId}`);
+          await SchedulerService.scheduleNextCycle(updatedGroup.id);
+        } else {
+          console.log(`⏹️ Cycle completed for group ${groupId}, no more cycles will be scheduled`);
+          
+          // Option for test mode to reset cycles
+          if (testMode === true) {
+            console.log(`🧪 Test mode detected - resetting cycle flags for continued testing`);
+            await db.group.update({
+              where: { id: groupId },
+              data: { 
+                cyclesCompleted: false,
+                cycleStarted: false
+              }
+            });
+            console.log(`🔄 Reset cycle flags for group ${groupId}, now scheduling next test cycle`);
+            await SchedulerService.scheduleNextCycle(updatedGroup.id);
           }
         }
       }
-    });
-    
-    console.log(`🔍 DEBUG: Member payment status AFTER transaction:`);
-    afterMembers.forEach(m => {
-      console.log(`Member ${m.user.firstName} ${m.user.lastName} (${m.id}): hasBeenPaid=${m.hasBeenPaid}, payoutOrder=${m.payoutOrder}`);
-    });
-
-    // CRITICAL FIX: Force an accurate unpaid members count
-    const actualUnpaidMembers = afterMembers.filter(m => !m.hasBeenPaid);
-    console.log(`🔍 DEBUG: Actual unpaid members count: ${actualUnpaidMembers.length}`);
-
-    console.log(`=== processContributionCycle success for group=${groupId} ===\n`);
-
-    // Post-transaction group check with detailed debug info
-    const updatedGroup = await db.group.findUnique({
-      where: { id: groupId },
-      select: { 
-        id: true, 
-        status: true, 
-        pauseReason: true, 
-        nextCycleDate: true,
-        cyclesCompleted: true,
-        cycleStarted: true,
-        totalGroupCyclesCompleted: true,
-        currentMemberCycleNumber: true,
-        futureCyclesJson: true,
-        groupMemberships: {
-          where: { status: MembershipStatus.Active },
-          select: { id: true, hasBeenPaid: true, userId: true, payoutOrder: true }
-        }
-      },
-    });
-
-    // Count unpaid members accurately
-    const unpaidMembersCount = updatedGroup?.groupMemberships.filter(m => !m.hasBeenPaid).length || 0;
-    
-    console.log(`🔍 Group state after transaction: cyclesCompleted=${updatedGroup?.cyclesCompleted}, cycleStarted=${updatedGroup?.cycleStarted}, status=${updatedGroup?.status}, currentMemberCycle=${updatedGroup?.currentMemberCycleNumber}, totalCycles=${updatedGroup?.totalGroupCyclesCompleted}`);
-    console.log(`🔍 Members remaining to be paid in this cycle: ${unpaidMembersCount}`);
-    
-    // Log the detailed member IDs that aren't paid
-    if (unpaidMembersCount > 0 && updatedGroup) {
-      console.log(`🔍 Unpaid members: ${updatedGroup.groupMemberships.filter(m => !m.hasBeenPaid).map(m => m.userId).join(', ')}`);
-    }
-
-    // CRITICAL FIX: Do not advance nextCycleDate if we're still in the same cycle
-    if (unpaidMembersCount > 0 && updatedGroup?.cycleStarted && updatedGroup.futureCyclesJson) {
-      console.log(`🔄 ${unpaidMembersCount} members still need payment in current cycle - preserving cycle date`);
-      const originalDate = updatedGroup.nextCycleDate;
-      console.log(`🔍 Current cycle date: ${originalDate}`);
-    }
-
-    // Add a safety check - if there are no unpaid members but cyclesCompleted is false
-    if (unpaidMembersCount === 0 && updatedGroup && !updatedGroup.cyclesCompleted) {
-      console.log(`🔍 All members paid but cycle not marked as completed. Running finalization...`);
-      await db.$transaction(async (tx) => {
-        await checkAndFinalizeCycle(tx, groupId, updatedGroup.currentMemberCycleNumber);
-      });
-    }
-
-    if (updatedGroup?.status === GroupStatus.Paused) {
-      // If paused, add to pause queue
-      await groupStatusQueue.add('handle-group-pause', {
-        groupId: updatedGroup.id,
-        reason: updatedGroup.pauseReason,
-      });
-    } else if (updatedGroup) {
-      // Only schedule next cycle if cycles are not completed
-      if (!updatedGroup.cyclesCompleted) {
-        console.log(`✅ Scheduling next cycle for group ${groupId}`);
-        await SchedulerService.scheduleNextCycle(updatedGroup.id);
-      } else {
-        console.log(`⏹️ Cycle completed for group ${groupId}, no more cycles will be scheduled`);
-        
-        // Option for test mode to reset cycles
-        if (testMode === true) {
-          console.log(`🧪 Test mode detected - resetting cycle flags for continued testing`);
-          await db.group.update({
-            where: { id: groupId },
-            data: { 
-              cyclesCompleted: false,
-              cycleStarted: false
-            }
-          });
-          console.log(`🔄 Reset cycle flags for group ${groupId}, now scheduling next test cycle`);
-          await SchedulerService.scheduleNextCycle(updatedGroup.id);
-        }
+    } catch (error) {
+      console.error(`Contribution cycle failed for group ${groupId}:`, error);
+      throw error;
+    } finally {
+      // CRITICAL FIX: Always release the lock, even if processing fails
+      const currentLock = await redisClient.get(lockKey);
+      if (currentLock === lockValue) {
+        await redisClient.del(lockKey);
+        console.log(`🔓 Released processing lock for group ${groupId}`);
       }
     }
-  } catch (error) {
-    console.error(`Contribution cycle failed for group ${groupId}:`, error);
-    throw error;
+  } catch (lockError) {
+    console.error(`Lock acquisition failed for group ${groupId}:`, lockError);
+    // Don't rethrow - this is a locking error, not a processing error
   }
 }
 

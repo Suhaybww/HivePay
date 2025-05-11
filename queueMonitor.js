@@ -87,7 +87,7 @@ const port = process.env.MONITOR_PORT || 3001;
 // Redis connection options from config
 const redis = createRedisClient('monitor');
 
-// Queues to monitor
+// Queues to monitor with essential prefix
 const contributionQueue = new Bull('contribution-cycles', {
   createClient: type => {
     switch (type) {
@@ -96,7 +96,8 @@ const contributionQueue = new Bull('contribution-cycles', {
       case 'bclient': return createRedisClient('contribution-bclient');
       default: return createRedisClient(`contribution-${type}`);
     }
-  }
+  },
+  prefix: '{hivepay}' // CRITICAL: Must match the prefix in your worker
 });
 
 const paymentQueue = new Bull('payment-queue', {
@@ -107,7 +108,8 @@ const paymentQueue = new Bull('payment-queue', {
       case 'bclient': return createRedisClient('payment-bclient');
       default: return createRedisClient(`payment-${type}`);
     }
-  }
+  },
+  prefix: '{hivepay}' // CRITICAL: Must match the prefix in your worker
 });
 
 const groupStatusQueue = new Bull('group-status', {
@@ -118,11 +120,23 @@ const groupStatusQueue = new Bull('group-status', {
       case 'bclient': return createRedisClient('status-bclient');
       default: return createRedisClient(`status-${type}`);
     }
-  }
+  },
+  prefix: '{hivepay}' // CRITICAL: Must match the prefix in your worker
 });
 
 // Enable JSON middleware
 app.use(express.json());
+
+// Debug helper to list Redis keys
+app.get('/api/debug/redis-keys', async (req, res) => {
+  try {
+    const keys = await redis.keys('{hivepay}:*');
+    res.json({ keys });
+  } catch (error) {
+    console.error('Failed to fetch Redis keys:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Root dashboard route
 app.get('/', (req, res) => {
@@ -138,16 +152,38 @@ app.get('/', (req, res) => {
           .bg-purple { background: #6f42c1; }
           .bg-pink { background: #d63384; }
           .chart-container { height: 300px; }
+          .debug-section { 
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+          }
         </style>
       </head>
       <body class="bg-light">
         <nav class="navbar navbar-dark bg-dark mb-4">
           <div class="container">
             <span class="navbar-brand">HivePay Queue Monitor</span>
+            <div>
+              <button class="btn btn-sm btn-outline-light ms-2" onclick="addTestJob()">Add Test Job</button>
+              <button class="btn btn-sm btn-outline-danger ms-2" onclick="resetQueues()">Reset Queues</button>
+            </div>
           </div>
         </nav>
 
         <div class="container">
+          <div class="debug-section">
+            <h5>Debug Info</h5>
+            <div class="row mb-2">
+              <div class="col-md-8">
+                <p class="mb-0" id="debugInfo">Monitoring queues with prefix: {hivepay}</p>
+              </div>
+              <div class="col-md-4 text-end">
+                <button class="btn btn-sm btn-secondary" onclick="loadDebugInfo()">Refresh Debug Info</button>
+              </div>
+            </div>
+          </div>
+
           <div class="row mb-4" id="queueStats">
             <!-- Dynamic stats will be loaded here -->
           </div>
@@ -243,6 +279,54 @@ app.get('/', (req, res) => {
 
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
         <script>
+          // Load debug info
+          async function loadDebugInfo() {
+            try {
+              const res = await fetch('/api/debug/redis-keys');
+              const data = await res.json();
+              
+              document.getElementById('debugInfo').innerHTML = \`
+                Monitoring queues with prefix: {hivepay}<br>
+                Found \${data.keys.length} Redis keys
+              \`;
+              
+              // Also update the main stats at the same time
+              loadStats();
+            } catch (error) {
+              showAlert('Error loading debug info: ' + error.message, 'danger');
+            }
+          }
+          
+          // Add test job
+          async function addTestJob() {
+            try {
+              const res = await fetch('/api/add-test-job');
+              const data = await res.json();
+              showAlert(\`Test job added: \${data.jobId}\`, 'success');
+              
+              // Reload stats after adding test job
+              setTimeout(loadStats, 1000);
+            } catch (error) {
+              showAlert('Error adding test job: ' + error.message, 'danger');
+            }
+          }
+          
+          // Reset all queues
+          async function resetQueues() {
+            if (!confirm('Are you sure you want to empty all queues?')) return;
+            
+            try {
+              const res = await fetch('/api/reset-queues');
+              const data = await res.json();
+              showAlert('All queues reset', 'warning');
+              
+              // Reload stats after resetting
+              setTimeout(loadStats, 1000);
+            } catch (error) {
+              showAlert('Error resetting queues: ' + error.message, 'danger');
+            }
+          }
+
           // Load initial queue stats
           async function loadStats() {
             try {
@@ -256,6 +340,8 @@ app.get('/', (req, res) => {
                       <h5>Contribution Queue</h5>
                       <div>Waiting: \${data.contributionQueue.waiting}</div>
                       <div>Active: \${data.contributionQueue.active}</div>
+                      <div>Delayed: \${data.contributionQueue.delayed}</div>
+                      <div>Completed: \${data.contributionQueue.completed}</div>
                       <div>Failed: \${data.contributionQueue.failed}</div>
                     </div>
                   </div>
@@ -266,6 +352,8 @@ app.get('/', (req, res) => {
                       <h5>Payment Queue</h5>
                       <div>Waiting: \${data.paymentQueue.waiting}</div>
                       <div>Active: \${data.paymentQueue.active}</div>
+                      <div>Delayed: \${data.paymentQueue.delayed}</div>
+                      <div>Completed: \${data.paymentQueue.completed}</div>
                       <div>Failed: \${data.paymentQueue.failed}</div>
                     </div>
                   </div>
@@ -276,6 +364,8 @@ app.get('/', (req, res) => {
                       <h5>Group Status Queue</h5>
                       <div>Waiting: \${data.groupStatusQueue.waiting}</div>
                       <div>Active: \${data.groupStatusQueue.active}</div>
+                      <div>Delayed: \${data.groupStatusQueue.delayed}</div>
+                      <div>Completed: \${data.groupStatusQueue.completed}</div>
                       <div>Failed: \${data.groupStatusQueue.failed}</div>
                     </div>
                   </div>
@@ -284,7 +374,7 @@ app.get('/', (req, res) => {
               
               document.getElementById('queueStats').innerHTML = statsHtml;
             } catch (error) {
-              showAlert('Error loading queue stats', 'danger');
+              showAlert('Error loading queue stats: ' + error.message, 'danger');
             }
           }
 
@@ -360,7 +450,6 @@ app.get('/', (req, res) => {
   `);
 });
 
-
 // Simple health check endpoint
 app.get('/health', async (req, res) => {
   try {
@@ -372,9 +461,11 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Queue counts endpoint
+// Queue counts endpoint with enhanced logging
 app.get('/api/queue-counts', async (req, res) => {
   try {
+    console.log('Fetching queue counts...');
+    
     const [
       contributionWaiting, contributionActive, contributionDelayed, contributionCompleted, contributionFailed,
       paymentWaiting, paymentActive, paymentDelayed, paymentCompleted, paymentFailed,
@@ -398,6 +489,31 @@ app.get('/api/queue-counts', async (req, res) => {
       groupStatusQueue.getCompletedCount(),
       groupStatusQueue.getFailedCount()
     ]);
+    
+    // Log queue counts for debugging
+    console.log('Queue counts retrieved:', {
+      contribution: {
+        waiting: contributionWaiting,
+        active: contributionActive,
+        delayed: contributionDelayed,
+        completed: contributionCompleted,
+        failed: contributionFailed
+      },
+      payment: {
+        waiting: paymentWaiting,
+        active: paymentActive,
+        delayed: paymentDelayed,
+        completed: paymentCompleted,
+        failed: paymentFailed
+      },
+      groupStatus: {
+        waiting: groupStatusWaiting,
+        active: groupStatusActive,
+        delayed: groupStatusDelayed,
+        completed: groupStatusCompleted,
+        failed: groupStatusFailed
+      }
+    });
     
     res.json({
       contributionQueue: {
@@ -425,7 +541,88 @@ app.get('/api/queue-counts', async (req, res) => {
     });
   } catch (error) {
     console.error('Failed to get queue counts:', error);
-    res.status(500).json({ error: 'Failed to get queue counts' });
+    res.status(500).json({ error: 'Failed to get queue counts', details: error.message });
+  }
+});
+
+// Debug endpoint for raw job counts
+app.get('/api/debug-counts', async (req, res) => {
+  try {
+    const rawContribution = await contributionQueue.getJobCounts();
+    const rawPayment = await paymentQueue.getJobCounts();
+    const rawGroupStatus = await groupStatusQueue.getJobCounts();
+    
+    res.json({
+      contributionQueue: rawContribution,
+      paymentQueue: rawPayment,
+      groupStatusQueue: rawGroupStatus
+    });
+  } catch (error) {
+    console.error('Failed to get debug counts:', error);
+    res.status(500).json({ error: 'Failed to get debug counts', details: error.message });
+  }
+});
+
+// Add test job endpoint
+app.get('/api/add-test-job', async (req, res) => {
+  try {
+    console.log('Adding test job to contribution queue...');
+    
+    // Add a test job with a unique ID
+    const jobId = `test-${Date.now()}`;
+    const job = await contributionQueue.add(
+      'start-contribution',
+      { 
+        groupId: jobId,
+        test: true,
+        timestamp: new Date().toISOString()
+      },
+      {
+        jobId,
+        attempts: 3,
+        removeOnComplete: false
+      }
+    );
+    
+    console.log(`Test job added: ${job.id}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Test job added to contribution queue', 
+      jobId: job.id 
+    });
+  } catch (error) {
+    console.error('Failed to add test job:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Reset/empty all queues
+app.get('/api/reset-queues', async (req, res) => {
+  try {
+    console.log('Emptying all queues...');
+    
+    await Promise.all([
+      contributionQueue.empty(),
+      paymentQueue.empty(),
+      groupStatusQueue.empty()
+    ]);
+    
+    console.log('All queues emptied successfully');
+    
+    res.json({ 
+      success: true, 
+      message: 'All queues emptied successfully'
+    });
+  } catch (error) {
+    console.error('Failed to empty queues:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 });
 
@@ -433,6 +630,8 @@ app.get('/api/queue-counts', async (req, res) => {
 app.get('/api/jobs/:queue/:state', async (req, res) => {
   const { queue, state } = req.params;
   const { limit = 10 } = req.query;
+  
+  console.log(`Fetching ${limit} ${state} jobs from ${queue} queue...`);
   
   // Validate queue
   let targetQueue;
@@ -458,6 +657,7 @@ app.get('/api/jobs/:queue/:state', async (req, res) => {
   try {
     // Get jobs with the specified state
     const jobs = await targetQueue.getJobs([state], 0, parseInt(limit));
+    console.log(`Found ${jobs.length} ${state} jobs in ${queue} queue`);
     
     // Format jobs for response
     const formattedJobs = jobs.map(job => ({
@@ -488,6 +688,8 @@ app.post('/api/clean/:queue/:state', async (req, res) => {
   const { queue, state } = req.params;
   const { grace = 3600000 } = req.body; // Default 1 hour
   
+  console.log(`Cleaning ${state} jobs from ${queue} queue with grace period ${grace}ms...`);
+  
   // Validate queue
   let targetQueue;
   switch (queue) {
@@ -512,6 +714,7 @@ app.post('/api/clean/:queue/:state', async (req, res) => {
   try {
     // Clean jobs
     const count = await targetQueue.clean(parseInt(grace), state);
+    console.log(`Cleaned ${count} ${state} jobs from ${queue} queue`);
     
     res.json({
       queue,
@@ -528,6 +731,8 @@ app.post('/api/clean/:queue/:state', async (req, res) => {
 // Retry failed job
 app.post('/api/retry-job/:queue/:id', async (req, res) => {
   const { queue, id } = req.params;
+  
+  console.log(`Attempting to retry job ${id} in ${queue} queue...`);
   
   // Validate queue
   let targetQueue;
@@ -550,11 +755,13 @@ app.post('/api/retry-job/:queue/:id', async (req, res) => {
     const job = await targetQueue.getJob(id);
     
     if (!job) {
+      console.log(`Job ${id} not found in ${queue} queue`);
       return res.status(404).json({ error: 'Job not found' });
     }
     
     // Retry the job
     await job.retry();
+    console.log(`Job ${id} in ${queue} queue retried successfully`);
     
     res.json({
       queue,
@@ -631,6 +838,7 @@ app.get('/metrics', async (req, res) => {
 // Start the server
 app.listen(port, () => {
   console.log(`Queue monitor running at http://localhost:${port}`);
+  console.log(`Monitor configured with prefix: {hivepay}`);
 });
 
 // Graceful shutdown

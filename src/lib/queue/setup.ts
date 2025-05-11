@@ -396,44 +396,47 @@ async function performQueueHealthCheck() {
   }
 }
 
-// Processor registration with enhanced error handling
+// Update registerProcessors function in setup.ts
 function registerProcessors() {
-  contributionQueue.process('start-contribution', 
+  // CRITICAL FIX: Limit to ONE job processing at a time per queue to prevent concurrency issues
+  contributionQueue.process('start-contribution', 1, 
     createProcessorWrapper(async (job: Job) => {
       console.log(`Processing contribution for group ${job.data.groupId}`);
       await processContributionCycle(job);
     })
   );
 
-  paymentQueue.process('retry-failed-payment', 
+  paymentQueue.process('retry-failed-payment', 1,
     createProcessorWrapper(async (job: Job) => {
       console.log(`Retrying payment ${job.data.paymentId}`);
       await retryFailedPayment(job);
     })
   );
 
-  groupStatusQueue.process('handle-group-pause', 
+  groupStatusQueue.process('handle-group-pause', 1,
     createProcessorWrapper(async (job: Job) => {
       console.log(`Handling group pause for ${job.data.groupId}`);
       await handleGroupPause(job);
     })
   );
   
-  console.log('✅ Queue processors registered');
+  console.log('✅ Queue processors registered with concurrency limits');
 }
 
-// Ensure unique job IDs for each queue job with better error tracking
+// Update getUniqueJobId function
 function getUniqueJobId(prefix: string, data: any): string {
   let id: string;
   
+  // For group-based jobs, include the groupId
   if (data.groupId) {
-    if (prefix === 'retry-payment' && data.paymentId) {
-      id = `${prefix}-${data.paymentId}-${Date.now()}`;
-    } else {
-      id = `${prefix}-${data.groupId}-${Date.now()}`;
-    }
+    // Include timestamp to ensure uniqueness even for same group
+    id = `${prefix}-${data.groupId}-${Date.now()}`;
+  } else if (data.paymentId) {
+    // For payment-specific jobs
+    id = `${prefix}-${data.paymentId}-${Date.now()}`;
   } else {
-    id = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    // Fallback for other jobs
+    id = `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
   }
   
   // Record the job creation for metrics
@@ -442,7 +445,7 @@ function getUniqueJobId(prefix: string, data: any): string {
   return id;
 }
 
-// Patch queue add methods to ensure unique job IDs with better type handling
+// Patch queue add methods to ensure unique job IDs
 function patchQueueAddMethods() {
   const originalContributionAdd = contributionQueue.add.bind(contributionQueue);
   contributionQueue.add = function(name: string, data: any, opts: Bull.JobOptions = {}) {

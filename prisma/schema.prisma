@@ -115,8 +115,8 @@ model Group {
   totalDebitedAmount        Decimal?             @default(0)
   totalGroupCyclesCompleted Int                  @default(0)
   currentMemberCycleNumber  Int                  @default(1)
-  nextMemberPayoutOrder     Int?
   cyclesCompleted           Boolean              @default(false)
+  nextMemberPayoutOrder     Int?
   createdBy                 User                 @relation("UserGroupsCreated", fields: [createdById], references: [id])
   groupMemberships          GroupMembership[]
   payouts                   Payout[]
@@ -164,8 +164,8 @@ model Payment {
   retryCount            Int                  @default(0)
   cycleNumber           Int?
   payoutOrder           Int?
-  groupCycleNumber      Int?
   memberCycleNumber     Int?
+  groupCycleNumber      Int?
   user                  User                 @relation(fields: [userId], references: [id])
   group                 Group                @relation(fields: [groupId], references: [id])
   transactions          Transaction[]
@@ -304,6 +304,85 @@ model Invitation {
   @@index([invitedById])
 }
 
+model ScheduledJobLog {
+  id            String   @id @default(cuid())
+  groupId       String
+  jobId         String
+  jobType       String
+  scheduledTime DateTime
+  delayMs       Int
+  status        String
+  metadata      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  group         Group    @relation(fields: [groupId], references: [id])
+
+  @@index([groupId])
+  @@index([status])
+  @@index([jobType])
+}
+
+model GroupRecoveryLog {
+  id           String   @id @default(cuid())
+  groupId      String
+  recoveryType String
+  cycleNumber  Int?
+  jobId        String?
+  details      String?
+  createdAt    DateTime @default(now())
+  group        Group    @relation(fields: [groupId], references: [id])
+
+  @@index([groupId])
+  @@index([recoveryType])
+}
+
+model PaymentRecoveryLog {
+  id           String   @id @default(cuid())
+  paymentId    String
+  groupId      String
+  userId       String
+  recoveryType String
+  jobId        String?
+  details      String?
+  createdAt    DateTime @default(now())
+  payment      Payment  @relation(fields: [paymentId], references: [id])
+  group        Group    @relation(fields: [groupId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([paymentId])
+  @@index([groupId])
+  @@index([userId])
+}
+
+model WorkerHealthLog {
+  id                String   @id @default(cuid())
+  workerId          String
+  status            String
+  queueMetrics      String?
+  memoryUsage       Float?
+  cpuUsage          Float?
+  redisConnected    Boolean
+  databaseConnected Boolean
+  details           String?
+  createdAt         DateTime @default(now())
+
+  @@index([workerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model WorkerHeartbeat {
+  id            String   @id @default(cuid())
+  workerId      String   @unique
+  lastHeartbeat DateTime
+  startedAt     DateTime
+  hostname      String?
+  details       String?
+
+  @@index([workerId])
+  @@index([lastHeartbeat])
+}
+
 enum SubscriptionStatus {
   Active
   PendingCancel
@@ -403,96 +482,4 @@ enum CycleStatus {
   Completed
   Partial
   Failed
-}
-
-// These models are for tracking job scheduling and recovery
-
-// Model for tracking scheduled jobs
-model ScheduledJobLog {
-  id            String   @id @default(cuid())
-  groupId       String
-  jobId         String
-  jobType       String
-  scheduledTime DateTime
-  delayMs       Int
-  status        String // SCHEDULED, PROCESSING, COMPLETED, FAILED, RECOVERED, RECOVERY_FAILED
-  metadata      String? // JSON string with additional data
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Define relation if your model supports it
-  group Group @relation(fields: [groupId], references: [id])
-
-  @@index([groupId])
-  @@index([status])
-  @@index([jobType])
-}
-
-// Model for tracking group recovery attempts
-model GroupRecoveryLog {
-  id           String   @id @default(cuid())
-  groupId      String
-  recoveryType String // CYCLE_RECOVERY, STATUS_RECOVERY, etc.
-  cycleNumber  Int?
-  jobId        String?
-  details      String? // JSON string with recovery details
-  createdAt    DateTime @default(now())
-
-  // Define relation if your model supports it
-  group Group @relation(fields: [groupId], references: [id])
-
-  @@index([groupId])
-  @@index([recoveryType])
-}
-
-// Model for tracking payment recovery attempts
-model PaymentRecoveryLog {
-  id           String   @id @default(cuid())
-  paymentId    String
-  groupId      String
-  userId       String
-  recoveryType String // PAYMENT_RETRY, etc.
-  jobId        String?
-  details      String? // JSON string with recovery details
-  createdAt    DateTime @default(now())
-
-  // Define relations if your model supports them
-  payment Payment @relation(fields: [paymentId], references: [id])
-  group   Group   @relation(fields: [groupId], references: [id])
-  user    User    @relation(fields: [userId], references: [id])
-
-  @@index([paymentId])
-  @@index([groupId])
-  @@index([userId])
-}
-
-// Model for tracking worker health
-model WorkerHealthLog {
-  id                String   @id @default(cuid())
-  workerId          String // A unique identifier for the worker instance
-  status            String // STARTED, HEALTHY, UNHEALTHY, SHUTDOWN
-  queueMetrics      String? // JSON string with queue metrics
-  memoryUsage       Float? // Memory usage in MB
-  cpuUsage          Float? // CPU usage percentage
-  redisConnected    Boolean // Whether Redis is connected
-  databaseConnected Boolean // Whether the database is connected
-  details           String? // Additional details
-  createdAt         DateTime @default(now())
-
-  @@index([workerId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-// Model for worker heartbeats to detect stalled workers
-model WorkerHeartbeat {
-  id            String   @id @default(cuid())
-  workerId      String   @unique // A unique identifier for the worker instance
-  lastHeartbeat DateTime
-  startedAt     DateTime
-  hostname      String?
-  details       String? // JSON string with worker details
-
-  @@index([workerId])
-  @@index([lastHeartbeat])
 }
