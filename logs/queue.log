@@ -4532,3 +4532,1104 @@
 [2025-05-11T09:34:30.694Z] [INFO] Redis bclient ready
 [2025-05-11T09:34:30.695Z] [INFO] ✅ All queues gracefully closed
 [2025-05-11T09:34:30.715Z] [INFO] ✅ Redis connections closed
+[2025-05-11T10:02:52.243Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-11T10:02:52.243Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-11T10:02:52.243Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:02:52.243Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-11T10:02:52.244Z] [INFO] Node Environment: development
+[2025-05-11T10:02:52.244Z] [INFO] Hostname: beb95c957efc
+[2025-05-11T10:02:52.244Z] [INFO] 📊 Initializing metrics service
+[2025-05-11T10:02:52.244Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-11T10:02:52.244Z] [INFO] 🔄 Verifying environment...
+[2025-05-11T10:02:52.244Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-11T10:02:52.247Z] [INFO] ✅ Queue runner loaded (TypeScript version)
+[2025-05-11T10:02:52.247Z] [INFO] ✅ HivePay queue worker initialized
+[2025-05-11T10:02:52.309Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-11T10:02:52.309Z] [INFO] ✅ Payment queue connection verified
+[2025-05-11T10:02:52.309Z] [INFO] ✅ Group status queue connection verified
+[2025-05-11T10:02:52.262Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-11T10:02:52.262Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-11T10:02:52.263Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:02:52.263Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-11T10:02:52.263Z] [INFO] Node Environment: development
+[2025-05-11T10:02:52.263Z] [INFO] Hostname: c12124a3e9ba
+[2025-05-11T10:02:52.264Z] [INFO] 📊 Initializing metrics service
+[2025-05-11T10:02:52.264Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-11T10:02:52.264Z] [INFO] 🔄 Verifying environment...
+[2025-05-11T10:02:52.264Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-11T10:02:52.264Z] [INFO] ✅ Queue runner loaded (TypeScript version)
+[2025-05-11T10:02:52.264Z] [INFO] ✅ HivePay queue worker initialized
+[2025-05-11T10:02:52.318Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-11T10:02:52.319Z] [INFO] ✅ Payment queue connection verified
+[2025-05-11T10:02:52.319Z] [INFO] ✅ Group status queue connection verified
+[2025-05-11T10:02:52.256Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-11T10:02:52.256Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-11T10:02:52.256Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:02:52.256Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-11T10:02:52.257Z] [INFO] Node Environment: development
+[2025-05-11T10:02:52.257Z] [INFO] Hostname: 82f2e098a4c0
+[2025-05-11T10:02:52.257Z] [INFO] 📊 Initializing metrics service
+[2025-05-11T10:02:52.257Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-11T10:02:52.257Z] [INFO] 🔄 Verifying environment...
+[2025-05-11T10:02:52.257Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-11T10:02:52.258Z] [INFO] ✅ Queue runner loaded (TypeScript version)
+[2025-05-11T10:02:52.258Z] [INFO] ✅ HivePay queue worker initialized
+[2025-05-11T10:02:52.330Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-11T10:02:52.330Z] [INFO] ✅ Payment queue connection verified
+[2025-05-11T10:02:52.330Z] [INFO] ✅ Group status queue connection verified
+[2025-05-11T10:02:52.300Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-11T10:02:52.303Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-11T10:02:52.303Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:02:52.303Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-11T10:02:52.303Z] [INFO] Node Environment: development
+[2025-05-11T10:02:52.304Z] [INFO] Hostname: e227c4c118ce
+[2025-05-11T10:02:52.306Z] [INFO] 📊 Initializing metrics service
+[2025-05-11T10:02:52.306Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-11T10:02:52.306Z] [INFO] 🔄 Verifying environment...
+[2025-05-11T10:02:52.306Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-11T10:02:52.307Z] [INFO] ✅ Queue runner loaded (TypeScript version)
+[2025-05-11T10:02:52.307Z] [INFO] ✅ HivePay queue worker initialized
+[2025-05-11T10:02:52.372Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-11T10:02:52.372Z] [INFO] ✅ Payment queue connection verified
+[2025-05-11T10:02:52.372Z] [INFO] ✅ Group status queue connection verified
+[2025-05-11T10:02:52.467Z] [INFO] Redis subscriber connected
+[2025-05-11T10:02:52.467Z] [INFO] Redis bclient connected
+[2025-05-11T10:02:52.467Z] [INFO] Redis subscriber ready
+[2025-05-11T10:02:52.470Z] [INFO] Redis client connected
+[2025-05-11T10:02:52.470Z] [INFO] Redis client ready
+[2025-05-11T10:02:52.467Z] [INFO] Redis bclient ready
+[2025-05-11T10:02:52.469Z] [INFO] Redis subscriber connected
+[2025-05-11T10:02:52.470Z] [INFO] Redis subscriber ready
+[2025-05-11T10:02:52.473Z] [INFO] Redis client connected
+[2025-05-11T10:02:52.473Z] [INFO] Redis client ready
+[2025-05-11T10:02:52.489Z] [INFO] Redis bclient connected
+[2025-05-11T10:02:52.489Z] [INFO] Redis bclient ready
+[2025-05-11T10:02:52.491Z] [INFO] Redis client connected
+[2025-05-11T10:02:52.494Z] [INFO] Redis bclient connected
+[2025-05-11T10:02:52.491Z] [INFO] Redis client ready
+[2025-05-11T10:02:52.495Z] [INFO] Redis subscriber connected
+[2025-05-11T10:02:52.495Z] [INFO] Redis subscriber ready
+[2025-05-11T10:02:52.498Z] [INFO] Redis bclient connected
+[2025-05-11T10:02:52.498Z] [INFO] Redis bclient ready
+[2025-05-11T10:02:52.500Z] [INFO] ✓ Redis client connected
+[2025-05-11T10:02:52.495Z] [INFO] Redis bclient ready
+[2025-05-11T10:02:52.497Z] [INFO] Redis subscriber connected
+[2025-05-11T10:02:52.497Z] [INFO] Redis subscriber ready
+[2025-05-11T10:02:52.500Z] [INFO] Redis client connected
+[2025-05-11T10:02:52.500Z] [INFO] Redis client ready
+[2025-05-11T10:02:52.502Z] [INFO] ✓ Redis client connected
+[2025-05-11T10:02:52.521Z] [INFO] ✓ Redis client connected
+[2025-05-11T10:02:52.531Z] [INFO] ✓ Redis client connected
+[2025-05-11T10:02:52.547Z] [INFO] ✅ Redis connection successful
+[2025-05-11T10:02:52.548Z] [INFO] ✅ Redis connection successful
+[2025-05-11T10:02:52.548Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-11T10:02:52.548Z] [INFO] 🔄 Initializing queues...
+[2025-05-11T10:02:52.553Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-11T10:02:52.550Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-11T10:02:52.550Z] [INFO] 🔄 Initializing queues...
+[2025-05-11T10:02:52.553Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-11T10:02:52.565Z] [INFO] ✅ Redis connection successful
+[2025-05-11T10:02:52.565Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-11T10:02:52.565Z] [INFO] 🔄 Initializing queues...
+[2025-05-11T10:02:52.566Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-11T10:02:52.583Z] [INFO] ✅ Redis connection successful
+[2025-05-11T10:02:52.584Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-11T10:02:52.584Z] [INFO] 🔄 Initializing queues...
+[2025-05-11T10:02:52.585Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-11T10:02:52.638Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-11T10:02:52.638Z] [INFO] ✓ Contribution queue ready
+[2025-05-11T10:02:52.638Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-11T10:02:52.642Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-11T10:02:52.643Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-11T10:02:52.645Z] [INFO] ✓ Contribution queue ready
+[2025-05-11T10:02:52.645Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-11T10:02:52.645Z] [INFO] ✓ Contribution queue ready
+[2025-05-11T10:02:52.646Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-11T10:02:52.657Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-11T10:02:52.657Z] [INFO] ✓ Contribution queue ready
+[2025-05-11T10:02:52.657Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-11T10:02:52.704Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-11T10:02:52.704Z] [INFO] ✓ Payment queue ready
+[2025-05-11T10:02:52.704Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-11T10:02:52.712Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-11T10:02:52.712Z] [INFO] ✓ Payment queue ready
+[2025-05-11T10:02:52.712Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-11T10:02:52.718Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-11T10:02:52.719Z] [INFO] ✓ Payment queue ready
+[2025-05-11T10:02:52.719Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-11T10:02:52.722Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-11T10:02:52.722Z] [INFO] ✓ Payment queue ready
+[2025-05-11T10:02:52.722Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-11T10:02:52.772Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-11T10:02:52.773Z] [INFO] ✓ Group Status queue ready
+[2025-05-11T10:02:52.773Z] [INFO] ✓ All queues operational
+[2025-05-11T10:02:52.773Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-11T10:02:52.773Z] [INFO] 🔄 Configuring queue events...
+[2025-05-11T10:02:52.775Z] [INFO] ✅ Queue event listeners configured
+[2025-05-11T10:02:52.775Z] [INFO] 🔄 Registering queue processors...
+[2025-05-11T10:02:52.775Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-11T10:02:52.783Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-11T10:02:52.783Z] [INFO] ✓ Group Status queue ready
+[2025-05-11T10:02:52.783Z] [INFO] ✓ All queues operational
+[2025-05-11T10:02:52.783Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-11T10:02:52.783Z] [INFO] 🔄 Configuring queue events...
+[2025-05-11T10:02:52.784Z] [INFO] ✅ Queue event listeners configured
+[2025-05-11T10:02:52.784Z] [INFO] 🔄 Registering queue processors...
+[2025-05-11T10:02:52.785Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-11T10:02:52.790Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-11T10:02:52.790Z] [INFO] ✓ Group Status queue ready
+[2025-05-11T10:02:52.790Z] [INFO] ✓ All queues operational
+[2025-05-11T10:02:52.791Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-11T10:02:52.791Z] [INFO] 🔄 Configuring queue events...
+[2025-05-11T10:02:52.792Z] [INFO] ✅ Queue event listeners configured
+[2025-05-11T10:02:52.792Z] [INFO] 🔄 Registering queue processors...
+[2025-05-11T10:02:52.792Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-11T10:02:52.794Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-11T10:02:52.794Z] [INFO] ✓ Group Status queue ready
+[2025-05-11T10:02:52.794Z] [INFO] ✓ All queues operational
+[2025-05-11T10:02:52.794Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-11T10:02:52.794Z] [INFO] 🔄 Configuring queue events...
+[2025-05-11T10:02:52.795Z] [INFO] ✅ Queue event listeners configured
+[2025-05-11T10:02:52.795Z] [INFO] 🔄 Registering queue processors...
+[2025-05-11T10:02:52.795Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-11T10:02:52.822Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:02:52.822Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-11T10:02:52.823Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-11T10:02:52.823Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-11T10:02:52.823Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-11T10:02:52.824Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-11T10:02:52.825Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-11T10:02:52.840Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:02:52.841Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-11T10:02:52.841Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-11T10:02:52.841Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-11T10:02:52.841Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-11T10:02:52.843Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-11T10:02:52.844Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-11T10:02:52.851Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:02:52.851Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-11T10:02:52.851Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-11T10:02:52.852Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-11T10:02:52.852Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-11T10:02:52.858Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-11T10:02:52.858Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-11T10:02:52.855Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:02:52.856Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-11T10:02:52.856Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-11T10:02:52.856Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-11T10:02:52.857Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-11T10:02:52.858Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-11T10:02:52.858Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-11T10:02:53.394Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-11T10:02:53.395Z] [INFO] Found 0 paused groups for recovery
+[2025-05-11T10:02:53.394Z] [INFO] Found 0 paused groups for recovery
+[2025-05-11T10:02:53.394Z] [INFO] Found 0 paused groups for recovery
+[2025-05-11T10:02:53.417Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-11T10:02:53.418Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-11T10:02:53.418Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-11T10:02:53.419Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-11T10:02:53.525Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-11T10:02:53.528Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-11T10:02:53.528Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-11T10:02:53.543Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-11T10:02:53.544Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-11T10:02:53.543Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-11T10:02:53.549Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-11T10:02:53.547Z] [INFO] Found 0 paused groups for recovery
+[2025-05-11T10:02:53.550Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-11T10:02:53.560Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-11T10:02:53.562Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-11T10:02:53.569Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-11T10:02:53.569Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-11T10:02:53.569Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-11T10:02:53.570Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-11T10:02:53.571Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-11T10:02:53.571Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-11T10:02:53.571Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-11T10:02:53.571Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-11T10:02:53.571Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-11T10:02:53.572Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-11T10:02:53.571Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-11T10:02:53.571Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-11T10:02:53.571Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-11T10:02:53.574Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-11T10:02:53.574Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-11T10:02:53.574Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-11T10:02:53.574Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-11T10:02:53.616Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-11T10:02:53.617Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-11T10:02:53.617Z] [INFO] Environment Status: [object Object]
+[2025-05-11T10:02:53.617Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-11T10:02:53.617Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-11T10:02:53.617Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-11T10:02:53.618Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-11T10:02:53.618Z] [INFO] 📝 Logs are being written to: /app/logs/queue.log
+[2025-05-11T10:02:53.619Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-11T10:02:53.619Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-11T10:02:53.619Z] [INFO] Environment Status: [object Object]
+[2025-05-11T10:02:53.619Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-11T10:02:53.619Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-11T10:02:53.619Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-11T10:02:53.620Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-11T10:02:53.620Z] [INFO] 📝 Logs are being written to: /app/logs/queue.log
+[2025-05-11T10:02:53.621Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-11T10:02:53.621Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-11T10:02:53.621Z] [INFO] Environment Status: [object Object]
+[2025-05-11T10:02:53.621Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-11T10:02:53.621Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-11T10:02:53.622Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-11T10:02:53.622Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-11T10:02:53.622Z] [INFO] 📝 Logs are being written to: /app/logs/queue.log
+[2025-05-11T10:02:53.623Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-11T10:02:53.623Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-11T10:02:53.623Z] [INFO] Environment Status: [object Object]
+[2025-05-11T10:02:53.623Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-11T10:02:53.623Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-11T10:02:53.624Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-11T10:02:53.625Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-11T10:02:53.625Z] [INFO] 📝 Logs are being written to: /app/logs/queue.log
+[2025-05-11T10:03:31.465Z] [INFO] 🛑 SIGTERM received, shutting down gracefully...
+[2025-05-11T10:03:31.465Z] [INFO] 🛑 SIGTERM received, shutting down gracefully...
+[2025-05-11T10:03:31.484Z] [INFO] 🛑 SIGTERM received, shutting down gracefully...
+[2025-05-11T10:03:31.513Z] [INFO] 🛑 Initiating graceful shutdown of queues...
+[2025-05-11T10:03:31.519Z] [INFO] 🛑 Initiating graceful shutdown of queues...
+[2025-05-11T10:03:31.526Z] [INFO] 🛑 Initiating graceful shutdown of queues...
+[2025-05-11T10:03:33.400Z] [INFO] Redis bclient connected
+[2025-05-11T10:03:33.436Z] [INFO] Redis bclient connected
+[2025-05-11T10:03:33.555Z] [INFO] Redis bclient connected
+[2025-05-11T10:03:43.012Z] [INFO] 🛑 SIGTERM received, shutting down gracefully...
+[2025-05-11T10:03:43.041Z] [INFO] 🛑 Initiating graceful shutdown of queues...
+[2025-05-11T10:03:44.309Z] [INFO] Redis bclient connected
+[2025-05-11T10:03:44.309Z] [INFO] Redis bclient ready
+[2025-05-11T10:03:44.310Z] [INFO] ✅ All queues gracefully closed
+[2025-05-11T10:03:44.338Z] [INFO] ✅ Redis connections closed
+[2025-05-11T10:19:19.510Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-11T10:19:19.510Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-11T10:19:19.510Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:19:19.510Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-11T10:19:19.510Z] [INFO] Node Environment: development
+[2025-05-11T10:19:19.510Z] [INFO] Hostname: 945a11ce67e1
+[2025-05-11T10:19:19.510Z] [INFO] 📊 Initializing metrics service
+[2025-05-11T10:19:19.510Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-11T10:19:19.511Z] [INFO] 🔄 Verifying environment...
+[2025-05-11T10:19:19.511Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-11T10:19:19.511Z] [INFO] ✅ Queue runner loaded (TypeScript version)
+[2025-05-11T10:19:19.511Z] [INFO] ✅ HivePay queue worker initialized
+[2025-05-11T10:19:19.564Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-11T10:19:19.564Z] [INFO] ✅ Payment queue connection verified
+[2025-05-11T10:19:19.564Z] [INFO] ✅ Group status queue connection verified
+[2025-05-11T10:19:19.546Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-11T10:19:19.546Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-11T10:19:19.546Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:19:19.546Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-11T10:19:19.546Z] [INFO] Node Environment: development
+[2025-05-11T10:19:19.546Z] [INFO] Hostname: 94f222e0f3ee
+[2025-05-11T10:19:19.547Z] [INFO] 📊 Initializing metrics service
+[2025-05-11T10:19:19.547Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-11T10:19:19.547Z] [INFO] 🔄 Verifying environment...
+[2025-05-11T10:19:19.547Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-11T10:19:19.548Z] [INFO] ✅ Queue runner loaded (TypeScript version)
+[2025-05-11T10:19:19.549Z] [INFO] ✅ HivePay queue worker initialized
+[2025-05-11T10:19:19.627Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-11T10:19:19.627Z] [INFO] ✅ Payment queue connection verified
+[2025-05-11T10:19:19.627Z] [INFO] ✅ Group status queue connection verified
+[2025-05-11T10:19:19.561Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-11T10:19:19.561Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-11T10:19:19.570Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:19:19.571Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-11T10:19:19.571Z] [INFO] Node Environment: development
+[2025-05-11T10:19:19.572Z] [INFO] Hostname: 9311cc3e0c5a
+[2025-05-11T10:19:19.575Z] [INFO] 📊 Initializing metrics service
+[2025-05-11T10:19:19.575Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-11T10:19:19.575Z] [INFO] 🔄 Verifying environment...
+[2025-05-11T10:19:19.575Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-11T10:19:19.576Z] [INFO] ✅ Queue runner loaded (TypeScript version)
+[2025-05-11T10:19:19.577Z] [INFO] ✅ HivePay queue worker initialized
+[2025-05-11T10:19:19.636Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-11T10:19:19.636Z] [INFO] ✅ Payment queue connection verified
+[2025-05-11T10:19:19.636Z] [INFO] ✅ Group status queue connection verified
+[2025-05-11T10:19:19.601Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-11T10:19:19.601Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-11T10:19:19.602Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:19:19.602Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-11T10:19:19.602Z] [INFO] Node Environment: development
+[2025-05-11T10:19:19.602Z] [INFO] Hostname: b7a9bb8738af
+[2025-05-11T10:19:19.603Z] [INFO] 📊 Initializing metrics service
+[2025-05-11T10:19:19.603Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-11T10:19:19.604Z] [INFO] 🔄 Verifying environment...
+[2025-05-11T10:19:19.604Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-11T10:19:19.605Z] [INFO] ✅ Queue runner loaded (TypeScript version)
+[2025-05-11T10:19:19.605Z] [INFO] ✅ HivePay queue worker initialized
+[2025-05-11T10:19:19.647Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-11T10:19:19.647Z] [INFO] ✅ Payment queue connection verified
+[2025-05-11T10:19:19.647Z] [INFO] ✅ Group status queue connection verified
+[2025-05-11T10:19:19.691Z] [INFO] Redis client connected
+[2025-05-11T10:19:19.710Z] [INFO] Redis client connected
+[2025-05-11T10:19:19.711Z] [INFO] Redis subscriber connected
+[2025-05-11T10:19:19.711Z] [INFO] Redis client ready
+[2025-05-11T10:19:19.714Z] [INFO] Redis subscriber connected
+[2025-05-11T10:19:19.714Z] [INFO] Redis subscriber ready
+[2025-05-11T10:19:19.716Z] [INFO] Redis bclient connected
+[2025-05-11T10:19:19.716Z] [INFO] Redis bclient ready
+[2025-05-11T10:19:19.712Z] [INFO] Redis subscriber ready
+[2025-05-11T10:19:19.717Z] [INFO] Redis client connected
+[2025-05-11T10:19:19.717Z] [INFO] Redis client ready
+[2025-05-11T10:19:19.720Z] [INFO] Redis bclient connected
+[2025-05-11T10:19:19.720Z] [INFO] Redis bclient ready
+[2025-05-11T10:19:19.721Z] [INFO] Redis client connected
+[2025-05-11T10:19:19.691Z] [INFO] Redis client ready
+[2025-05-11T10:19:19.705Z] [INFO] Redis subscriber connected
+[2025-05-11T10:19:19.706Z] [INFO] Redis subscriber ready
+[2025-05-11T10:19:19.722Z] [INFO] Redis bclient connected
+[2025-05-11T10:19:19.722Z] [INFO] Redis bclient ready
+[2025-05-11T10:19:19.722Z] [INFO] Redis client ready
+[2025-05-11T10:19:19.729Z] [INFO] Redis subscriber connected
+[2025-05-11T10:19:19.729Z] [INFO] Redis subscriber ready
+[2025-05-11T10:19:19.729Z] [INFO] ✓ Redis client connected
+[2025-05-11T10:19:19.733Z] [INFO] Redis bclient connected
+[2025-05-11T10:19:19.734Z] [INFO] Redis bclient ready
+[2025-05-11T10:19:19.737Z] [INFO] ✓ Redis client connected
+[2025-05-11T10:19:19.744Z] [INFO] ✓ Redis client connected
+[2025-05-11T10:19:19.749Z] [INFO] ✓ Redis client connected
+[2025-05-11T10:19:19.771Z] [INFO] ✅ Redis connection successful
+[2025-05-11T10:19:19.771Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-11T10:19:19.771Z] [INFO] 🔄 Initializing queues...
+[2025-05-11T10:19:19.771Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-11T10:19:19.782Z] [INFO] ✅ Redis connection successful
+[2025-05-11T10:19:19.790Z] [INFO] ✅ Redis connection successful
+[2025-05-11T10:19:19.785Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-11T10:19:19.785Z] [INFO] 🔄 Initializing queues...
+[2025-05-11T10:19:19.786Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-11T10:19:19.791Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-11T10:19:19.793Z] [INFO] 🔄 Initializing queues...
+[2025-05-11T10:19:19.793Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-11T10:19:19.795Z] [INFO] ✅ Redis connection successful
+[2025-05-11T10:19:19.796Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-11T10:19:19.796Z] [INFO] 🔄 Initializing queues...
+[2025-05-11T10:19:19.797Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-11T10:19:19.841Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-11T10:19:19.842Z] [INFO] ✓ Contribution queue ready
+[2025-05-11T10:19:19.842Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-11T10:19:19.869Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-11T10:19:19.870Z] [INFO] ✓ Contribution queue ready
+[2025-05-11T10:19:19.870Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-11T10:19:19.872Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-11T10:19:19.872Z] [INFO] ✓ Contribution queue ready
+[2025-05-11T10:19:19.872Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-11T10:19:19.876Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-11T10:19:19.876Z] [INFO] ✓ Contribution queue ready
+[2025-05-11T10:19:19.876Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-11T10:19:19.906Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-11T10:19:19.906Z] [INFO] ✓ Payment queue ready
+[2025-05-11T10:19:19.906Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-11T10:19:19.940Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-11T10:19:19.941Z] [INFO] ✓ Payment queue ready
+[2025-05-11T10:19:19.941Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-11T10:19:19.944Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-11T10:19:19.944Z] [INFO] ✓ Payment queue ready
+[2025-05-11T10:19:19.944Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-11T10:19:19.952Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-11T10:19:19.952Z] [INFO] ✓ Payment queue ready
+[2025-05-11T10:19:19.952Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-11T10:19:19.975Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-11T10:19:19.975Z] [INFO] ✓ Group Status queue ready
+[2025-05-11T10:19:19.975Z] [INFO] ✓ All queues operational
+[2025-05-11T10:19:19.975Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-11T10:19:19.975Z] [INFO] 🔄 Configuring queue events...
+[2025-05-11T10:19:19.976Z] [INFO] ✅ Queue event listeners configured
+[2025-05-11T10:19:19.976Z] [INFO] 🔄 Registering queue processors...
+[2025-05-11T10:19:19.976Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-11T10:19:20.013Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-11T10:19:20.013Z] [INFO] ✓ Group Status queue ready
+[2025-05-11T10:19:20.013Z] [INFO] ✓ All queues operational
+[2025-05-11T10:19:20.013Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-11T10:19:20.013Z] [INFO] 🔄 Configuring queue events...
+[2025-05-11T10:19:20.015Z] [INFO] ✅ Queue event listeners configured
+[2025-05-11T10:19:20.015Z] [INFO] 🔄 Registering queue processors...
+[2025-05-11T10:19:20.016Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-11T10:19:20.018Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-11T10:19:20.018Z] [INFO] ✓ Group Status queue ready
+[2025-05-11T10:19:20.018Z] [INFO] ✓ All queues operational
+[2025-05-11T10:19:20.019Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-11T10:19:20.019Z] [INFO] 🔄 Configuring queue events...
+[2025-05-11T10:19:20.019Z] [INFO] ✅ Queue event listeners configured
+[2025-05-11T10:19:20.019Z] [INFO] 🔄 Registering queue processors...
+[2025-05-11T10:19:20.019Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-11T10:19:20.025Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:19:20.030Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-11T10:19:20.030Z] [INFO] ✓ Group Status queue ready
+[2025-05-11T10:19:20.031Z] [INFO] ✓ All queues operational
+[2025-05-11T10:19:20.031Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-11T10:19:20.031Z] [INFO] 🔄 Configuring queue events...
+[2025-05-11T10:19:20.031Z] [INFO] ✅ Queue event listeners configured
+[2025-05-11T10:19:20.032Z] [INFO] 🔄 Registering queue processors...
+[2025-05-11T10:19:20.032Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-11T10:19:20.025Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-11T10:19:20.025Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-11T10:19:20.026Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-11T10:19:20.027Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-11T10:19:20.031Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-11T10:19:20.036Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-11T10:19:20.065Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:19:20.066Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-11T10:19:20.066Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-11T10:19:20.066Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-11T10:19:20.066Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-11T10:19:20.067Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-11T10:19:20.067Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-11T10:19:20.084Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:19:20.084Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-11T10:19:20.085Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-11T10:19:20.085Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-11T10:19:20.085Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-11T10:19:20.086Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-11T10:19:20.086Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-11T10:19:20.095Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:19:20.097Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-11T10:19:20.097Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-11T10:19:20.098Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-11T10:19:20.099Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-11T10:19:20.100Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-11T10:19:20.101Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-11T10:19:20.701Z] [INFO] Found 0 paused groups for recovery
+[2025-05-11T10:19:20.741Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-11T10:19:20.872Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-11T10:19:20.874Z] [INFO] Found 0 paused groups for recovery
+[2025-05-11T10:19:20.905Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-11T10:19:20.904Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-11T10:19:21.052Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-11T10:19:21.052Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-11T10:19:21.057Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-11T10:19:21.073Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-11T10:19:21.076Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-11T10:19:21.078Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-11T10:19:21.078Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-11T10:19:21.079Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-11T10:19:21.079Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-11T10:19:21.127Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-11T10:19:21.128Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-11T10:19:21.128Z] [INFO] Environment Status: [object Object]
+[2025-05-11T10:19:21.128Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-11T10:19:21.128Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-11T10:19:21.129Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-11T10:19:21.129Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-11T10:19:21.129Z] [INFO] 📝 Logs are being written to: /app/logs/queue.log
+[2025-05-11T10:19:21.308Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-11T10:19:21.310Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-11T10:19:21.314Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-11T10:19:21.316Z] [INFO] Found 0 paused groups for recovery
+[2025-05-11T10:19:21.331Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-11T10:19:21.332Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-11T10:19:21.332Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-11T10:19:21.332Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-11T10:19:21.333Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-11T10:19:21.341Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-11T10:19:21.341Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-11T10:19:21.341Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-11T10:19:21.341Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-11T10:19:21.341Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-11T10:19:21.378Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-11T10:19:21.378Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-11T10:19:21.378Z] [INFO] Environment Status: [object Object]
+[2025-05-11T10:19:21.378Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-11T10:19:21.378Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-11T10:19:21.378Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-11T10:19:21.379Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-11T10:19:21.379Z] [INFO] 📝 Logs are being written to: /app/logs/queue.log
+[2025-05-11T10:19:21.385Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-11T10:19:21.385Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-11T10:19:21.386Z] [INFO] Environment Status: [object Object]
+[2025-05-11T10:19:21.386Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-11T10:19:21.386Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-11T10:19:21.386Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-11T10:19:21.386Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-11T10:19:21.386Z] [INFO] 📝 Logs are being written to: /app/logs/queue.log
+[2025-05-11T10:19:21.483Z] [INFO] Found 0 paused groups for recovery
+[2025-05-11T10:19:21.484Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-11T10:19:21.507Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-11T10:19:21.508Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-11T10:19:21.509Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-11T10:19:21.509Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-11T10:19:21.509Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-11T10:19:21.574Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-11T10:19:21.574Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-11T10:19:21.574Z] [INFO] Environment Status: [object Object]
+[2025-05-11T10:19:21.574Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-11T10:19:21.574Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-11T10:19:21.574Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-11T10:19:21.575Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-11T10:19:21.575Z] [INFO] 📝 Logs are being written to: /app/logs/queue.log
+[2025-05-11T10:20:20.738Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:20:20.763Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:20:20.765Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:20:20.821Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:21:20.301Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:21:20.356Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:21:20.343Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:21:20.371Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:22:20.229Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:22:20.271Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:22:20.302Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:22:20.310Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:23:20.193Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:23:20.228Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:23:20.271Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:23:20.306Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:24:20.565Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:24:20.618Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:24:20.618Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:24:20.624Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:24:21.272Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:24:21.301Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:24:21.450Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:24:21.465Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:24:21.470Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:24:21.488Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:24:21.644Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:24:21.659Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:25:20.331Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:25:20.380Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:25:20.401Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:25:20.446Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:26:20.245Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:26:20.281Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:26:20.287Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:26:20.358Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:27:20.261Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:27:20.292Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:27:20.296Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:27:20.350Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:28:20.272Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:28:20.291Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:28:20.306Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:28:20.365Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:29:20.285Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:29:20.305Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:29:20.319Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:29:20.380Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:29:21.168Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:29:21.169Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:29:21.419Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:29:21.419Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:29:21.429Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:29:21.430Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:29:21.623Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:29:21.625Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:30:20.303Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:30:20.321Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:30:20.337Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:30:20.381Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:31:20.316Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:31:20.337Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:31:20.355Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:31:20.399Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:32:20.330Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:32:20.348Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:32:20.368Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:32:20.428Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:33:20.354Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:33:20.370Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:33:20.385Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:33:20.411Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:34:20.366Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:34:20.392Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:34:20.403Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:34:20.429Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:34:21.139Z] [INFO] 🔍 Running scheduled recovery check for stuck jobs
+[2025-05-11T10:34:21.141Z] [INFO] 🔍 Checking for stuck jobs in all queues...
+[2025-05-11T10:34:21.164Z] [INFO] Found 0 total jobs across all queues
+[2025-05-11T10:34:21.164Z] [INFO] Found 0 potentially stuck jobs
+[2025-05-11T10:34:21.164Z] [INFO] ✅ Recovery check complete: 0/0 stuck jobs reprocessed
+[2025-05-11T10:34:21.165Z] [INFO] ✅ Recovery check completed: [object Object]
+[2025-05-11T10:34:21.168Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:34:21.168Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:34:21.392Z] [INFO] 🔍 Running scheduled recovery check for stuck jobs
+[2025-05-11T10:34:21.394Z] [INFO] 🔍 Running scheduled recovery check for stuck jobs
+[2025-05-11T10:34:21.396Z] [INFO] 🔍 Checking for stuck jobs in all queues...
+[2025-05-11T10:34:21.397Z] [INFO] 🔍 Checking for stuck jobs in all queues...
+[2025-05-11T10:34:21.418Z] [INFO] Found 0 total jobs across all queues
+[2025-05-11T10:34:21.418Z] [INFO] Found 0 potentially stuck jobs
+[2025-05-11T10:34:21.418Z] [INFO] ✅ Recovery check complete: 0/0 stuck jobs reprocessed
+[2025-05-11T10:34:21.418Z] [INFO] ✅ Recovery check completed: [object Object]
+[2025-05-11T10:34:21.423Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:34:21.423Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:34:21.425Z] [INFO] Found 0 total jobs across all queues
+[2025-05-11T10:34:21.425Z] [INFO] Found 0 potentially stuck jobs
+[2025-05-11T10:34:21.425Z] [INFO] ✅ Recovery check complete: 0/0 stuck jobs reprocessed
+[2025-05-11T10:34:21.425Z] [INFO] ✅ Recovery check completed: [object Object]
+[2025-05-11T10:34:21.433Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:34:21.434Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:34:21.589Z] [INFO] 🔍 Running scheduled recovery check for stuck jobs
+[2025-05-11T10:34:21.592Z] [INFO] 🔍 Checking for stuck jobs in all queues...
+[2025-05-11T10:34:21.622Z] [INFO] Found 0 total jobs across all queues
+[2025-05-11T10:34:21.623Z] [INFO] Found 0 potentially stuck jobs
+[2025-05-11T10:34:21.623Z] [INFO] ✅ Recovery check complete: 0/0 stuck jobs reprocessed
+[2025-05-11T10:34:21.623Z] [INFO] ✅ Recovery check completed: [object Object]
+[2025-05-11T10:34:21.632Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-11T10:34:21.633Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-11T10:35:20.386Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:35:20.400Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:35:20.406Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:35:20.425Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:36:20.727Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:36:20.736Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:36:20.740Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:36:20.745Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:37:13.132Z] [INFO] 🏁 Job started processing: direct-contribution-cmahne9400003rczuj9f1fclj-1746959813027 (start-contribution) for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:13.134Z] [INFO] Processing contribution for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:13.140Z] [INFO] 
+=== processContributionCycle started for group=cmahne9400003rczuj9f1fclj ===
+[2025-05-11T10:37:13.141Z] [INFO] [contribution-cycles] Job direct-contribution-cmahne9400003rczuj9f1fclj-1746959813027 active
+[2025-05-11T10:37:13.188Z] [INFO] 🔒 Acquired processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:13.488Z] [INFO] 🔍 DEBUG: Member payment status BEFORE transaction:
+[2025-05-11T10:37:13.488Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=false, payoutOrder=1
+[2025-05-11T10:37:13.489Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-11T10:37:13.714Z] [INFO] Current member cycle number: 0
+[2025-05-11T10:37:13.714Z] [INFO] Member payout orders: MoOn CaKe: order=1, paid=false, SUHAYB WALTON: order=2, paid=false
+[2025-05-11T10:37:13.715Z] [INFO] 🎯 Current cycle payee: MoOn CaKe (order=1)
+[2025-05-11T10:37:13.715Z] [INFO] Sending contribution reminders for 2 members
+[2025-05-11T10:37:14.614Z] [ERROR] Failed to send contribution reminder: Error: socket hang up
+[2025-05-11T10:37:14.614Z] [ERROR] Email error for support@hivepay.com.au: socket hang up
+[2025-05-11T10:37:14.633Z] [ERROR] Failed to send contribution reminder: Error: socket hang up
+[2025-05-11T10:37:14.633Z] [ERROR] Email error for suhaybw1@gmail.com: socket hang up
+[2025-05-11T10:37:14.634Z] [INFO] Email sending process completed - continuing with contribution cycle
+[2025-05-11T10:37:14.634Z] [INFO] Processing cycle 0: [object Object]
+[2025-05-11T10:37:14.737Z] [INFO] Found 0 existing payments for cycle 0
+[2025-05-11T10:37:14.737Z] [INFO] Skipping payee: kp_588d4df4181549e791abd1eef41be8de (MoOn CaKe)
+[2025-05-11T10:37:15.717Z] [INFO] PaymentIntent created for user kp_5813a23edaed4d4996418141e208cf59: pi_3RNXFvD0Tog7VW7O0gZL8CoH
+[2025-05-11T10:37:15.873Z] [INFO] 🔍 CRITICAL: Marking payee cmahne95e0005rczubg4zz5td (MoOn) as paid
+[2025-05-11T10:37:16.022Z] [INFO] 🔍 Verifying payee cmahne95e0005rczubg4zz5td status: hasBeenPaid=true
+[2025-05-11T10:37:16.023Z] [INFO] ✅ Successfully marked payee cmahne95e0005rczubg4zz5td as paid
+[2025-05-11T10:37:16.101Z] [INFO] 🔍 DEBUG: Member payment status AFTER transaction:
+[2025-05-11T10:37:16.101Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=true, payoutOrder=1
+[2025-05-11T10:37:16.101Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-11T10:37:16.101Z] [INFO] 🔍 DEBUG: Actual unpaid members count: 1
+[2025-05-11T10:37:16.101Z] [INFO] === processContributionCycle success for group=cmahne9400003rczuj9f1fclj ===
+
+[2025-05-11T10:37:16.201Z] [INFO] 🔍 Group state after transaction: cyclesCompleted=false, cycleStarted=true, status=Active, currentMemberCycle=0, totalCycles=0
+[2025-05-11T10:37:16.201Z] [INFO] 🔍 Members remaining to be paid in this cycle: 1
+[2025-05-11T10:37:16.201Z] [INFO] 🔍 Unpaid members: kp_5813a23edaed4d4996418141e208cf59
+[2025-05-11T10:37:16.201Z] [INFO] 🔄 1 members still need payment in current cycle - preserving cycle date
+[2025-05-11T10:37:16.201Z] [INFO] 🔍 Current cycle date: Sat May 10 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:37:16.201Z] [INFO] ✅ Scheduling next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:16.203Z] [INFO] 🔍 DEBUG: scheduleNextCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-11T10:37:16.203Z] [INFO] 🔁 Attempting to schedule next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:16.302Z] [INFO] 🔍 DEBUG: Group state in scheduleNextCycle: [object Object]
+[2025-05-11T10:37:16.302Z] [INFO] 🔍 DEBUG: Group cmahne9400003rczuj9f1fclj cycle status: [object Object]
+[2025-05-11T10:37:16.303Z] [INFO] 🔄 Group cmahne9400003rczuj9f1fclj cycle in progress with 1 unpaid members remaining
+[2025-05-11T10:37:16.303Z] [INFO] ✅ Validations passed, proceeding to schedule group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:16.305Z] [INFO] 🔍 DEBUG: scheduleContributionCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-11T10:37:16.305Z] [INFO] 🔥 CRITICAL PATH: Scheduling contribution cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:16.305Z] [INFO] 🔄 Starting schedule process for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:16.404Z] [INFO] 🔍 DEBUG: Group state from database: [object Object]
+[2025-05-11T10:37:16.404Z] [INFO] 🔍 DEBUG: Added group cmahne9400003rczuj9f1fclj to scheduledGroups set (size: 1)
+[2025-05-11T10:37:16.404Z] [INFO] 🔍 DEBUG: Calculating next run for group cmahne9400003rczuj9f1fclj with nextCycleDate: Sat May 10 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:37:16.409Z] [INFO] 🔍 DEBUG: calculateAndSetNextRun for group cmahne9400003rczuj9f1fclj with currentDate: Sat May 10 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:37:16.410Z] [INFO] 🔍 DEBUG: Cycle already started: true
+[2025-05-11T10:37:16.410Z] [INFO] 🔍 DEBUG: Initial nextRun: Sat May 10 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:37:16.410Z] [INFO] 🔍 DEBUG: Current time: Sun May 11 2025 10:37:16 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:37:16.410Z] [INFO] 🔍 DEBUG: Is nextRun in the past? true
+[2025-05-11T10:37:16.410Z] [INFO] ⏩ Setting immediate execution with buffer: 2025-05-11T10:37:46.410Z
+[2025-05-11T10:37:16.410Z] [INFO] 🔍 DEBUG: Final nextRun: Sun May 11 2025 10:37:46 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:37:16.410Z] [INFO] 🔍 DEBUG: Initial delay: 30000
+[2025-05-11T10:37:16.410Z] [INFO] 🔍 DEBUG: Safe delay: 30000
+[2025-05-11T10:37:16.418Z] [INFO] ⏰ Scheduling next run for group cmahne9400003rczuj9f1fclj: [object Object]
+[2025-05-11T10:37:16.472Z] [INFO] ✅ Logged scheduled job contribution-cmahne9400003rczuj9f1fclj-1746959836404-0 to database for recovery
+[2025-05-11T10:37:16.475Z] [INFO] 🔍 DEBUG: addQueueJob called for group cmahne9400003rczuj9f1fclj with options: [object Object]
+[2025-05-11T10:37:16.475Z] [INFO] 🔥 CRITICAL PATH: Queue job attempt for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:16.475Z] [INFO] 🔍 Redis URL in use: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:37:16.475Z] [INFO] 🔍 DEBUG: Contribution queue ready check: [object Object]
+[2025-05-11T10:37:16.475Z] [INFO] 🔍 DEBUG: Getting existing jobs for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:16.529Z] [INFO] 🔍 DEBUG: Found 1 existing jobs in queue
+[2025-05-11T10:37:16.529Z] [INFO] ⚠️ Removing existing job for group cmahne9400003rczuj9f1fclj: contribution-cmahne9400003rczuj9f1fclj-1746959812825-0
+[2025-05-11T10:37:16.552Z] [INFO] ✅ Successfully removed job contribution-cmahne9400003rczuj9f1fclj-1746959812825-0
+[2025-05-11T10:37:16.552Z] [INFO] 🚀 QUEUING: Adding job for group cmahne9400003rczuj9f1fclj with options: [object Object]
+[2025-05-11T10:37:16.552Z] [INFO] Queue instance details: [object Object]
+[2025-05-11T10:37:16.581Z] [INFO] ✅ Successfully queued job: [object Object]
+[2025-05-11T10:37:16.581Z] [INFO] 🔍 DEBUG: Verifying job was added to queue
+[2025-05-11T10:37:16.627Z] [INFO] 📊 Queue status after adding job: 1 total jobs
+[2025-05-11T10:37:16.627Z] [INFO] ✓ Confirmed job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959836552 is in queue with delay 30000ms
+[2025-05-11T10:37:16.628Z] [INFO] 🔄 Setting up backup timer for group cmahne9400003rczuj9f1fclj (delay: 30000ms)
+[2025-05-11T10:37:16.673Z] [INFO] 🔓 Released processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:16.700Z] [INFO] [contribution-cycles] Job direct-contribution-cmahne9400003rczuj9f1fclj-1746959813027 completed
+[2025-05-11T10:37:20.448Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:37:20.451Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:37:20.468Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:37:20.501Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:37:46.596Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959836552 waiting
+[2025-05-11T10:37:46.637Z] [INFO] ⏰ Backup timer triggered for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:37:46.725Z] [INFO] ✅ Job already completed via normal queue, backup not needed
+[2025-05-11T10:37:56.423Z] [INFO] 🔄 Removed group cmahne9400003rczuj9f1fclj from scheduled set after timeout
+[2025-05-11T10:38:11.690Z] [INFO] 🏁 Job started processing: contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959836552 (start-contribution) for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:11.693Z] [INFO] Processing contribution for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:11.705Z] [INFO] 
+=== processContributionCycle started for group=cmahne9400003rczuj9f1fclj ===
+[2025-05-11T10:38:11.707Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959836552 active
+[2025-05-11T10:38:11.749Z] [INFO] 🔒 Acquired processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:12.056Z] [INFO] 🔍 DEBUG: Member payment status BEFORE transaction:
+[2025-05-11T10:38:12.057Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=true, payoutOrder=1
+[2025-05-11T10:38:12.058Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-11T10:38:12.292Z] [INFO] Current member cycle number: 0
+[2025-05-11T10:38:12.293Z] [INFO] Member payout orders: MoOn CaKe: order=1, paid=true, SUHAYB WALTON: order=2, paid=false
+[2025-05-11T10:38:12.293Z] [INFO] 🎯 Current cycle payee: MoOn CaKe (order=1)
+[2025-05-11T10:38:12.293Z] [INFO] ✅ Payee already marked as paid. Finalizing cycle.
+[2025-05-11T10:38:12.447Z] [INFO] Current payee: MoOn CaKe (order=1)
+[2025-05-11T10:38:12.448Z] [INFO] ✅ Current payee is marked as paid and all expected payments are successful. Proceeding with cycle finalization.
+[2025-05-11T10:38:12.499Z] [INFO] DEBUG: futureCyclesJson raw data: ["2025-05-10T00:00:00.000Z","2025-05-17T00:00:00.000Z"]
+[2025-05-11T10:38:12.499Z] [INFO] Parsing futureCyclesJson of type: object
+[2025-05-11T10:38:12.500Z] [INFO] Input is an array with 2 elements
+[2025-05-11T10:38:12.500Z] [INFO] Found futureCyclesJson with 2 dates. Current index: 0, Next index: 1
+[2025-05-11T10:38:12.500Z] [INFO] First few cycle dates: 2025-05-10T00:00:00.000Z, 2025-05-17T00:00:00.000Z
+[2025-05-11T10:38:12.500Z] [INFO] 📅 Advancing to next cycle date: 2025-05-17T00:00:00.000Z
+[2025-05-11T10:38:12.500Z] [INFO] Current member cycle: 1/2 - Full ROSCA cycle completed: false
+[2025-05-11T10:38:12.500Z] [INFO] Advancing to next member, cycle 2
+[2025-05-11T10:38:12.500Z] [INFO] Next cycle scheduled for 2025-05-17T00:00:00.000Z
+[2025-05-11T10:38:12.500Z] [INFO] Updating group with data: {"totalGroupCyclesCompleted":1,"cycleStarted":true,"currentMemberCycleNumber":2,"nextCycleDate":"2025-05-17T00:00:00.000Z","cyclesCompleted":false}
+[2025-05-11T10:38:12.602Z] [INFO] Cycle 0 completed for group cmahne9400003rczuj9f1fclj.
+[2025-05-11T10:38:12.602Z] [INFO] Next cycle scheduled for: 2025-05-17T00:00:00.000Z
+[2025-05-11T10:38:12.678Z] [INFO] 🔍 DEBUG: Member payment status AFTER transaction:
+[2025-05-11T10:38:12.679Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=true, payoutOrder=1
+[2025-05-11T10:38:12.680Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-11T10:38:12.680Z] [INFO] 🔍 DEBUG: Actual unpaid members count: 1
+[2025-05-11T10:38:12.680Z] [INFO] === processContributionCycle success for group=cmahne9400003rczuj9f1fclj ===
+
+[2025-05-11T10:38:12.779Z] [INFO] 🔍 Group state after transaction: cyclesCompleted=false, cycleStarted=true, status=Active, currentMemberCycle=2, totalCycles=1
+[2025-05-11T10:38:12.780Z] [INFO] 🔍 Members remaining to be paid in this cycle: 1
+[2025-05-11T10:38:12.780Z] [INFO] 🔍 Unpaid members: kp_5813a23edaed4d4996418141e208cf59
+[2025-05-11T10:38:12.780Z] [INFO] 🔄 1 members still need payment in current cycle - preserving cycle date
+[2025-05-11T10:38:12.780Z] [INFO] 🔍 Current cycle date: Sat May 17 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:38:12.780Z] [INFO] ✅ Scheduling next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:12.784Z] [INFO] 🔍 DEBUG: scheduleNextCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-11T10:38:12.784Z] [INFO] 🔁 Attempting to schedule next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:12.883Z] [INFO] 🔍 DEBUG: Group state in scheduleNextCycle: [object Object]
+[2025-05-11T10:38:12.884Z] [INFO] 🔍 DEBUG: Group cmahne9400003rczuj9f1fclj cycle status: [object Object]
+[2025-05-11T10:38:12.884Z] [INFO] 🔄 Group cmahne9400003rczuj9f1fclj cycle in progress with 1 unpaid members remaining
+[2025-05-11T10:38:12.884Z] [INFO] ✅ Validations passed, proceeding to schedule group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:12.886Z] [INFO] 🔍 DEBUG: scheduleContributionCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-11T10:38:12.886Z] [INFO] 🔥 CRITICAL PATH: Scheduling contribution cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:12.886Z] [INFO] 🔄 Starting schedule process for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:12.986Z] [INFO] 🔍 DEBUG: Group state from database: [object Object]
+[2025-05-11T10:38:12.987Z] [INFO] 🔍 DEBUG: Added group cmahne9400003rczuj9f1fclj to scheduledGroups set (size: 1)
+[2025-05-11T10:38:12.987Z] [INFO] 🔍 DEBUG: Calculating next run for group cmahne9400003rczuj9f1fclj with nextCycleDate: Sat May 17 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:38:12.988Z] [INFO] 🔍 DEBUG: calculateAndSetNextRun for group cmahne9400003rczuj9f1fclj with currentDate: Sat May 17 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:38:12.988Z] [INFO] 🔍 DEBUG: Cycle already started: true
+[2025-05-11T10:38:12.988Z] [INFO] 🔍 DEBUG: Initial nextRun: Sat May 17 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:38:12.988Z] [INFO] 🔍 DEBUG: Current time: Sun May 11 2025 10:38:12 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:38:12.988Z] [INFO] 🔍 DEBUG: Is nextRun in the past? false
+[2025-05-11T10:38:12.988Z] [INFO] 🔍 DEBUG: Final nextRun: Sat May 17 2025 00:00:00 GMT+0000 (Coordinated Universal Time)
+[2025-05-11T10:38:12.988Z] [INFO] 🔍 DEBUG: Initial delay: 480107012
+[2025-05-11T10:38:12.988Z] [INFO] 🔍 DEBUG: Safe delay: 480107012
+[2025-05-11T10:38:13.006Z] [INFO] ⏰ Scheduling next run for group cmahne9400003rczuj9f1fclj: [object Object]
+[2025-05-11T10:38:13.056Z] [INFO] ✅ Logged scheduled job contribution-cmahne9400003rczuj9f1fclj-1746959892987-0 to database for recovery
+[2025-05-11T10:38:13.058Z] [INFO] 🔍 DEBUG: addQueueJob called for group cmahne9400003rczuj9f1fclj with options: [object Object]
+[2025-05-11T10:38:13.058Z] [INFO] 🔥 CRITICAL PATH: Queue job attempt for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:13.058Z] [INFO] 🔍 Redis URL in use: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-11T10:38:13.058Z] [INFO] 🔍 DEBUG: Contribution queue ready check: [object Object]
+[2025-05-11T10:38:13.058Z] [INFO] 🔍 DEBUG: Getting existing jobs for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:13.081Z] [INFO] 🔍 DEBUG: Found 0 existing jobs in queue
+[2025-05-11T10:38:13.081Z] [INFO] 🚀 QUEUING: Adding job for group cmahne9400003rczuj9f1fclj with options: [object Object]
+[2025-05-11T10:38:13.081Z] [INFO] Queue instance details: [object Object]
+[2025-05-11T10:38:13.115Z] [INFO] ✅ Successfully queued job: [object Object]
+[2025-05-11T10:38:13.115Z] [INFO] 🔍 DEBUG: Verifying job was added to queue
+[2025-05-11T10:38:13.158Z] [INFO] 📊 Queue status after adding job: 1 total jobs
+[2025-05-11T10:38:13.158Z] [INFO] ✓ Confirmed job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959893082 is in queue with delay 480107012ms
+[2025-05-11T10:38:13.200Z] [INFO] 🔓 Released processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-11T10:38:13.231Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959836552 completed
+[2025-05-11T10:38:20.498Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:38:20.558Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:38:20.569Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:38:20.570Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-11T10:38:29.938Z] [INFO] 🛑 SIGTERM received, shutting down gracefully...
+[2025-05-11T10:38:29.939Z] [INFO] 🛑 SIGTERM received, shutting down gracefully...
+[2025-05-11T10:38:29.938Z] [INFO] 🛑 SIGTERM received, shutting down gracefully...
+[2025-05-11T10:38:29.944Z] [INFO] 🛑 Initiating graceful shutdown of queues...
+[2025-05-11T10:38:29.943Z] [INFO] 🛑 Initiating graceful shutdown of queues...
+[2025-05-11T10:38:29.941Z] [INFO] 🛑 Initiating graceful shutdown of queues...
+[2025-05-11T10:38:30.645Z] [INFO] 🛑 SIGTERM received, shutting down gracefully...
+[2025-05-11T10:38:30.650Z] [INFO] 🛑 Initiating graceful shutdown of queues...
+[2025-05-11T10:38:30.720Z] [INFO] Redis bclient connected
+[2025-05-11T10:38:30.720Z] [INFO] Redis bclient ready
+[2025-05-11T10:38:30.721Z] [INFO] ✅ All queues gracefully closed
+[2025-05-11T10:38:30.721Z] [INFO] Redis bclient connected
+[2025-05-11T10:38:30.721Z] [INFO] Redis bclient ready
+[2025-05-11T10:38:30.722Z] [INFO] ✅ All queues gracefully closed
+[2025-05-11T10:38:30.743Z] [INFO] ✅ Redis connections closed
+[2025-05-11T10:38:30.745Z] [INFO] ✅ Redis connections closed
+[2025-05-11T10:38:30.761Z] [INFO] Redis bclient connected
+[2025-05-11T10:38:30.761Z] [INFO] Redis bclient ready
+[2025-05-11T10:38:30.762Z] [INFO] ✅ All queues gracefully closed
+[2025-05-11T10:38:30.794Z] [INFO] ✅ Redis connections closed
+[2025-05-11T10:38:31.319Z] [INFO] Redis bclient connected
+[2025-05-11T10:38:31.319Z] [INFO] Redis bclient ready
+[2025-05-11T10:38:31.320Z] [INFO] ✅ All queues gracefully closed
+[2025-05-11T10:38:31.363Z] [INFO] ✅ Redis connections closed
+[2025-05-28T22:09:42.146Z] [INFO] 🚀 Queue worker starting with environment: [object Object]
+[2025-05-28T22:09:42.146Z] [INFO] 📊 REDIS CONFIGURATION DETAILS:
+[2025-05-28T22:09:42.146Z] [INFO] Redis URL: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-28T22:09:42.146Z] [INFO] Database URL: postgresql://****@ep-muddy-math-a71h11ow-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+[2025-05-28T22:09:42.146Z] [INFO] Node Environment: development
+[2025-05-28T22:09:42.146Z] [INFO] Hostname: Mac-2.local
+[2025-05-28T22:09:42.146Z] [INFO] 📊 Initializing metrics service
+[2025-05-28T22:09:42.146Z] [INFO] 🔄 Starting queue worker initialization...
+[2025-05-28T22:09:42.146Z] [INFO] 🔄 Verifying environment...
+[2025-05-28T22:09:42.146Z] [INFO] 🔄 Verifying Redis connection...
+[2025-05-28T22:09:42.168Z] [INFO] ✅ Contribution queue connection verified
+[2025-05-28T22:09:42.169Z] [INFO] ✅ Payment queue connection verified
+[2025-05-28T22:09:42.169Z] [INFO] ✅ Group status queue connection verified
+[2025-05-28T22:09:42.785Z] [INFO] Redis subscriber connected
+[2025-05-28T22:09:42.786Z] [INFO] Redis subscriber ready
+[2025-05-28T22:09:42.790Z] [INFO] Redis bclient connected
+[2025-05-28T22:09:42.790Z] [INFO] Redis bclient ready
+[2025-05-28T22:09:42.794Z] [INFO] Redis client connected
+[2025-05-28T22:09:42.794Z] [INFO] Redis client ready
+[2025-05-28T22:09:42.852Z] [INFO] ✓ Redis client connected
+[2025-05-28T22:09:43.042Z] [INFO] ✅ Redis connection successful
+[2025-05-28T22:09:43.043Z] [INFO] ✅ Using Upstash Redis - persistence is managed by the service
+[2025-05-28T22:09:43.044Z] [INFO] 🔄 Initializing queues...
+[2025-05-28T22:09:43.044Z] [INFO] Attempting to initialize Contribution queue...
+[2025-05-28T22:09:43.389Z] [INFO] Contribution queue metrics: [object Object]
+[2025-05-28T22:09:43.390Z] [INFO] ✓ Contribution queue ready
+[2025-05-28T22:09:43.390Z] [INFO] Attempting to initialize Payment queue...
+[2025-05-28T22:09:43.576Z] [INFO] Payment queue metrics: [object Object]
+[2025-05-28T22:09:43.576Z] [INFO] ✓ Payment queue ready
+[2025-05-28T22:09:43.576Z] [INFO] Attempting to initialize Group Status queue...
+[2025-05-28T22:09:43.738Z] [INFO] Group Status queue metrics: [object Object]
+[2025-05-28T22:09:43.739Z] [INFO] ✓ Group Status queue ready
+[2025-05-28T22:09:43.739Z] [INFO] ✓ All queues operational
+[2025-05-28T22:09:43.744Z] [INFO] ✅ Queue add methods patched for unique job IDs
+[2025-05-28T22:09:43.745Z] [INFO] 🔄 Configuring queue events...
+[2025-05-28T22:09:43.746Z] [INFO] ✅ Queue event listeners configured
+[2025-05-28T22:09:43.746Z] [INFO] 🔄 Registering queue processors...
+[2025-05-28T22:09:43.747Z] [INFO] ✅ Queue processors registered with concurrency limits
+[2025-05-28T22:09:43.874Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959893082 waiting
+[2025-05-28T22:09:43.881Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-28T22:09:43.882Z] [INFO] Scheduling health checks every 60 seconds
+[2025-05-28T22:09:43.882Z] [INFO] 🔄 Running job recovery to ensure no jobs are missed...
+[2025-05-28T22:09:43.882Z] [INFO] 🔄 Starting queue job recovery from database state...
+[2025-05-28T22:09:43.882Z] [INFO] 🔄 Recovering contribution cycle jobs...
+[2025-05-28T22:09:43.883Z] [INFO] 🔄 Recovering failed payment jobs...
+[2025-05-28T22:09:43.883Z] [INFO] 🔄 Recovering group status jobs...
+[2025-05-28T22:09:45.255Z] [INFO] Found 0 failed payments eligible for retry
+[2025-05-28T22:09:45.302Z] [INFO] ✅ Recovered 0 payment retry jobs
+[2025-05-28T22:09:45.681Z] [INFO] Found 0 active groups with pending cycles for recovery
+[2025-05-28T22:09:45.684Z] [INFO] Found 0 paused groups for recovery
+[2025-05-28T22:09:45.732Z] [INFO] ✅ Recovered 0 group status jobs
+[2025-05-28T22:09:45.789Z] [INFO] ✅ Recovered 0 contribution cycle jobs
+[2025-05-28T22:09:45.789Z] [INFO] ✅ Queue recovery complete: 0 total jobs recovered
+[2025-05-28T22:09:45.790Z] [INFO] ✅ Recovery complete: [object Object]
+[2025-05-28T22:09:45.790Z] [INFO] 🔄 Scheduling next cycles after recovery...
+[2025-05-28T22:09:45.892Z] [INFO] Found 0 active groups for next cycle scheduling
+[2025-05-28T22:09:45.893Z] [INFO] ✅ Scheduled next cycles for 0 groups after recovery
+[2025-05-28T22:09:45.893Z] [INFO] Environment Status: [object Object]
+[2025-05-28T22:09:45.893Z] [INFO] ✅ Queue worker is fully operational
+[2025-05-28T22:09:45.894Z] [INFO] ✅ Queue worker initialization complete!
+[2025-05-28T22:09:45.894Z] [INFO] 📅 Scheduling regular recovery checks (every 15 minutes)
+[2025-05-28T22:09:45.898Z] [INFO] 🏁 Queue worker is now running and processing jobs
+[2025-05-28T22:09:45.899Z] [INFO] 📝 Logs are being written to: /Users/Development/CirclePay/logs/queue.log
+[2025-05-28T22:10:04.055Z] [INFO] 🏁 Job started processing: contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959893082 (start-contribution) for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:04.056Z] [INFO] Processing contribution for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:04.057Z] [INFO] 
+=== processContributionCycle started for group=cmahne9400003rczuj9f1fclj ===
+[2025-05-28T22:10:04.058Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959893082 active
+[2025-05-28T22:10:04.151Z] [INFO] 🔒 Acquired processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:04.392Z] [INFO] 🔍 DEBUG: Member payment status BEFORE transaction:
+[2025-05-28T22:10:04.393Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=false, payoutOrder=1
+[2025-05-28T22:10:04.393Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-28T22:10:04.793Z] [INFO] Current member cycle number: 0
+[2025-05-28T22:10:04.794Z] [INFO] Member payout orders: MoOn CaKe: order=1, paid=false, SUHAYB WALTON: order=2, paid=false
+[2025-05-28T22:10:04.794Z] [INFO] 🎯 Current cycle payee: MoOn CaKe (order=1)
+[2025-05-28T22:10:04.794Z] [INFO] Sending contribution reminders for 2 members
+[2025-05-28T22:10:05.821Z] [ERROR] Failed to send contribution reminder: HttpError: HTTP request failed
+[2025-05-28T22:10:05.822Z] [ERROR] Email error for support@hivepay.com.au: HTTP request failed
+[2025-05-28T22:10:05.912Z] [ERROR] Failed to send contribution reminder: HttpError: HTTP request failed
+[2025-05-28T22:10:05.912Z] [ERROR] Email error for suhaybw1@gmail.com: HTTP request failed
+[2025-05-28T22:10:05.912Z] [INFO] Email sending process completed - continuing with contribution cycle
+[2025-05-28T22:10:05.913Z] [INFO] Processing cycle 0: [object Object]
+[2025-05-28T22:10:06.099Z] [INFO] Found 0 existing payments for cycle 0
+[2025-05-28T22:10:06.099Z] [INFO] Skipping payee: kp_588d4df4181549e791abd1eef41be8de (MoOn CaKe)
+[2025-05-28T22:10:07.387Z] [INFO] PaymentIntent created for user kp_5813a23edaed4d4996418141e208cf59: pi_3RTsAkD0Tog7VW7O0cGldKrJ
+[2025-05-28T22:10:07.798Z] [INFO] 🔄 Updated group to mark cycle as started
+[2025-05-28T22:10:07.798Z] [INFO] 🔍 CRITICAL: Marking payee cmahne95e0005rczubg4zz5td (MoOn) as paid
+[2025-05-28T22:10:08.058Z] [INFO] 🔍 Verifying payee cmahne95e0005rczubg4zz5td status: hasBeenPaid=true
+[2025-05-28T22:10:08.059Z] [INFO] ✅ Successfully marked payee cmahne95e0005rczubg4zz5td as paid
+[2025-05-28T22:10:08.193Z] [INFO] 🔍 DEBUG: Member payment status AFTER transaction:
+[2025-05-28T22:10:08.193Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=true, payoutOrder=1
+[2025-05-28T22:10:08.193Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-28T22:10:08.193Z] [INFO] 🔍 DEBUG: Actual unpaid members count: 1
+[2025-05-28T22:10:08.193Z] [INFO] === processContributionCycle success for group=cmahne9400003rczuj9f1fclj ===
+
+[2025-05-28T22:10:08.421Z] [INFO] 🔍 Group state after transaction: cyclesCompleted=false, cycleStarted=true, status=Active, currentMemberCycle=0, totalCycles=0
+[2025-05-28T22:10:08.421Z] [INFO] 🔍 Members remaining to be paid in this cycle: 1
+[2025-05-28T22:10:08.421Z] [INFO] 🔍 Unpaid members: kp_5813a23edaed4d4996418141e208cf59
+[2025-05-28T22:10:08.421Z] [INFO] ✅ Scheduling next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:08.421Z] [INFO] 🔍 DEBUG: scheduleNextCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-28T22:10:08.421Z] [INFO] 🔁 Attempting to schedule next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:08.603Z] [INFO] 🔍 DEBUG: Group state in scheduleNextCycle: [object Object]
+[2025-05-28T22:10:08.603Z] [INFO] 🔍 DEBUG: Group cmahne9400003rczuj9f1fclj cycle status: [object Object]
+[2025-05-28T22:10:08.603Z] [INFO] 🔄 Group cmahne9400003rczuj9f1fclj cycle in progress with 1 unpaid members remaining
+[2025-05-28T22:10:08.603Z] [INFO] ✅ Validations passed, proceeding to schedule group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:08.604Z] [INFO] 🔍 DEBUG: scheduleContributionCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-28T22:10:08.604Z] [INFO] 🔥 CRITICAL PATH: Scheduling contribution cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:08.604Z] [INFO] 🔄 Starting schedule process for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Group state from database: [object Object]
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Added group cmahne9400003rczuj9f1fclj to scheduledGroups set (size: 1)
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Calculating next run for group cmahne9400003rczuj9f1fclj with nextCycleDate: 
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: calculateAndSetNextRun for group cmahne9400003rczuj9f1fclj with currentDate: 
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Cycle already started: true
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Initial nextRun: Thu May 29 2025 08:10:08 GMT+1000 (Australian Eastern Standard Time)
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Current time: Thu May 29 2025 08:10:08 GMT+1000 (Australian Eastern Standard Time)
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Is nextRun in the past? true
+[2025-05-28T22:10:08.746Z] [INFO] ⏩ Setting immediate execution with buffer: 2025-05-28T22:10:38.746Z
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Final nextRun: Thu May 29 2025 08:10:38 GMT+1000 (Australian Eastern Standard Time)
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Initial delay: 30000
+[2025-05-28T22:10:08.746Z] [INFO] 🔍 DEBUG: Safe delay: 30000
+[2025-05-28T22:10:08.749Z] [INFO] ⏰ Scheduling next run for group cmahne9400003rczuj9f1fclj: [object Object]
+[2025-05-28T22:10:08.876Z] [INFO] ✅ Logged scheduled job contribution-cmahne9400003rczuj9f1fclj-1748470208746-0 to database for recovery
+[2025-05-28T22:10:08.876Z] [INFO] 🔍 DEBUG: addQueueJob called for group cmahne9400003rczuj9f1fclj with options: [object Object]
+[2025-05-28T22:10:08.876Z] [INFO] 🔥 CRITICAL PATH: Queue job attempt for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:08.877Z] [INFO] 🔍 Redis URL in use: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-28T22:10:08.877Z] [INFO] 🔍 DEBUG: Contribution queue ready check: [object Object]
+[2025-05-28T22:10:08.877Z] [INFO] 🔍 DEBUG: Getting existing jobs for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:08.952Z] [INFO] 🔍 DEBUG: Found 0 existing jobs in queue
+[2025-05-28T22:10:08.952Z] [INFO] 🚀 QUEUING: Adding job for group cmahne9400003rczuj9f1fclj with options: [object Object]
+[2025-05-28T22:10:08.952Z] [INFO] Queue instance details: [object Object]
+[2025-05-28T22:10:09.010Z] [INFO] ✅ Successfully queued job: [object Object]
+[2025-05-28T22:10:09.011Z] [INFO] 🔍 DEBUG: Verifying job was added to queue
+[2025-05-28T22:10:09.105Z] [INFO] 📊 Queue status after adding job: 1 total jobs
+[2025-05-28T22:10:09.105Z] [INFO] ✓ Confirmed job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470208952 is in queue with delay 30000ms
+[2025-05-28T22:10:09.105Z] [INFO] 🔄 Setting up backup timer for group cmahne9400003rczuj9f1fclj (delay: 30000ms)
+[2025-05-28T22:10:09.190Z] [INFO] 🔓 Released processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:09.277Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1746959893082 completed
+[2025-05-28T22:10:39.109Z] [INFO] ⏰ Backup timer triggered for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:39.777Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470208952 waiting
+[2025-05-28T22:10:40.413Z] [INFO] ✅ Job already completed via normal queue, backup not needed
+[2025-05-28T22:10:44.136Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-28T22:10:48.750Z] [INFO] 🔄 Removed group cmahne9400003rczuj9f1fclj from scheduled set after timeout
+[2025-05-28T22:10:56.112Z] [INFO] 🏁 Job started processing: contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470208952 (start-contribution) for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:56.113Z] [INFO] Processing contribution for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:56.113Z] [INFO] 
+=== processContributionCycle started for group=cmahne9400003rczuj9f1fclj ===
+[2025-05-28T22:10:56.113Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470208952 active
+[2025-05-28T22:10:56.439Z] [INFO] 🔒 Acquired processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:56.598Z] [INFO] 🔍 DEBUG: Member payment status BEFORE transaction:
+[2025-05-28T22:10:56.598Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=true, payoutOrder=1
+[2025-05-28T22:10:56.598Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-28T22:10:56.846Z] [INFO] Current member cycle number: 0
+[2025-05-28T22:10:56.846Z] [INFO] Member payout orders: MoOn CaKe: order=1, paid=true, SUHAYB WALTON: order=2, paid=false
+[2025-05-28T22:10:56.846Z] [INFO] 🎯 Current cycle payee: MoOn CaKe (order=1)
+[2025-05-28T22:10:56.846Z] [INFO] ✅ Payee already marked as paid. Finalizing cycle.
+[2025-05-28T22:10:57.148Z] [INFO] Current payee: MoOn CaKe (order=1)
+[2025-05-28T22:10:57.148Z] [INFO] ✅ Current payee is marked as paid and all expected payments are successful. Proceeding with cycle finalization.
+[2025-05-28T22:10:57.246Z] [INFO] DEBUG: futureCyclesJson raw data: null
+[2025-05-28T22:10:57.246Z] [INFO] ⚠️ No futureCyclesJson found, cannot determine next cycle date
+[2025-05-28T22:10:57.246Z] [INFO] Current member cycle: 1/2 - Full ROSCA cycle completed: false
+[2025-05-28T22:10:57.246Z] [INFO] Advancing to next member, cycle 2
+[2025-05-28T22:10:57.246Z] [INFO] ⚠️ No more dates but ROSCA cycle not complete - forcing continuation
+[2025-05-28T22:10:57.246Z] [INFO] Updating group with data: {"totalGroupCyclesCompleted":1,"cycleStarted":true,"currentMemberCycleNumber":2,"cyclesCompleted":false}
+[2025-05-28T22:10:57.379Z] [INFO] Cycle 0 completed for group cmahne9400003rczuj9f1fclj.
+[2025-05-28T22:10:57.379Z] [INFO] No more cycles scheduled - missing future dates
+[2025-05-28T22:10:57.510Z] [INFO] 🔍 DEBUG: Member payment status AFTER transaction:
+[2025-05-28T22:10:57.510Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=true, payoutOrder=1
+[2025-05-28T22:10:57.510Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-28T22:10:57.511Z] [INFO] 🔍 DEBUG: Actual unpaid members count: 1
+[2025-05-28T22:10:57.511Z] [INFO] === processContributionCycle success for group=cmahne9400003rczuj9f1fclj ===
+
+[2025-05-28T22:10:57.597Z] [INFO] 🔍 Group state after transaction: cyclesCompleted=false, cycleStarted=true, status=Active, currentMemberCycle=2, totalCycles=1
+[2025-05-28T22:10:57.598Z] [INFO] 🔍 Members remaining to be paid in this cycle: 1
+[2025-05-28T22:10:57.598Z] [INFO] 🔍 Unpaid members: kp_5813a23edaed4d4996418141e208cf59
+[2025-05-28T22:10:57.598Z] [INFO] ✅ Scheduling next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:57.598Z] [INFO] 🔍 DEBUG: scheduleNextCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-28T22:10:57.598Z] [INFO] 🔁 Attempting to schedule next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:58.060Z] [INFO] 🔍 DEBUG: Group state in scheduleNextCycle: [object Object]
+[2025-05-28T22:10:58.062Z] [INFO] 🔍 DEBUG: Group cmahne9400003rczuj9f1fclj cycle status: [object Object]
+[2025-05-28T22:10:58.062Z] [INFO] 🔄 Group cmahne9400003rczuj9f1fclj cycle in progress with 1 unpaid members remaining
+[2025-05-28T22:10:58.063Z] [INFO] ✅ Validations passed, proceeding to schedule group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:58.063Z] [INFO] 🔍 DEBUG: scheduleContributionCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-28T22:10:58.063Z] [INFO] 🔥 CRITICAL PATH: Scheduling contribution cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:58.063Z] [INFO] 🔄 Starting schedule process for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:58.183Z] [INFO] 🔍 DEBUG: Group state from database: [object Object]
+[2025-05-28T22:10:58.184Z] [INFO] 🔍 DEBUG: Added group cmahne9400003rczuj9f1fclj to scheduledGroups set (size: 1)
+[2025-05-28T22:10:58.185Z] [INFO] 🔍 DEBUG: Calculating next run for group cmahne9400003rczuj9f1fclj with nextCycleDate: 
+[2025-05-28T22:10:58.185Z] [INFO] 🔍 DEBUG: calculateAndSetNextRun for group cmahne9400003rczuj9f1fclj with currentDate: 
+[2025-05-28T22:10:58.185Z] [INFO] 🔍 DEBUG: Cycle already started: true
+[2025-05-28T22:10:58.185Z] [INFO] 🔍 DEBUG: Initial nextRun: Thu May 29 2025 08:10:58 GMT+1000 (Australian Eastern Standard Time)
+[2025-05-28T22:10:58.185Z] [INFO] 🔍 DEBUG: Current time: Thu May 29 2025 08:10:58 GMT+1000 (Australian Eastern Standard Time)
+[2025-05-28T22:10:58.185Z] [INFO] 🔍 DEBUG: Is nextRun in the past? true
+[2025-05-28T22:10:58.185Z] [INFO] ⏩ Setting immediate execution with buffer: 2025-05-28T22:11:28.185Z
+[2025-05-28T22:10:58.185Z] [INFO] 🔍 DEBUG: Final nextRun: Thu May 29 2025 08:11:28 GMT+1000 (Australian Eastern Standard Time)
+[2025-05-28T22:10:58.186Z] [INFO] 🔍 DEBUG: Initial delay: 30000
+[2025-05-28T22:10:58.186Z] [INFO] 🔍 DEBUG: Safe delay: 30000
+[2025-05-28T22:10:58.187Z] [INFO] ⏰ Scheduling next run for group cmahne9400003rczuj9f1fclj: [object Object]
+[2025-05-28T22:10:58.241Z] [INFO] ✅ Logged scheduled job contribution-cmahne9400003rczuj9f1fclj-1748470258184-0 to database for recovery
+[2025-05-28T22:10:58.241Z] [INFO] 🔍 DEBUG: addQueueJob called for group cmahne9400003rczuj9f1fclj with options: [object Object]
+[2025-05-28T22:10:58.241Z] [INFO] 🔥 CRITICAL PATH: Queue job attempt for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:58.241Z] [INFO] 🔍 Redis URL in use: redis://****@diverse-stingray-16842.upstash.io:6379
+[2025-05-28T22:10:58.241Z] [INFO] 🔍 DEBUG: Contribution queue ready check: [object Object]
+[2025-05-28T22:10:58.241Z] [INFO] 🔍 DEBUG: Getting existing jobs for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:58.299Z] [INFO] 🔍 DEBUG: Found 0 existing jobs in queue
+[2025-05-28T22:10:58.300Z] [INFO] 🚀 QUEUING: Adding job for group cmahne9400003rczuj9f1fclj with options: [object Object]
+[2025-05-28T22:10:58.300Z] [INFO] Queue instance details: [object Object]
+[2025-05-28T22:10:58.556Z] [INFO] ✅ Successfully queued job: [object Object]
+[2025-05-28T22:10:58.556Z] [INFO] 🔍 DEBUG: Verifying job was added to queue
+[2025-05-28T22:10:58.653Z] [INFO] 📊 Queue status after adding job: 1 total jobs
+[2025-05-28T22:10:58.653Z] [INFO] ✓ Confirmed job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470258300 is in queue with delay 30000ms
+[2025-05-28T22:10:58.653Z] [INFO] 🔄 Setting up backup timer for group cmahne9400003rczuj9f1fclj (delay: 30000ms)
+[2025-05-28T22:10:58.745Z] [INFO] 🔓 Released processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:10:58.777Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470208952 completed
+[2025-05-28T22:11:28.352Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470258300 waiting
+[2025-05-28T22:11:28.653Z] [INFO] ⏰ Backup timer triggered for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:11:28.755Z] [INFO] ✅ Job already completed via normal queue, backup not needed
+[2025-05-28T22:11:38.189Z] [INFO] 🔄 Removed group cmahne9400003rczuj9f1fclj from scheduled set after timeout
+[2025-05-28T22:11:44.007Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-28T22:11:46.240Z] [INFO] 🏁 Job started processing: contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470258300 (start-contribution) for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:11:46.240Z] [INFO] Processing contribution for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:11:46.241Z] [INFO] 
+=== processContributionCycle started for group=cmahne9400003rczuj9f1fclj ===
+[2025-05-28T22:11:46.241Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470258300 active
+[2025-05-28T22:11:46.314Z] [INFO] 🔒 Acquired processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:11:46.436Z] [INFO] 🔍 DEBUG: Member payment status BEFORE transaction:
+[2025-05-28T22:11:46.436Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=true, payoutOrder=1
+[2025-05-28T22:11:46.436Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=false, payoutOrder=2
+[2025-05-28T22:11:46.638Z] [INFO] Current member cycle number: 2
+[2025-05-28T22:11:46.638Z] [INFO] Member payout orders: MoOn CaKe: order=1, paid=true, SUHAYB WALTON: order=2, paid=false
+[2025-05-28T22:11:46.638Z] [INFO] 🎯 Current cycle payee: SUHAYB WALTON (order=2)
+[2025-05-28T22:11:46.639Z] [INFO] Sending contribution reminders for 2 members
+[2025-05-28T22:11:47.609Z] [ERROR] Failed to send contribution reminder: HttpError: HTTP request failed
+[2025-05-28T22:11:47.609Z] [ERROR] Email error for support@hivepay.com.au: HTTP request failed
+[2025-05-28T22:11:47.611Z] [ERROR] Failed to send contribution reminder: HttpError: HTTP request failed
+[2025-05-28T22:11:47.611Z] [ERROR] Email error for suhaybw1@gmail.com: HTTP request failed
+[2025-05-28T22:11:47.611Z] [INFO] Email sending process completed - continuing with contribution cycle
+[2025-05-28T22:11:47.611Z] [INFO] Processing cycle 2: [object Object]
+[2025-05-28T22:11:47.675Z] [INFO] Found 0 existing payments for cycle 2
+[2025-05-28T22:11:48.757Z] [INFO] PaymentIntent created for user kp_588d4df4181549e791abd1eef41be8de: pi_3RTsCOD0Tog7VW7O1zTrLjB8
+[2025-05-28T22:11:48.757Z] [INFO] Skipping payee: kp_5813a23edaed4d4996418141e208cf59 (SUHAYB WALTON)
+[2025-05-28T22:11:48.875Z] [INFO] 🔍 CRITICAL: Marking payee cmahnisrr000brczukc10gny4 (SUHAYB) as paid
+[2025-05-28T22:11:48.998Z] [INFO] 🔍 Verifying payee cmahnisrr000brczukc10gny4 status: hasBeenPaid=true
+[2025-05-28T22:11:48.999Z] [INFO] ✅ Successfully marked payee cmahnisrr000brczukc10gny4 as paid
+[2025-05-28T22:11:49.120Z] [INFO] 🔍 DEBUG: Member payment status AFTER transaction:
+[2025-05-28T22:11:49.120Z] [INFO] Member MoOn CaKe (cmahne95e0005rczubg4zz5td): hasBeenPaid=true, payoutOrder=1
+[2025-05-28T22:11:49.120Z] [INFO] Member SUHAYB WALTON (cmahnisrr000brczukc10gny4): hasBeenPaid=true, payoutOrder=2
+[2025-05-28T22:11:49.120Z] [INFO] 🔍 DEBUG: Actual unpaid members count: 0
+[2025-05-28T22:11:49.120Z] [INFO] === processContributionCycle success for group=cmahne9400003rczuj9f1fclj ===
+
+[2025-05-28T22:11:49.196Z] [INFO] 🔍 Group state after transaction: cyclesCompleted=false, cycleStarted=true, status=Active, currentMemberCycle=2, totalCycles=1
+[2025-05-28T22:11:49.196Z] [INFO] 🔍 Members remaining to be paid in this cycle: 0
+[2025-05-28T22:11:49.196Z] [INFO] 🔍 All members paid but cycle not marked as completed. Running finalization...
+[2025-05-28T22:11:49.442Z] [INFO] Current payee: SUHAYB WALTON (order=2)
+[2025-05-28T22:11:49.442Z] [INFO] Not all expected payments processed. Expected 1, got 0
+[2025-05-28T22:11:49.475Z] [INFO] ✅ Scheduling next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:11:49.476Z] [INFO] 🔍 DEBUG: scheduleNextCycle called for group cmahne9400003rczuj9f1fclj (attempt: 0)
+[2025-05-28T22:11:49.476Z] [INFO] 🔁 Attempting to schedule next cycle for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:11:49.637Z] [INFO] 🔍 DEBUG: Group state in scheduleNextCycle: [object Object]
+[2025-05-28T22:11:49.637Z] [INFO] 🔍 DEBUG: Group cmahne9400003rczuj9f1fclj cycle status: [object Object]
+[2025-05-28T22:11:49.637Z] [INFO] ✅ All members paid in current cycle 2/2
+[2025-05-28T22:11:49.637Z] [INFO] 🔄 Full ROSCA cycle complete and no more dates - finalizing group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:11:49.914Z] [INFO] 🔓 Released processing lock for group cmahne9400003rczuj9f1fclj
+[2025-05-28T22:11:49.954Z] [INFO] [contribution-cycles] Job contribution-start-contribution-cmahne9400003rczuj9f1fclj-1748470258300 completed
+[2025-05-28T22:12:43.969Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-28T22:13:43.982Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-28T22:14:44.098Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-28T22:14:45.998Z] [INFO] 📊 Queue status: [object Object]
+[2025-05-28T22:14:45.999Z] [INFO] 📈 Metrics Summary: [object Object]
+[2025-05-28T22:15:43.996Z] [INFO] 🔍 Queue Health Check: [object Object]
+[2025-05-28T22:16:44.000Z] [INFO] 🔍 Queue Health Check: [object Object]
