@@ -496,147 +496,161 @@ export async function POST(request: Request) {
       // Payment Intents (ROSCA or otherwise)
       //==============================
 
+      // In src/app/api/webhooks/stripe/route.ts
       case "payment_intent.succeeded": {
         const pi = event.data.object as Stripe.PaymentIntent;
         console.log(`PaymentIntent succeeded: ${pi.id}`);
-
-        // 1) Mark local Payment => Successful
-        const { count } = await db.payment.updateMany({
-          where: { stripePaymentIntentId: pi.id },
-          data: { status: PaymentStatus.Successful },
-        });
-        console.log(`Marked ${count} Payment(s) as Successful for PI=${pi.id}`);
-
-        // 2) Get successful payments with all necessary fields
-        const successPayments = await db.payment.findMany({
-          where: { stripePaymentIntentId: pi.id },
-          select: {
-            id: true,
-            groupId: true,
-            cycleNumber: true,
-          },
+        console.log(`PaymentIntent details:`, {
+          id: pi.id,
+          amount: pi.amount,
+          transfer_data: pi.transfer_data,
+          metadata: pi.metadata
         });
 
-        // 3) Recompute totals for each distinct group
-        const groupIds = new Set(successPayments.map((p) => p.groupId));
-        for (const gid of groupIds) {
-          await updateGroupPaymentStats(gid);
-        }
-
-        // 4) Check if all payments for the cycle are successful and process payout
-        for (const payment of successPayments) {
-          const { groupId, cycleNumber, id } = payment;
-
-          // Validate cycleNumber
-          if (typeof cycleNumber !== "number") {
-            throw new Error(
-              `Invalid cycleNumber: ${cycleNumber} for payment ${id}`,
-            );
-          }
-
-          const allPayments = await db.payment.findMany({
-            where: { groupId, cycleNumber },
-          });
-
-          // Get group details with all memberships to check completion status
-          const group = await db.group.findUnique({
-            where: { id: groupId },
+        try {
+          // 1) Mark the Payment as Successful
+          const payment = await db.payment.update({
+            where: { stripePaymentIntentId: pi.id },
+            data: { status: PaymentStatus.Successful },
             include: {
-              groupMemberships: {
-                where: { status: MembershipStatus.Active },
-                orderBy: { payoutOrder: "asc" },
+              group: {
+                include: {
+                  groupMemberships: {
+                    where: { status: MembershipStatus.Active },
+                    orderBy: { payoutOrder: 'asc' },
+                  },
+                },
               },
+              user: true,
             },
           });
 
-          if (!group) continue;
+          if (!payment) {
+            console.error(`No payment found for PaymentIntent ${pi.id}`);
+            break;
+          }
 
-          const allSuccessful = allPayments.every(
-            (p) => p.status === PaymentStatus.Successful,
-          );
+          console.log(`Updated payment ${payment.id} to Successful for group ${payment.groupId}, cycle ${payment.cycleNumber}`);
 
-          if (allSuccessful) {
-            console.log(
-              `All payments successful for cycle ${cycleNumber} in group ${groupId}. Finalizing cycle...`,
-            );
+          // 2) Update group payment stats
+          await updateGroupPaymentStats(payment.groupId);
 
-            await db.$transaction(async (tx) => {
-              // Find the payee for this cycle
-              const payee = await tx.groupMembership.findFirst({
-                where: {
-                  groupId,
-                  payoutOrder: cycleNumber,
-                },
-                include: { user: true },
-              });
+          // 3) Check if this is a ROSCA payment (has metadata with cycleNumber)
+          if (payment.cycleNumber === null || payment.cycleNumber === undefined) {
+            console.log(`Payment ${payment.id} has no cycleNumber, skipping payout creation`);
+            break;
+          }
 
-              if (!payee) {
-                console.error(
-                  `Payee not found for cycle ${cycleNumber} in group ${groupId}`,
-                );
-                return;
-              }
+          // At this point, cycleNumber is guaranteed to be a number
+          const cycleNumber = payment.cycleNumber;
 
-              // Calculate payout based on total members (minus payee) × contribution amount
-              const totalMembers = group.groupMemberships.length;
-              const baseContribution = group.contributionAmount;
+          // 4) Process payout creation
+          await db.$transaction(async (tx) => {
+            console.log(`Processing payout for payment ${payment.id}, cycle ${cycleNumber}`);
 
-              if (!baseContribution) {
-                throw new Error(
-                  `Group ${groupId} has no contribution amount set`,
-                );
-              }
+            // Find the payee for this cycle
+            const payee = await tx.groupMembership.findFirst({
+              where: {
+                groupId: payment.groupId,
+                payoutOrder: cycleNumber,
+                status: MembershipStatus.Active,
+              },
+              include: { user: true },
+            });
 
-              const totalPayout = baseContribution.mul(totalMembers - 1);
+            if (!payee) {
+              console.error(`No payee found for cycle ${cycleNumber} in group ${payment.groupId}`);
+              console.log(`Available members:`, payment.group.groupMemberships.map(m => ({
+                id: m.id,
+                payoutOrder: m.payoutOrder,
+                hasBeenPaid: m.hasBeenPaid
+              })));
+              return;
+            }
 
-              // Get transfer metadata from payment intent
-              const transferData = pi.transfer_data || {};
-              // Safely access destination with proper type checking
-              const transferDestination =
-                typeof transferData === "object" && transferData !== null
-                  ? (transferData as any).destination || null
-                  : null;
+            console.log(`Found payee: ${payee.user.firstName} ${payee.user.lastName} (${payee.user.email})`);
 
-              console.log(
-                `Processing payout for group ${groupId}, cycle ${cycleNumber} to destination ${transferDestination}`,
-              );
+            // Check if payout already exists
+            const existingPayout = await tx.payout.findFirst({
+              where: {
+                groupId: payment.groupId,
+                userId: payee.userId,
+                payoutOrder: cycleNumber,
+              },
+            });
 
-              // Process normal payout
-              const createdPayout = await tx.payout.create({
-                data: {
-                  groupId,
-                  userId: payee.userId,
-                  scheduledPayoutDate: new Date(),
-                  amount: totalPayout,
-                  status: PayoutStatus.Completed,
-                  payoutOrder: cycleNumber,
-                  // Initialize with pending transfer
-                  stripeTransferId: null,
-                  transactions: {
-                    create: {
-                      userId: payee.userId,
-                      groupId,
-                      amount: totalPayout,
-                      transactionType: "Credit",
-                      transactionDate: new Date(),
-                      description: `Payout for cycle ${cycleNumber}`,
-                      relatedPaymentId: null,
-                    },
+            if (existingPayout) {
+              console.log(`Payout already exists: ${existingPayout.id}`);
+              return;
+            }
+
+            // Get all payments for this cycle to check if all are complete
+            const cyclePayments = await tx.payment.findMany({
+              where: {
+                groupId: payment.groupId,
+                cycleNumber: cycleNumber,
+              },
+            });
+
+            const successfulPayments = cyclePayments.filter(p => p.status === PaymentStatus.Successful);
+            const expectedPayments = payment.group.groupMemberships.length - 1;
+
+            console.log(`Cycle ${cycleNumber} progress: ${successfulPayments.length}/${expectedPayments} payments successful`);
+
+            // Only create payout when ALL payments for the cycle are successful
+            if (successfulPayments.length < expectedPayments) {
+              console.log(`Not all payments complete yet, waiting...`);
+              return;
+            }
+
+            console.log(`All payments complete for cycle ${cycleNumber}, creating payout`);
+
+            // Calculate payout amount
+            const contributionAmount = payment.group.contributionAmount;
+            if (!contributionAmount) {
+              throw new Error(`Group ${payment.groupId} has no contribution amount`);
+            }
+
+            const totalPayout = contributionAmount.mul(expectedPayments);
+
+            // Create the payout
+            const createdPayout = await tx.payout.create({
+              data: {
+                groupId: payment.groupId,
+                userId: payee.userId,
+                scheduledPayoutDate: new Date(),
+                amount: totalPayout,
+                status: PayoutStatus.Pending,
+                payoutOrder: cycleNumber,
+                stripeTransferId: null, // Will be updated by transfer.created
+                transactions: {
+                  create: {
+                    userId: payee.userId,
+                    groupId: payment.groupId,
+                    amount: totalPayout,
+                    transactionType: "Credit",
+                    transactionDate: new Date(),
+                    description: `Payout for cycle ${cycleNumber}`,
                   },
                 },
-                select: {
-                  id: true,
-                },
-              });
+              },
+            });
 
-              console.log(
-                `Created payout record ${createdPayout.id} - transfer ID will be updated from separate transfer.created event`,
-              );
+            console.log(`✅ Created payout ${createdPayout.id} for ${payee.user.email}, amount: ${totalPayout.toString()}`);
 
-              // Store the mapping between payment intent and payout
+            // NOW mark the payee as paid (only after payout is created)
+            await tx.groupMembership.update({
+              where: { id: payee.id },
+              data: { hasBeenPaid: true },
+            });
+
+            console.log(`✅ Marked payee ${payee.user.email} as paid`);
+
+            // Store mapping for transfer webhook
+            if (pi.transfer_data?.destination) {
               await tx.scheduledJobLog.create({
                 data: {
-                  groupId,
+                  groupId: payment.groupId,
                   jobId: pi.id,
                   jobType: "PAYMENT_INTENT_PAYOUT_MAPPING",
                   scheduledTime: new Date(),
@@ -645,91 +659,64 @@ export async function POST(request: Request) {
                   metadata: JSON.stringify({
                     paymentIntentId: pi.id,
                     payoutId: createdPayout.id,
-                    transferDestination: transferDestination,
-                    createdAt: new Date().toISOString(),
+                    transferDestination: pi.transfer_data.destination,
+                    cycleNumber: cycleNumber,
+                    amount: totalPayout.toString(),
                   }),
                 },
               });
+            }
 
-              // Mark member as paid
-              await tx.groupMembership.update({
-                where: { id: payee.id },
-                data: { hasBeenPaid: true },
-              });
-
-              // Fetch the latest group memberships to ensure consistency
-              const updatedMemberships = await tx.groupMembership.findMany({
-                where: { groupId, status: MembershipStatus.Active },
-              });
-
-              // Debugging: Log the `hasBeenPaid` status of each member
-              console.log(
-                `Members' payment status for group ${groupId}:`,
-                updatedMemberships.map((m) => ({
-                  id: m.id,
-                  hasBeenPaid: m.hasBeenPaid,
-                })),
-              );
-
-              // Check if all members have been paid
-              const allMembersPaid = updatedMemberships.every(
-                (member) => member.hasBeenPaid,
-              );
-
-              if (allMembersPaid) {
-                console.log(
-                  `All members have been paid. Finalizing cycle ${cycleNumber} for group ${groupId}.`,
-                );
-                await checkAndFinalizeCycle(tx, groupId, cycleNumber);
-              } else {
-                console.log(
-                  `Not all members have been paid yet. Continuing to next cycle.`,
-                );
-              }
-
-              // Send payout processed email
+            // Send payout email
+            try {
               await sendPayoutProcessedEmail({
                 recipient: {
                   email: payee.user.email,
                   firstName: payee.user.firstName,
                   lastName: payee.user.lastName,
                 },
-                groupName: group.name,
+                groupName: payment.group.name,
                 amount: totalPayout.toString(),
               });
+            } catch (emailError) {
+              console.error(`Failed to send payout email:`, emailError);
+            }
 
-              // Update group's nextCycleDate and futureCyclesJson
-              const updatedGroup = await tx.group.findUnique({
-                where: { id: groupId },
-                select: { futureCyclesJson: true },
-              });
+            // Check if cycle should be finalized
+            console.log(`Checking if cycle ${cycleNumber} should be finalized...`);
+            await checkAndFinalizeCycle(tx, payment.groupId, cycleNumber);
 
-              if (updatedGroup?.futureCyclesJson) {
-                const futureCycles =
-                  updatedGroup.futureCyclesJson as unknown as Date[];
-                const remainingCycles = futureCycles.slice(1);
-                const nextCycleDate = remainingCycles[0] || null;
+          }, {
+            timeout: 30000,
+            maxWait: 35000,
+          });
 
-                await tx.group.update({
-                  where: { id: groupId },
-                  data: {
-                    nextCycleDate,
-                    futureCyclesJson: remainingCycles,
-                  },
-                });
+          console.log(`✅ Payment intent processing completed`);
 
-                if (nextCycleDate && !allMembersPaid) {
-                  console.log(
-                    `Scheduling next cycle for group ${groupId} at ${nextCycleDate}`,
-                  );
-                  await SchedulerService.scheduleNextCycle(groupId);
-                } else {
-                  console.log(`No more cycles scheduled for group ${groupId}`);
-                }
-              }
-            });
+        } catch (error) {
+          console.error(`❌ Error processing payment_intent.succeeded:`, error);
+          
+          // Log error for debugging
+          if (pi.metadata?.groupId) {
+            await db.scheduledJobLog.create({
+              data: {
+                groupId: pi.metadata.groupId as string,
+                jobId: `error-${pi.id}`,
+                jobType: "WEBHOOK_ERROR",
+                scheduledTime: new Date(),
+                delayMs: 0,
+                status: "FAILED",
+                metadata: JSON.stringify({
+                  event: "payment_intent.succeeded",
+                  paymentIntentId: pi.id,
+                  error: error instanceof Error ? error.message : "Unknown error",
+                  stack: error instanceof Error ? error.stack : undefined,
+                }),
+              },
+            }).catch(console.error);
           }
         }
+
         break;
       }
 

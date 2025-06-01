@@ -721,17 +721,17 @@ export async function processContributionCycle(job: Job) {
           console.log(`🔄 Updated group to mark cycle as started`);
         }
         
-        // CRITICAL FIX: Mark ONLY the current cycle's payee as having been paid
-        console.log(`🔍 CRITICAL: Marking payee ${currentCyclePayee.id} (${currentCyclePayee.user.firstName}) as paid`);
+        // // CRITICAL FIX: Mark ONLY the current cycle's payee as having been paid
+        // console.log(`🔍 CRITICAL: Marking payee ${currentCyclePayee.id} (${currentCyclePayee.user.firstName}) as paid`);
         
-        await tx.groupMembership.update({
-          where: {
-            id: currentCyclePayee.id
-          },
-          data: {
-            hasBeenPaid: true
-          }
-        });
+        // await tx.groupMembership.update({
+        //   where: {
+        //     id: currentCyclePayee.id
+        //   },
+        //   data: {
+        //     hasBeenPaid: true
+        //   }
+        // });
         
         // Verify within transaction that update worked
         const verifyMember = await tx.groupMembership.findUnique({
